@@ -61,4 +61,42 @@ test.describe("Changes view on the acceptance repo", () => {
     await page.screenshot({ path: path.join(SHOTS, "changes-net.png") });
     expect(errors).toEqual([]);
   });
+
+  test("deleted code opens at the base revision without disturbing its diff", async ({ page }) => {
+    const base = execFileSync("git", ["rev-parse", "main"], { cwd: repo, encoding: "utf8" }).trim();
+    const id = "src/worker.ts::legacyCleanup";
+    await page.goto(`/?${new URLSearchParams({ repo, view: "changes" })}`);
+    await lensReady(page);
+    await chunk(page, id).click();
+    const inspector = page.locator(`[data-chunk-inspector="${id}"]`);
+    await inspector.locator('[data-action="open-diff"]').click();
+    const diff = page.locator("[data-hunk-diff]");
+    await expect(diff).toContainText("legacyCleanup");
+
+    const fetched = page.waitForRequest((r) => {
+      const url = new URL(r.url());
+      return url.pathname === "/api/files/content" && url.searchParams.get("ref") === base;
+    });
+    await inspector.locator('[data-action="open-code"]').click();
+    expect(new URL((await fetched).url()).searchParams.get("path")).toBe(path.join(repo, "src/worker.ts"));
+    const code = page.getByRole("dialog");
+    await expect(code.locator('[data-source-side="base"]')).toHaveAttribute("title", base);
+    await expect(code.locator(".code-modal-content")).toContainText("export function legacyCleanup");
+    await expect(code.getByRole("link", { name: "Open in VS Code" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(code).toHaveCount(0);
+    await expect(chunk(page, id)).toHaveAttribute("data-selected", "");
+    await expect(diff).toContainText("legacyCleanup");
+
+    // An unavailable Git object must not fall back to the checked-out file.
+    const requests: string[] = [];
+    await page.route("**/api/files/content?**", async (route) => {
+      requests.push(new URL(route.request().url()).searchParams.get("ref") ?? "disk");
+      await route.fulfill({ status: 404, body: "Missing Git object" });
+    });
+    await inspector.locator('[data-action="open-code"]').click();
+    await expect(code).toContainText(`Source unavailable at base ${base.slice(0, 7)}`);
+    await expect(code.locator(".code-modal-content")).toHaveCount(0);
+    expect(requests).toEqual([base]);
+  });
 });

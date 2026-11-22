@@ -19,6 +19,7 @@ from app.services.changelens.models import (
     LensEndpoint,
     LensHunkDiff,
     LensSelection,
+    LensSourceLocation,
     LensSummary,
 )
 from app.services.changelens.window import LensError, Params, Window, iso, local_timezone, resolve
@@ -169,6 +170,43 @@ def _change_at(line: Lineage, sha: str):
     return next((c for c in line.changes if c.sha == sha), None)
 
 
+def _source_location(
+    window: Window,
+    draft: engine.Draft,
+    old_ref: Optional[BlobRef],
+    new_ref: Optional[BlobRef],
+    old_scope: Optional[Scope],
+    new_scope: Optional[Scope],
+    old_revision: Optional[str],
+    new_revision: Optional[str],
+    recorded: list[Hunk],
+    commit: Optional[str],
+) -> Optional[LensSourceLocation]:
+    """Open the side that still contains the chunk, using the same blobs as the diff."""
+    is_head = new_ref is not None and (not draft.is_symbol or new_scope is not None)
+    ref, scope = (new_ref, new_scope) if is_head else (old_ref, old_scope)
+    revision = new_revision if is_head else old_revision
+    if ref is None or (draft.is_symbol and scope is None) or (not ref.disk and revision is None):
+        return None
+    if scope:
+        start, end = scope.start, scope.end
+    elif commit is None and (is_head or draft.chunk.status == "deleted"):
+        start, end = draft.chunk.start_line, draft.chunk.end_line
+    else:
+        spans = [(h.new_start, h.new_lines) if is_head else (h.old_start, h.old_lines) for h in recorded]
+        spans = [(s, n) for s, n in spans if s > 0 and n > 0]
+        start = min((s for s, _ in spans), default=1)
+        end = max((s + n - 1 for s, n in spans), default=start)
+    return LensSourceLocation(
+        repo_root=str(window.repo),
+        path=ref.path,
+        side="head" if is_head else "base",
+        revision=None if ref.disk else revision,
+        start_line=start,
+        end_line=end,
+    )
+
+
 def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] = None) -> dict:
     built, _ = build_lens(path, params)
     draft = built.drafts.get(chunk_id)
@@ -181,10 +219,13 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
     new_ref: Optional[BlobRef] = None
     old_scope: Optional[Scope] = None
     new_scope: Optional[Scope] = None
+    old_revision: Optional[str] = None
+    new_revision: Optional[str] = None
     recorded: list[Hunk] = []
     if commit is None:
         old_ref, new_ref = draft.base_file.base, line.head
         old_scope, new_scope = draft.base, draft.head
+        old_revision, new_revision = window.base_tree, window.tip.sha
         recorded = draft.net.hunks
         label_from, label_to = window.base.label, _head_endpoint(built).label
     else:
@@ -195,8 +236,13 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
         sha = next((s for s in draft.touches if s.startswith(commit)), None)
         if commit == WORKTREE:
             label_from, label_to = window.tip.label, "Working tree"
+            old_revision = window.tip.sha
         else:
             label_from, label_to = f"{commit[:7]}^", commit[:7]
+            selected = next((c for c in window.commits if c.sha == sha), None)
+            if selected:
+                old_revision = selected.parents[0] if selected.parents else None
+                new_revision = selected.sha
         if sha is not None:
             recorded = draft.touches[sha].hunks
             if draft.is_symbol:
@@ -248,6 +294,10 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
         to=label_to,
         diff=text,
         truncated=truncated,
+        source=_source_location(
+            window, draft, old_ref, new_ref, old_scope, new_scope,
+            old_revision, new_revision, recorded, commit,
+        ),
     ).wire()
 
 

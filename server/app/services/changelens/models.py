@@ -161,6 +161,15 @@ class ChangeLensPayload(LensModel):
     metric_ids: list[str]
 
 
+class LensSourceLocation(LensModel):
+    repo_root: str
+    path: str
+    side: Literal["base", "head"]
+    revision: Optional[str]  # null only for a working-tree file
+    start_line: int
+    end_line: int
+
+
 class LensHunkDiff(LensModel):
     chunk_id: str
     path: str
@@ -170,6 +179,7 @@ class LensHunkDiff(LensModel):
     to: str
     diff: str
     truncated: bool
+    source: Optional[LensSourceLocation] = None
 
     model_config = ConfigDict(
         alias_generator=lambda name: "from" if name == "from_" else to_camel(name), populate_by_name=True

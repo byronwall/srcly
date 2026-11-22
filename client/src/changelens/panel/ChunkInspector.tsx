@@ -126,6 +126,7 @@ export function ChunkInspector(props: {
   chunk: LensChunk | null;
   onOpenHunk: (chunkId: string, commit?: string) => void;
   onOpenCode: (chunk: LensChunk) => void;
+  sourceBusy?: boolean;
 }) {
   // Bars scale against the largest |Δ| of each metric across the window.
   const maxAbs = createMemo(() => {
@@ -193,7 +194,7 @@ export function ChunkInspector(props: {
               <Button size="sm" data-action="open-diff" onClick={() => props.onOpenHunk(c().id)}>
                 Open diff
               </Button>
-              <Button size="sm" data-action="open-code" onClick={() => props.onOpenCode(c())}>
+              <Button size="sm" data-action="open-code" disabled={props.sourceBusy} onClick={() => props.onOpenCode(c())}>
                 Open code
               </Button>
             </div>

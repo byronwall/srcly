@@ -53,7 +53,7 @@ function Line(props: { line: DiffLine }) {
 }
 
 /** The diff text behind one chunk, with line numbers and word highlights. Esc closes it. */
-export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; error?: string; onClose: () => void }) {
+export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; error?: string; ignoreEscape?: boolean; onClose: () => void }) {
   const hunks = createMemo(() => (props.diff ? parseUnifiedDiff(props.diff.diff) : []));
   const counts = createMemo(() => {
     let added = 0;
@@ -68,7 +68,7 @@ export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; e
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) props.onClose();
+      if (e.key === "Escape" && !e.defaultPrevented && !props.ignoreEscape) props.onClose();
     };
     window.addEventListener("keydown", onKey);
     onCleanup(() => window.removeEventListener("keydown", onKey));

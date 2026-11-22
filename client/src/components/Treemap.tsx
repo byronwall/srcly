@@ -269,7 +269,7 @@ export default function Treemap(props: TreemapProps) {
             />
           </Show>
           <Show when={showChanges()}>
-            <ChangeLensView data={props.data} rootPath={props.rootPath} onOpenAt={props.onOpenAt} />
+            <ChangeLensView data={props.data} rootPath={props.rootPath} />
           </Show>
         </Suspense>
         <Show when={!covered() && layoutRoot()}>
