@@ -459,7 +459,8 @@ export function queryEvidenceSlice(
     if (relation.kind === "member-state") return memberStep(relation.proof.instance, calls, forward);
     // Forward through a framework's state (a setter's write, a getter's read: order and time not proven): any reader, from any call.
     // Backward keeps the stack, as before: a getter read is still paired with the calls the walk came through.
-    if (forward && relation.proof.kind === "framework-state" && relation.status === "partial") return [];
+    // A cell made inside a function is one state per call of it: the walk stays in the call it came from (`InstanceTag`).
+    if (forward && relation.proof.kind === "framework-state" && relation.status === "partial") return relation.proof.instance ? memberStep(relation.proof.instance, calls, forward) : [];
     if (relation.kind === "return-value") {
       // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
       const call = relation.to;

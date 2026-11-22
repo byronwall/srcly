@@ -18,6 +18,7 @@ import type {
   ProgramRelation,
   ProgramRelationKind,
 } from "./program-evidence";
+import type { InstanceTag } from "./scope-seam";
 import {
   compactLocation,
   expandLocation,
@@ -506,6 +507,9 @@ export class ProgramEvidenceCollectorSupport {
       return;
     }
     if (!from || !to || from === to) return;
+    // A step through the state of a cell inside a function is that call's state (`cellInstances`).
+    const cell = proofValue.kind === "framework-state" && !proofValue.instance ? this.cellInstances.get(to) ?? this.cellInstances.get(from) : undefined;
+    if (cell) proofValue = { ...proofValue, instance: cell };
     if (instrumented) {
       this.collectionStats.relation.acceptedCandidates += 1;
       this.collectionStats.relation.proofCount += 1;
@@ -581,6 +585,13 @@ export class ProgramEvidenceCollectorSupport {
   }
 
   private cellSitesValue: CellSites | null = null;
+  /**
+   * The instance tag of each state element of a cell made inside a function
+   * (`createSignal` in a factory): each call of that function makes its own
+   * state, so a step through it keeps the walk in the call it came from, as
+   * an instance member's state does (`InstanceTag`, the slice's `memberStep`).
+   */
+  protected readonly cellInstances = new Map<string, InstanceTag>();
   private readonly cellHandles = new WeakMap<TypeScript.Expression, CellHandle | null>();
 
   /** Cells (`cell` rows) and their creators, found once, on first use. */

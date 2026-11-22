@@ -622,7 +622,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
     // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
-    // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
+    // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectCells`), never its call's value.
     const storeWrite = writesByName(this.cellHandle(node.expression));
     const handled = (this.channels(node)?.fulfilled === 0 && this.promiseHandler(node, 0)) || this.cells.memberOf(node.expression).length > 0;
     if ((!role || role.through) && !storeWrite && !target && !handled && !this.asyncAction(node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
@@ -1265,7 +1265,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   /** The state element of a reactive pair, at its getter's binding. */
   protected stateElement(getter: TypeScript.Identifier): string {
     const fn = this.ts.findAncestor(getter, (item) => this.ts.isFunctionLike(item));
-    return this.ensureElement(
+    const id = this.ensureElement(
       getter,
       "alias",
       fn ? this.functionsByNode.get(nodeKey(this.root, fn))?.id ?? null : null,
@@ -1276,6 +1276,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       "partial",
       frameworkState("The state a reactive pair holds: what its setter receives, its getter reads.", this.location(getter)),
     );
+    // Each call of the function the cell is made in makes its own state: a step through it stays in that call (`cellInstances`).
+    if (fn && !this.cellInstances.has(id)) this.cellInstances.set(id, { shared: this.instanceSites.manyInstances(fn), write: "this", read: "this" });
+    return id;
   }
 
   /**

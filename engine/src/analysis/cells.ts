@@ -145,7 +145,7 @@ export function cellSite(ts: typeof TypeScript, checker: TypeScript.TypeChecker,
 }
 
 /** A handle of a cell an expression names: its path from the cell's call (`ReturnValue.Member[1]`), and `through` when found through what a callback returns (`createRoot`). */
-export type CellHandle = { site: CellSite; path: string; through?: true };
+export type CellHandle = { site: CellSite; path: string; through?: true; shared?: CellSite[] };
 
 /** Whether the row names any path at or under this one. */
 function mentions(row: LibraryModelRow, path: string): boolean {
@@ -167,7 +167,7 @@ export function cellYields(row: LibraryModelRow): Flow[] {
  * a creator calls with all its own parameters (a slice, `fishSlice(...a)`).
  */
 export class CellSites {
-  private creators: Map<TypeScript.Node, { site: CellSite; at: number }> | null = null;
+  private creators: Map<TypeScript.Node, { site: CellSite; at: number }[]> | null = null;
   private readonly bySite = new Map<TypeScript.CallExpression, CreatorFunction[]>();
 
   constructor(
@@ -176,9 +176,9 @@ export class CellSites {
     private readonly files: readonly TypeScript.SourceFile[],
   ) {}
 
-  /** The cell a creator function makes, and the argument it is at. */
-  creatorOf(fn: TypeScript.Node): { site: CellSite; at: number } | null {
-    return this.index().get(fn) ?? null;
+  /** The cells a creator function makes, and the argument it is at in each: more than one for a slice two stores call. */
+  creatorOf(fn: TypeScript.Node): readonly { site: CellSite; at: number }[] {
+    return this.index().get(fn) ?? [];
   }
 
   /** A cell's creators, the call's own first. */
@@ -190,12 +190,12 @@ export class CellSites {
   /** Every cell with creators, in the order found. */
   creatorSites(): CellSite[] {
     const seen = new Set<TypeScript.CallExpression>();
-    return [...this.index().values()].map((item) => item.site).filter((site) => !seen.has(site.node) && seen.add(site.node));
+    return [...this.index().values()].flat().map((item) => item.site).filter((site) => !seen.has(site.node) && seen.add(site.node));
   }
 
-  private index(): Map<TypeScript.Node, { site: CellSite; at: number }> {
+  private index(): Map<TypeScript.Node, { site: CellSite; at: number }[]> {
     if (this.creators) return this.creators;
-    const creators = new Map<TypeScript.Node, { site: CellSite; at: number }>();
+    const creators = new Map<TypeScript.Node, { site: CellSite; at: number }[]>();
     const ts = this.ts;
     const visit = (node: TypeScript.Node) => {
       if (ts.isVariableDeclaration(node)) {
@@ -206,8 +206,8 @@ export class CellSites {
             const fn = site.node.arguments[at] ? this.creator(site.node, at) : null;
             if (!fn) continue;
             for (const item of [fn, ...this.slices(fn)]) {
-              if (creators.has(item)) continue;
-              creators.set(item, { site, at });
+              if (found.includes(item)) continue;
+              creators.set(item, [...(creators.get(item) ?? []), { site, at }]);
               found.push(item);
             }
           }
@@ -297,9 +297,11 @@ export class CellSites {
       return handle ? { ...handle, through: true } : null;
     }
     if (binding && ts.isParameter(binding)) {
-      const owner = this.creatorOf(binding.parent);
+      // A slice two stores call gets each one's handles: the handle cannot be pinned to one store (`shared`).
+      const owners = this.creatorOf(binding.parent);
       const index = binding.parent.parameters.indexOf(binding);
-      return owner && !binding.dotDotDotToken ? this.named(owner.site, `Argument[${owner.at}].Parameter[${index}]`) : null;
+      const handle = owners[0] && !binding.dotDotDotToken ? this.named(owners[0].site, `Argument[${owners[0].at}].Parameter[${index}]`) : null;
+      return handle && owners.length > 1 ? { ...handle, shared: owners.map((owner) => owner.site) } : handle;
     }
     if (binding && ts.isBindingElement(binding) && ts.isArrayBindingPattern(binding.parent)) {
       const site = cellSiteOrAsync(ts, this.checker, binding.parent.parent);

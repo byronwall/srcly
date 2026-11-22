@@ -800,7 +800,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const stateId = this.stateElement(site.anchor);
       for (const creator of creators) {
         const info = this.functionsByNode.get(nodeKey(this.root, creator));
-        const at = this.cells.creatorOf(creator)?.at;
+        const at = this.cells.creatorOf(creator).find((owner) => owner.site.node === site.node)?.at;
         if (!info || !cellHas(site.row, "init", `Argument[${at}].ReturnValue`)) continue;
         const detail = creator === creators[0] ? "The store starts as what its function returns; order and time are not proven." : "A slice called with the store's set, get and api adds what it returns to the store.";
         for (const returnId of this.returnsByFunction.get(info.id) ?? []) this.storeWrite(stateId, returnId, creator, detail);
@@ -815,6 +815,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const { path } = handle;
       const stateId = this.stateElement(handle.site.anchor);
       const where = [this.location(call.node)];
+      if (handle.shared) {
+        // A slice two stores call writes the store whose call ran it, and the walk cannot tell which: each store's write is assumed.
+        if (cellHas(row, "writes", `${path}.Parameter[0]`)) for (const site of handle.shared) this.storeSet(this.stateElement(site.anchor), call.node, call.ownerId, row, path, "shared-instance");
+        continue;
+      }
       if (cellHas(row, "writes", `${path}.Parameter[0]`)) this.storeSet(stateId, call.node, call.ownerId, row, path);
       const handed = call.node.arguments[0] && unwrap(this.ts, call.node.arguments[0]);
       const info = handed && (this.ts.isArrowFunction(handed) || this.ts.isFunctionExpression(handed)) ? this.functionsByNode.get(nodeKey(this.root, handed)) : undefined;
@@ -834,25 +839,26 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
   }
 
-  private storeWrite(stateId: string, fromId: string, at: TypeScript.Node, detail: string): void {
-    this.addRelation(fromId, stateId, "framework-flow", [this.location(at)], proof("framework-state", detail, [this.location(at)]), "partial");
+  private storeWrite(stateId: string, fromId: string, at: TypeScript.Node, detail: string, kind: "framework-state" | "shared-instance" = "framework-state"): void {
+    const words = kind === "shared-instance" ? `Assumed: the function is a slice of more than one store, and the walk cannot tell which store's call ran it. ${detail}` : detail;
+    this.addRelation(fromId, stateId, "framework-flow", [this.location(at)], proof(kind, words, [this.location(at)]), "partial");
   }
 
   /** A named write handle's call (`set(…)`, `useStore.setState(…)`): its value, an updater's return, or what an updater writes into its parameter (an immer draft), as the row's paths say, is merged into the store. */
-  private storeSet(stateId: string, node: TypeScript.CallExpression, ownerId: string | null, row: LibraryModelRow, path: string): void {
+  private storeSet(stateId: string, node: TypeScript.CallExpression, ownerId: string | null, row: LibraryModelRow, path: string, kind: "framework-state" | "shared-instance" = "framework-state"): void {
     const argument = node.arguments[0];
     if (!argument) return;
     const value = unwrap(this.ts, argument);
     if (!this.ts.isArrowFunction(value) && !this.ts.isFunctionExpression(value)) {
-      this.storeWrite(stateId, this.expression(argument, ownerId), node, "What set receives is merged into the store.");
+      this.storeWrite(stateId, this.expression(argument, ownerId), node, "What set receives is merged into the store.", kind);
       return;
     }
     const updater = this.functionsByNode.get(nodeKey(this.root, value));
     const returns = cellHas(row, "writes", `${path}.Parameter[0].ReturnValue`) && updater ? this.returnsByFunction.get(updater.id) ?? [] : [];
-    for (const returnId of returns) this.storeWrite(stateId, returnId, value, "What the updater handed to set returns becomes the store.");
+    for (const returnId of returns) this.storeWrite(stateId, returnId, value, "What the updater handed to set returns becomes the store.", kind);
     const draft = value.parameters[0];
     const draftId = draft && this.ts.isIdentifier(draft.name) && cellHas(row, "writes", `${path}.Parameter[0].Parameter[0]`) ? this.parametersBySymbol.get(this.symbolId(draft.name) ?? "") : undefined;
-    if (draftId) this.storeWrite(stateId, draftId, draft, "set runs the updater on its draft of the store: what it writes into the draft becomes the store.");
+    if (draftId) this.storeWrite(stateId, draftId, draft, "set runs the updater on its draft of the store: what it writes into the draft becomes the store.", kind);
   }
 
   /**
