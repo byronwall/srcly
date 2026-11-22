@@ -18,6 +18,27 @@ const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGI
 /** The model types (plan §3), `wraps`: a call that returns the function it is given, and `store`: a call that makes a store hook from the function it is given. */
 export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps", "store"] as const;
 
+/**
+ * An access path (CodeQL's models-as-data tokens): a root, then steps.
+ * Roots: `Argument[n]`, `Argument[n..]` (argument n and every later one),
+ * `Argument[this]` (the receiver), `ReturnValue` (the call's value).
+ * Steps: `Parameter[n]` / `Parameter[n..]` (what the function there is called
+ * with), `ReturnValue` (what it returns), `Member[name]` (a field or tuple
+ * index), `Awaited` (what the promise fulfils with), `Awaited[error]` (what
+ * it rejects with), `ArrayElement` (each element).
+ */
+const STEP = String.raw`(?:Parameter\[\d+(?:\.\.)?\]|ReturnValue|Member\[[A-Za-z0-9_$]+\]|Awaited(?:\[error\])?|ArrayElement)`;
+const ROOT = String.raw`(?:Argument\[(?:this|\d+(?:\.\.)?)\]|ReturnValue)`;
+const PATH = `${ROOT}(?:\\.${STEP})*`;
+export const LIBRARY_FLOW_PATTERN = new RegExp(`^(${PATH}) -> (${PATH})(?: : (test))?$`);
+
+export const libraryFlowSchema = z
+  .string()
+  .regex(LIBRARY_FLOW_PATTERN)
+  .describe(
+    "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`.",
+  );
+
 export const libraryModelRowSchema = z
   .object({
     language: z.enum(["ts", "py"]).describe("`ts` or `py`."),
@@ -43,6 +64,7 @@ export const libraryModelRowSchema = z
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
     settles: z.enum(["then", "catch", "finally", "reject"]).optional().describe("For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects."),
+    flows: z.array(libraryFlowSchema).optional().describe("Where the call moves values, as access paths. Not read yet: `rowFlows` (`library-flows.ts`) derives each built-in row's paths from its other fields, and a later stage replaces those fields with this one. A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })

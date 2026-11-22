@@ -185,6 +185,15 @@
               "reject"
             ]
           },
+          "flows": {
+            "description": "Where the call moves values, as access paths. Not read yet: `rowFlows` (`library-flows.ts`) derives each built-in row's paths from its other fields, and a later stage replaces those fields with this one. A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
+              "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
+            }
+          },
           "proof": {
             "description": "The proof kind its relations carry, so existing proof names survive.",
             "type": "string",
