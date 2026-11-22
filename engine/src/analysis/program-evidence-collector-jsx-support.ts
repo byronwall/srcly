@@ -6,7 +6,7 @@ import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue, wrapperFillsParameters } from "./value-origin";
 import { stateRoleOf } from "./program-evidence-state-pairs";
-import { makesStore } from "./framework-flows";
+import { isImmerDraft, storeApiCall, storeCreators, storeMember } from "./zustand-store";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
 import { ContextAncestry, contextApplies } from "./program-evidence-context-ancestry";
@@ -33,7 +33,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   /** Each context's provided values, by the `createContext()` call the context is. */
   private readonly contextProviders = new Map<string, string[]>();
   /** Each store hook (`const useStore = create(fn)`) by its symbol: its state element and the function that makes the store. */
-  private readonly stores = new Map<TypeScript.Symbol, { stateId: string; fn: TypeScript.ArrowFunction | TypeScript.FunctionExpression }>();
+  private readonly stores = new Map<TypeScript.Symbol, string>();
   /** Each context's provided values as written (`value={{ save }}`), to find the function a context method names. */
   private readonly contextValues = new Map<string, TypeScript.Expression[]>();
   /** Each context's `createContext()` call, by its key: its argument is the default. */
@@ -730,88 +730,87 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
 
   /**
    * A store hook (`const useStore = create((set) => ({ … }))`, a `store` row,
-   * curried `create<T>()(fn)` too) holds one state: what its function returns,
-   * and what each `set(…)` in it receives (an updater's return). Calling the
-   * hook with a selector (`useStore((s) => s.count)`) hands the selector that
-   * state, and its return is the call's value; without one, the call is the
-   * state. Order and time are not proven, as for a state pair.
+   * curried `create<T>()(fn)` too) holds one state, which its creators make:
+   * the function handed to `create`, through any middleware that takes and
+   * hands back a `StateCreator` (`persist(fn)`, `immer(fn)`), and each slice
+   * creator that function calls with its own `(set, get, api)`. What each
+   * creator returns is the state, and so is what each `set(…)` in it receives:
+   * an updater's return, or what an immer updater writes into its draft.
+   * `useStore.setState(…)` is the same `set`. Calling the hook with a selector
+   * (`useStore((s) => s.count)`) hands the selector that state, and its return
+   * is the call's value; without one, the call is the state, as
+   * `useStore.getState()` is. Order and time are not proven, as for a state pair.
    */
   private connectStores(): void {
     for (const call of this.calls) {
       if (!this.ts.isCallExpression(call.node)) continue;
-      const curried = this.ts.isCallExpression(call.node.expression) ? call.node.expression : null;
-      const imported = importedCallee(this.ts, this.checker, (curried ?? call.node).expression);
-      const fn = unwrap(this.ts, call.node.arguments[0] ?? call.node);
       const holder = call.node.parent;
-      if (!imported || !makesStore(imported.module, imported.name) || (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn))) continue;
       if (!this.ts.isVariableDeclaration(holder) || !this.ts.isIdentifier(holder.name)) continue;
+      const creators = storeCreators(this.ts, this.checker, call.node);
       const hook = this.checker.getSymbolAtLocation(holder.name);
-      const info = this.functionsByNode.get(nodeKey(this.root, fn));
-      if (!hook || !info) continue;
+      if (!creators || !hook || !this.functionsByNode.has(nodeKey(this.root, creators[0]))) continue;
       const stateId = this.stateElement(holder.name);
-      this.stores.set(hook, { stateId, fn });
-      const into = (returnId: string, at: TypeScript.Node, detail: string) => this.addRelation(returnId, stateId, "framework-flow", [this.location(at)], proof("framework-state", detail, [this.location(at)]), "partial");
-      for (const returnId of this.returnsByFunction.get(info.id) ?? []) into(returnId, fn, "The store starts as what its function returns; order and time are not proven.");
-      const set = fn.parameters[0] && this.ts.isIdentifier(fn.parameters[0].name) ? this.checker.getSymbolAtLocation(fn.parameters[0].name) : undefined;
-      const visit = (node: TypeScript.Node) => {
-        if (set && this.ts.isCallExpression(node) && this.ts.isIdentifier(node.expression) && this.checker.getSymbolAtLocation(node.expression) === set && node.arguments[0]) {
-          const value = unwrap(this.ts, node.arguments[0]);
-          const updater = this.ts.isArrowFunction(value) || this.ts.isFunctionExpression(value) ? this.functionsByNode.get(nodeKey(this.root, value)) : undefined;
-          if (updater) for (const returnId of this.returnsByFunction.get(updater.id) ?? []) into(returnId, value, "What the updater handed to set returns becomes the store.");
-          else into(this.expression(node.arguments[0], info.id), node, "What set receives is merged into the store.");
-        }
-        this.ts.forEachChild(node, visit);
-      };
-      visit(fn.body);
+      this.stores.set(hook, stateId);
+      for (const creator of creators) {
+        const info = this.functionsByNode.get(nodeKey(this.root, creator));
+        if (!info) continue;
+        const detail = creator === creators[0] ? "The store starts as what its function returns; order and time are not proven." : "A slice called with the store's set, get and api adds what it returns to the store.";
+        for (const returnId of this.returnsByFunction.get(info.id) ?? []) this.storeWrite(stateId, returnId, creator, detail);
+        const set = creator.parameters[0] && this.ts.isIdentifier(creator.parameters[0].name) ? this.checker.getSymbolAtLocation(creator.parameters[0].name) : undefined;
+        if (!set) continue;
+        const visit = (node: TypeScript.Node) => {
+          if (this.ts.isCallExpression(node) && this.ts.isIdentifier(node.expression) && this.checker.getSymbolAtLocation(node.expression) === set) this.storeSet(stateId, node, info.id);
+          this.ts.forEachChild(node, visit);
+        };
+        visit(creator.body);
+      }
     }
     if (this.stores.size === 0) return;
     for (const call of this.calls) {
-      if (!this.ts.isCallExpression(call.node) || !this.ts.isIdentifier(call.node.expression)) continue;
-      const store = this.stores.get(this.checker.getSymbolAtLocation(call.node.expression)!);
-      if (!store) continue;
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const where = [this.location(call.node)];
+      const api = storeApiCall(this.ts, this.checker, call.node);
+      const apiState = api ? this.stores.get(api.hook) : undefined;
+      if (apiState && api?.name === "setState") this.storeSet(apiState, call.node, call.ownerId);
+      if (apiState && api?.name === "getState") this.addRelation(apiState, call.id, "references", where, proof("framework-state", "The store's getState() reads the store.", where), "partial");
+      if (!this.ts.isIdentifier(call.node.expression)) continue;
+      const stateId = this.stores.get(this.checker.getSymbolAtLocation(call.node.expression)!);
+      if (!stateId) continue;
       const selector = call.node.arguments[0] && unwrap(this.ts, call.node.arguments[0]);
       const info = selector && (this.ts.isArrowFunction(selector) || this.ts.isFunctionExpression(selector)) ? this.functionsByNode.get(nodeKey(this.root, selector)) : undefined;
-      const where = [this.location(call.node)];
       if (!info) {
-        this.addRelation(store.stateId, call.id, "references", where, proof("framework-state", "The store hook's call reads the store.", where), "partial");
+        this.addRelation(stateId, call.id, "references", where, proof("framework-state", "The store hook's call reads the store.", where), "partial");
         continue;
       }
       const parameterId = this.firstParameterId(selector);
-      if (parameterId) this.addRelation(store.stateId, parameterId, "references", where, proof("framework-state", "The selector receives the store.", where), "partial");
+      if (parameterId) this.addRelation(stateId, parameterId, "references", where, proof("framework-state", "The selector receives the store.", where), "partial");
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The store hook's call yields what its selector returns.", where), "proven");
     }
   }
 
-  /**
-   * The function a store's member names, read through its hook: `setCount`
-   * after `const setCount = useStore((s) => s.setCount)` or a destructured
-   * `const { setCount } = useStore()`, the `setCount` of the object the
-   * store's function returns.
-   */
-  private storeMethod(callee: TypeScript.Expression): TypeScript.Node[] {
-    if (this.stores.size === 0) return [];
-    const node = unwrap(this.ts, callee);
-    if (!this.ts.isIdentifier(node)) return [];
-    const declaration = this.checker.getSymbolAtLocation(node)?.valueDeclaration;
-    let read: TypeScript.Expression | undefined;
-    let name: string | undefined;
-    if (declaration && this.ts.isVariableDeclaration(declaration) && declaration.initializer) {
-      read = unwrap(this.ts, declaration.initializer);
-      const selector = this.ts.isCallExpression(read) && read.arguments[0] ? unwrap(this.ts, read.arguments[0]) : undefined;
-      const body = selector && this.ts.isArrowFunction(selector) && !this.ts.isBlock(selector.body) ? unwrap(this.ts, selector.body) : undefined;
-      name = body && this.ts.isPropertyAccessExpression(body) ? body.name.text : undefined;
-    } else if (declaration && this.ts.isBindingElement(declaration) && this.ts.isObjectBindingPattern(declaration.parent) && this.ts.isVariableDeclaration(declaration.parent.parent) && declaration.parent.parent.initializer) {
-      read = unwrap(this.ts, declaration.parent.parent.initializer);
-      const key = declaration.propertyName ?? declaration.name;
-      name = this.ts.isIdentifier(key) ? key.text : undefined;
+  private storeWrite(stateId: string, fromId: string, at: TypeScript.Node, detail: string): void {
+    this.addRelation(fromId, stateId, "framework-flow", [this.location(at)], proof("framework-state", detail, [this.location(at)]), "partial");
+  }
+
+  /** A store's `set(…)` (or `useStore.setState(…)`): an updater's return, what an immer updater writes into its draft, or else the value itself, is merged into the store. */
+  private storeSet(stateId: string, node: TypeScript.CallExpression, ownerId: string | null): void {
+    const argument = node.arguments[0];
+    if (!argument) return;
+    const value = unwrap(this.ts, argument);
+    if (!this.ts.isArrowFunction(value) && !this.ts.isFunctionExpression(value)) {
+      this.storeWrite(stateId, this.expression(argument, ownerId), node, "What set receives is merged into the store.");
+      return;
     }
-    if (!read || !name || !this.ts.isCallExpression(read) || !this.ts.isIdentifier(read.expression)) return [];
-    const store = this.stores.get(this.checker.getSymbolAtLocation(read.expression)!);
-    const made = store && !this.ts.isBlock(store.fn.body) ? unwrap(this.ts, store.fn.body) : undefined;
-    if (!made || !this.ts.isObjectLiteralExpression(made)) return [];
-    const member = made.properties.find((property) => property.name && this.ts.isIdentifier(property.name) && property.name.text === name);
-    if (member && this.ts.isPropertyAssignment(member)) return [member.initializer];
-    return member && this.ts.isMethodDeclaration(member) ? [member] : [];
+    const updater = this.functionsByNode.get(nodeKey(this.root, value));
+    for (const returnId of updater ? this.returnsByFunction.get(updater.id) ?? [] : []) this.storeWrite(stateId, returnId, value, "What the updater handed to set returns becomes the store.");
+    const draft = value.parameters[0];
+    const draftId = draft && this.ts.isIdentifier(draft.name) && isImmerDraft(this.ts, this.checker, draft) ? this.parametersBySymbol.get(this.symbolId(draft.name) ?? "") : undefined;
+    if (draftId) this.storeWrite(stateId, draftId, draft, "set runs the updater on an immer draft: what it writes into the draft becomes the store.");
+  }
+
+  /** The function a store's member names, read through its hook (`storeMember`). */
+  private storeMethod(callee: TypeScript.Expression): TypeScript.Node[] {
+    return this.stores.size === 0 ? [] : storeMember(this.ts, this.checker, callee);
   }
 
   /**

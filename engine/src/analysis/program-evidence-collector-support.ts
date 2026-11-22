@@ -1,4 +1,5 @@
 import path from "node:path";
+import { writesStore } from "./zustand-store";
 import { performance } from "node:perf_hooks";
 import * as TypeScript from "typescript";
 import type {
@@ -654,6 +655,8 @@ export class ProgramEvidenceCollectorSupport {
     if (this.targetFunction(node.expression) || this.mutationFunction(node) || this.callAdapter(node)) return false;
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
+    // A store's `set` and `useStore.setState(…)` are modelled (`connectStores`): what they receive is the store.
+    if (writesStore(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     // A call a flow row describes (`createDeferred`, `makePersisted`) is modelled: what it does with its arguments is the row's, never an assumed effect.

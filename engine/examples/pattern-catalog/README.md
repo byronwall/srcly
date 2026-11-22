@@ -15,7 +15,7 @@ ln -s ~/Projects/<a React app>/node_modules engine/examples/pattern-catalog/reac
 ln -s ~/Projects/<a Solid app>/node_modules engine/examples/pattern-catalog/solid/node_modules
 ```
 
-React needs `react`, `@types/react`, `@tanstack/react-query` and `zustand`. Solid needs `solid-js` and `@solidjs/router`. A root without `node_modules` is skipped, and each of its traces counts as `Skipped`. An anchor the engine refuses counts as `Refused`.
+React needs `react`, `@types/react`, `@tanstack/react-query`, `zustand` and `immer` (for `zustand/middleware/immer`'s types). Solid needs `solid-js` and `@solidjs/router`. A root without `node_modules` is skipped, and each of its traces counts as `Skipped`. An anchor the engine refuses counts as `Refused`.
 
 The `python` root needs no packages. It needs the interpreter the Python tests use (`SRCLY_PYTHON`, else `server/.venv`); without one, each trace counts as `Skipped`. `--root python` runs one root.
 
