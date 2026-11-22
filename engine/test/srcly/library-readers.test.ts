@@ -14,8 +14,6 @@ import {
   makesStatePair,
   makesStore,
   optionFlow,
-  optionLifecycle,
-  optionResult,
   promiseChannels,
   reducerArgument,
   rowFlow,
@@ -38,7 +36,7 @@ function answers(row: LibraryModelRow): Record<string, unknown> {
     Object.assign(out, {
       yieldsOnlyCallback: yieldsOnlyCallback(module, name), hasNoValue: hasNoValue(module, name), wrappedPosition: wrappedPosition(module, name),
       yieldsFirstFunction: yieldsFirstFunction(module, name), makesPredicate: makesPredicate(module, name), makesAccessor: makesAccessor(module, name), optionFlow: optionFlow(module, name),
-      optionResult: optionResult(module, name), optionLifecycle: optionLifecycle(module, name), watchedFunction: watchedFunction(module, name), makesStatePair: makesStatePair(module, name),
+      watchedFunction: watchedFunction(module, name), makesStatePair: makesStatePair(module, name),
       makesStore: makesStore(module, name), callsInitialValue: callsInitialValue(module, name), reducerArgument: reducerArgument(module, name),
     });
   }

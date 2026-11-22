@@ -93,14 +93,6 @@ export function primaryOption(row: LibraryModelRow | null): string | null {
 const optionField = (flows: Flow[], option: string) =>
   first(flows.filter((flow) => flow.from === `Argument[0].Member[${option}].ReturnValue`).map((flow) => /^ReturnValue\.Member\[(\w+)\]$/.exec(flow.to)?.[1]));
 
-/** The options key of a function that takes the option function's return and fills the field instead (`select`). */
-const optionSelector = (flows: Flow[], option: string, field: string) =>
-  first(flows.map((flow) => {
-    const key = /^Argument\[0\]\.Member\[(\w+)\]\.Parameter\[0\]$/.exec(flow.to)?.[1];
-    const maps = key && flow.from === `Argument[0].Member[${option}].ReturnValue` && flows.some((item) => item.from === `Argument[0].Member[${key}].ReturnValue` && item.to === `ReturnValue.Member[${field}]`);
-    return maps ? key : undefined;
-  }));
-
 /** How the call moves values (`FrameworkFlow`), or undefined for a call no flow row names. */
 export function frameworkFlow(module: string, name: string): FrameworkFlow | undefined {
   return rowFlow(frameworkRow(module, name));
@@ -192,49 +184,6 @@ export function optionFlow(module: string, name: string): string | null {
   return primaryOption(frameworkRow(module, name));
 }
 
-/** The result field a data hook's option callback fills (`data`), and the options key that maps it first (`select`), or null. */
-export function optionResult(module: string, name: string): { field: string; selector: string | null } | null {
-  const row = frameworkRow(module, name);
-  const option = primaryOption(row);
-  const flows = rowPaths(row);
-  const field = option ? optionField(flows, option) : undefined;
-  return option && field ? { field, selector: optionSelector(flows, option, field) ?? null } : null;
-}
-
-/**
- * What else a data hook does with its options: the fields it fills of the
- * object it hands the option callback (`hands`), and the other functions it
- * calls with the callback's result, its input, or the context function's
- * return (`observers`, `contextFrom`). Null for a call with neither.
- */
-export function optionLifecycle(module: string, name: string): { hands: Record<string, string[]>; observers: Record<string, ("result" | "input" | "context" | "none")[]>; contextFrom: string | null } | null {
-  const row = frameworkRow(module, name);
-  const option = primaryOption(row);
-  if (!option) return null;
-  const flows = rowPaths(row);
-  const head = `Argument[0].Member[${option}]`;
-  const hands: Record<string, string[]> = {};
-  const observers: Record<string, ("result" | "input" | "context" | "none")[]> = {};
-  let contextFrom: string | null = null;
-  const field = optionField(flows, option);
-  const selector = field ? optionSelector(flows, option, field) : undefined;
-  for (const { from, to } of flows) {
-    const handed = to.startsWith(`${head}.Parameter[0].Member[`) ? /\.Member\[(\w+)\]$/.exec(to)?.[1] : undefined;
-    const filler = /^Argument\[0\]\.Member\[(\w+)\]$/.exec(from)?.[1];
-    if (handed && filler) (hands[handed] ??= []).push(filler);
-    const observed = /^Argument\[0\]\.Member\[(\w+)\]\.Parameter\[(\d+)\]$/.exec(to);
-    if (!observed || observed[1] === option || observed[1] === selector) continue;
-    const context = /^Argument\[0\]\.Member\[(\w+)\]\.ReturnValue$/.exec(from)?.[1];
-    const role = from === `${head}.ReturnValue` ? "result" : from === `${head}.Parameter[0]` ? "input" : context ? "context" : null;
-    if (!role) continue;
-    if (role === "context") contextFrom = context!;
-    (observers[observed[1]] ??= [])[Number(observed[2])] = role;
-  }
-  for (const roles of Object.values(observers)) for (let index = 0; index < roles.length; index++) roles[index] ??= "none";
-  if (!Object.keys(hands).length && !Object.keys(observers).length) return null;
-  return { hands, observers, contextFrom };
-}
-
 /**
  * The result fields of a call that watches a function it is given (`useSubmission(action)`):
  * `field` holds what the function returns, and `input` the arguments of each call of it. Null for any other call.
@@ -254,7 +203,7 @@ export function watchedFunction(module: string, name: string): { at: number; fie
 }
 
 /** What a standard callback's parameter takes: an element of the receiver, its index (no value), the receiver, or an accumulator. */
-export type CallbackParameter = "element" | "index" | "receiver" | "accumulator";
+type CallbackParameter = "element" | "index" | "receiver" | "accumulator";
 
 /**
  * A standard method's callback (`rows.map`, `rows.reduce`): the argument it

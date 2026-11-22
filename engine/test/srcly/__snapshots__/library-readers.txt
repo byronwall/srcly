@@ -191,21 +191,14 @@ ts:react#forwardRef (wraps)
 ts:@tanstack/react-query#useQuery (calls-back)
   yieldsOnlyCallback: true
   optionFlow: "queryFn"
-  optionResult: {"field":"data","selector":"select"}
-  optionLifecycle: {"hands":{"queryKey":["queryKey"]},"observers":{},"contextFrom":null}
 ts:@tanstack/react-query#useSuspenseQuery (calls-back)
   yieldsOnlyCallback: true
   optionFlow: "queryFn"
-  optionResult: {"field":"data","selector":"select"}
-  optionLifecycle: {"hands":{"queryKey":["queryKey"]},"observers":{},"contextFrom":null}
 ts:@tanstack/react-query#useInfiniteQuery (calls-back)
   optionFlow: "queryFn"
-  optionLifecycle: {"hands":{"queryKey":["queryKey"],"pageParam":["getNextPageParam","getPreviousPageParam","initialPageParam"]},"observers":{"getNextPageParam":["result"],"getPreviousPageParam":["result"]},"contextFrom":null}
 ts:@tanstack/react-query#useMutation (calls-back)
   yieldsOnlyCallback: true
   optionFlow: "mutationFn"
-  optionResult: {"field":"data","selector":null}
-  optionLifecycle: {"hands":{},"observers":{"onMutate":["input"],"onSuccess":["result","input","context"],"onError":["none","input","context"],"onSettled":["result","none","input","context"]},"contextFrom":"onMutate"}
 ts:@tanstack/react-query#useQueryClient (origin)
   yieldsFirstFunction: true
 ts:zustand#create (store)
