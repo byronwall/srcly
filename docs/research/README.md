@@ -8,6 +8,7 @@ Research records: audits, pilots, and design studies. They hold evidence and rea
 | [2026-08-evidence-loss-rules.md](2026-08-evidence-loss-rules.md) | Evidence-loss rules (where type or value evidence disappears) and options to show them in the product (from tsx-data-flow) |
 | [agent-reporting-2026-10/](agent-reporting-2026-10/README.md) | Agent reporting and CLI output |
 | [dataflow-js-react-solid-2026-11-01/](dataflow-js-react-solid-2026-11-01/README.md) | Data-flow gaps across JavaScript, React, and SolidJS |
+| [dataflow-library-models-2026-11/](dataflow-library-models-2026-11/README.md) | Library-specific code in the data-flow engine, and how to make new libraries rows-only |
 | [dataflow-pattern-coverage-2026-10/](dataflow-pattern-coverage-2026-10/README.md) | Data-flow coverage of everyday code patterns |
 | [docview-trace-performance.md](docview-trace-performance.md) | DocView trace timeout |
 | [metric-pilot-2026-10/](metric-pilot-2026-10/README.md) | Metric pilot that tuned the default thresholds |

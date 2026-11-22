@@ -1,0 +1,28 @@
+diagram "Types propose, rows confirm"
+subtitle "A shared type parameter proves the same type, not the same value"
+
+node call "Call into a package\nuseMemo(fn), indexArray(list, fn)" color=blue
+node row "Row names it?" shape=diamond
+node types "Generic ties an\nargument to the result?" shape=diamond
+node ok "ok\nmodelled step" color=mint
+node typed "assumed\nfollows the .d.ts types" color=amber shade=300
+node opaque "assumed\nopaque library step" color=slate
+node confirm "1-line row\nconfirm: types" color=mint shade=200
+
+edge e1 call -> row
+edge yes row -> ok "yes"
+edge no row -> types "no"
+edge t_yes types -> typed "yes · 25 of 47 rows implied [1]"
+edge t_no types -> opaque "no · today's fallback"
+edge promote confirm -> typed "promotes to ok" kind=async
+
+footnote 1 "About 1 in 20 type flows is false. useContext<T>(ctx: Context<T>): T ties to the default value, but the value comes from the nearest provider."
+near confirm typed side=below
+
+legend mint "Proven (ok)"
+legend amber "New: type-proposed step" shade=300
+legend slate "Existing fallback"
+legend blue "Input"
+legend line dashed "Review step, not a trace edge"
+
+layout root flow gap=44 fit=slide
