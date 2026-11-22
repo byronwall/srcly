@@ -58,6 +58,7 @@ import {
   discardsValue,
   isEffectName,
   isFrameworkCall,
+  resourceAction,
   nodeLocation,
   expressionText,
   nodeKey,
@@ -652,12 +653,21 @@ export class ProgramEvidenceCollectorSupport {
     return null;
   }
 
+  /** Whether a callee is an element of a context's tuple (`setName` after `const [, setName] = useContext(Ctx)`); the JSX support knows contexts. */
+  protected contextPairHalf(_callee: TypeScript.Expression): boolean {
+    return false;
+  }
+
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
     if (this.targetFunction(node.expression) || this.mutationFunction(node) || this.callAdapter(node)) return false;
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
     // A store's `set` and `useStore.setState(…)` are modelled (`connectStores`): what they receive is the store.
     if (writesStore(this.ts, this.checker, node)) return false;
+    // Half of a state pair read from a context's tuple (`const [, setName] = useContext(Ctx)`) is modelled (`connectContextPairs`).
+    if (this.contextPairHalf(node.expression)) return false;
+    // A resource's `mutate` and `refetch` are modelled (`connectResourceAction`).
+    if (resourceAction(this.ts, this.checker, node.expression)) return false;
     const module = this.moduleFor(node.expression);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     // A call a flow row describes (`createDeferred`, `makePersisted`) is modelled: what it does with its arguments is the row's, never an assumed effect.

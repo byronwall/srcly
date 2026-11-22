@@ -15,7 +15,8 @@ import type { ProgramElement, ProgramRelation } from "./scope-seam";
 export type FieldPath = readonly string[];
 
 const MAX_FIELD_PATH = 4;
-const KEEPS_IDENTITY = new Set(["references", "argument-binding", "return-expression", "return-value", "framework-flow"]);
+// A context hands its provider's value to each reader whole (`context-value`): a field stays that field.
+const KEEPS_IDENTITY = new Set(["references", "argument-binding", "return-expression", "return-value", "framework-flow", "context-value"]);
 const SPREAD = Symbol("spread");
 
 export type PackFieldCache = Map<string, Record<string, string> | null>;

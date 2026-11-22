@@ -72,6 +72,18 @@
     {
       "language": "ts",
       "module": "solid-js",
+      "name": "indexArray",
+      "model": "calls-back",
+      "args": "1",
+      "source": "0",
+      "with": "element",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor of a list: the callback takes each item of what the source returns as an accessor, and the list holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
       "name": "untrack",
       "model": "calls-back",
       "args": "0",
@@ -248,6 +260,16 @@
       "model": "wraps",
       "args": "0",
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useSubmission",
+      "model": "calls-back",
+      "args": "0",
+      "field": "result",
+      "input": "input",
+      "note": "The submission's `result` is what the action's function returns, and its `input` the arguments of each call of the action."
     },
     {
       "language": "ts",

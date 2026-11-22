@@ -9,7 +9,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -23,6 +23,7 @@ import {
   isResourceFactory,
   nodeKey,
   readsThis,
+  resourceAction,
   resourceFlow,
   thisContainer,
   proof,
@@ -170,6 +171,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return imported ? frameworkFlow(imported.module, imported.name) : undefined;
   }
 
+  private watchesFunction(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    return imported !== null && watchedFunction(imported.module, imported.name) !== null;
+  }
+
   /** Whether a row names where the call's value comes from (`useMemo`'s callback, `useQuery`'s `queryFn`), so no other argument is in it. */
   private yieldsOnlyItsCallback(node: TypeScript.CallExpression): boolean {
     const imported = importedCallee(this.ts, this.checker, node.expression);
@@ -200,6 +206,71 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const source = flow.source !== undefined ? argument(flow.source) : undefined;
     const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
     if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
+    if (parameterId && flow.callback !== undefined) this.connectItemAccessor(node, flow.callback, parameterId);
+  }
+
+  /**
+   * A callback whose item the library declares as a function of no arguments
+   * (`indexArray`'s `Accessor<T>`, not `mapArray`'s `T`): each call of that
+   * parameter in the callback reads the item. Read from the library's own
+   * declaration, so an item that is itself a function is still called.
+   */
+  private connectItemAccessor(node: TypeScript.CallExpression, at: number, parameterId: string): void {
+    const fn = node.arguments[at] && unwrap(this.ts, node.arguments[at]);
+    const item = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
+    if (!item || !this.ts.isIdentifier(item.name)) return;
+    const declared = this.checker.getResolvedSignature(node)?.declaration;
+    const slot = declared && !this.ts.isJSDocSignature(declared) ? declared.parameters[at]?.type : undefined;
+    const callback = slot ? this.checker.getTypeFromTypeNode(slot).getCallSignatures()[0] : undefined;
+    const itemSymbol = callback?.parameters[0];
+    const itemType = itemSymbol && this.checker.getTypeOfSymbol(itemSymbol);
+    if (!itemType || itemType.flags & this.ts.TypeFlags.TypeParameter || !itemType.getCallSignatures().some((signature) => signature.parameters.length === 0)) return;
+    const symbol = this.checker.getSymbolAtLocation(item.name);
+    if (symbol) this.itemAccessors.set(symbol, parameterId);
+  }
+
+  /**
+   * A resource's actions. `mutate(v)` sets the resource's value, so every read
+   * of the resource sees `v`, as a setter's getter does (order and time are not
+   * proven); a function given to it is an updater, not the value. `refetch(x)`
+   * runs the fetcher again with `x` as its second parameter's `refetching`.
+   */
+  private connectResourceAction(node: TypeScript.CallExpression, resourceId: string, ownerId: string | null): boolean {
+    const action = resourceAction(this.ts, this.checker, node.expression);
+    if (!action) return false;
+    const value = node.arguments[0] && unwrap(this.ts, node.arguments[0]);
+    if (!value || this.ts.isArrowFunction(value) || this.ts.isFunctionExpression(value)) return true;
+    const where = [this.location(value)];
+    if (action.name === "mutate") {
+      // Into the resource's binding, past the fetch boundary: what the accessor's calls read.
+      const binding = this.ts.isVariableDeclaration(action.factory.parent) ? firstBindingIdentifier(this.ts, action.factory.parent.name) : undefined;
+      const holderId = binding ? this.variablesBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+      if (!holderId) return true;
+      this.addRelation(this.expression(value, ownerId), holderId, "references", where, frameworkState("mutate sets the resource's value, which its reads see; order and time are not proven.", this.location(node)), "partial");
+      return true;
+    }
+    const fetcher = action.factory.arguments[resourceFlow(this.ts, this.checker, action.factory).returns!];
+    const fn = fetcher && unwrap(this.ts, fetcher);
+    const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn) ? this.functionsByNode.get(nodeKey(this.root, fn)) : this.ts.isIdentifier(fn) ? this.targetFunction(fn) : null);
+    const parameter = info?.declaration.parameters[1];
+    const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    if (!parameter || !parameterId) return true;
+    const at = this.location(value);
+    const detail = "refetch runs the fetcher again: its second parameter's refetching is this value.";
+    const packId = this.ensureElement(parameter, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: "refetching" }) }, null, null, null, "proven", frameworkState(detail, at));
+    this.addRelation(this.expression(value, ownerId), packId, "pack-field", where, frameworkState(detail, at), "proven");
+    this.addRelation(packId, parameterId, "framework-flow", where, frameworkState(detail, at), "proven");
+    return true;
+  }
+
+  /** Item parameters a library declares as accessors (`connectItemAccessor`), read when the callback's own calls are collected. */
+  private readonly itemAccessors = new Map<TypeScript.Symbol, string>();
+
+  private connectItemAccessorCall(node: TypeScript.CallExpression, callId: string): void {
+    if (node.arguments.length || !this.ts.isIdentifier(node.expression)) return;
+    const symbol = this.checker.getSymbolAtLocation(node.expression);
+    const parameterId = symbol && this.itemAccessors.get(symbol);
+    if (parameterId) this.addRelation(parameterId, callId, "accessor-call", [this.location(node)], frameworkState("The library declares the item as an accessor: calling it reads the item.", this.location(node)), "proven");
   }
 
   /** The action parameter of a reducer pair's reducer: where `dispatch(action)` puts its argument, however it reaches the dispatch. Null for any other pair, or a reducer the checker cannot name. */
@@ -236,6 +307,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const target = direct ?? adapter?.target ?? null;
     this.calls.push({ node, id: callId, target, ownerId, ...(adapter ? { adapter } : {}) });
     this.connectFrameworkFlow(node, callId, ownerId);
+    this.connectItemAccessorCall(node, callId);
     if (target) {
       this.addRelation(
         callId,
@@ -303,7 +375,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
     const storeWrite = writesStore(this.ts, this.checker, node);
     const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
-    if (!role && !storeWrite && !target && !handled && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    if ((!role || role.through) && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -338,6 +410,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
       if (index === 0 && this.readsContext(node)) continue;
+      // A resource's `mutate(v)` and `refetch(x)` hand their argument to the resource or its fetcher (`connectResourceAction`), never to the call's value.
+      if (resourceAction(this.ts, this.checker, node.expression)) continue;
+      // A watched function (`useSubmission(action)`) fills the result's fields (`connectWatchedFunctions`); the function itself is not the value.
+      if (this.watchesFunction(node)) continue;
+      // Half of a context's state pair writes or reads that state (`connectContextPairs`), never the call's value.
+      if (this.contextPairHalf(node.expression)) continue;
       this.addRelation(
         argumentId,
         callId,
@@ -394,6 +472,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     this.processCallBoundary(node, callId, ownerId);
     const resourceId = this.resourceBySymbol.get(this.symbolId(node.expression) ?? "");
+    if (resourceId && this.connectResourceAction(node, resourceId, ownerId)) return;
     if (resourceId) {
       const resultId = this.ensureElement(
         node,
@@ -657,6 +736,15 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         if (inline) handled.add(fn);
         continue;
       }
+      // `produce(fn)` (Solid's store): `fn` takes a draft of the current state, and what it writes into the draft is the new state.
+      const draft = role && !dispatches ? this.producedDraft(fn) : null;
+      if (draft) {
+        const where = [this.location(draft.parameter)];
+        this.addRelation(path ? this.readStorePath(node, stateId, ownerId) : stateId, draft.id, "references", where, frameworkState("produce hands its function a draft of the current state.", this.location(draft.parameter)), "partial");
+        if (path) this.writeStorePath(node, draft.id, stateId, ownerId, this.location(draft.parameter));
+        else this.addRelation(draft.id, stateId, "references", where, frameworkState("What produce's function writes into its draft becomes the state its getter reads; order and time are not proven.", this.location(draft.parameter)), "partial");
+        continue;
+      }
       const info = inline ? this.functionsByNode.get(nodeKey(this.root, fn)) : role ? this.stateUpdater(fn) : null;
       if (!info) continue;
       handled.add(fn);
@@ -673,6 +761,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (parameterId) this.addRelation(path ? this.readStorePath(node, stateId, ownerId) : stateId, parameterId, "references", [this.location(fn)], frameworkState("The updater receives the current state.", this.location(fn)), "partial");
     }
     return handled;
+  }
+
+  /** The draft parameter of the function a `produce(fn)` call (`solid-js/store`) is given, or null for any other value. */
+  private producedDraft(value: TypeScript.Expression): { parameter: TypeScript.ParameterDeclaration; id: string } | null {
+    if (!this.ts.isCallExpression(value)) return null;
+    const imported = importedCallee(this.ts, this.checker, value.expression);
+    if (imported?.module !== "solid-js/store" || imported.name !== "produce" || !value.arguments[0]) return null;
+    const fn = this.stateUpdater(value.arguments[0]);
+    const parameter = fn?.declaration.parameters[0];
+    const id = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    return parameter && id ? { parameter, id } : null;
   }
 
   /** The function a setter's value names (`setDoc("title", rename)`), called as an updater; null for any other value. */
@@ -829,6 +928,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with ${receiver.getText()}${role === "element" ? "'s elements" : ""}.`, where);
       this.addRelation(this.expression(receiver, call.ownerId), parameterId, "callback-parameter", where, called, calledStatus);
     });
+    // A callback of one element whose return the call does not yield (`filter`, `find`, `some`, `every`) tests that element:
+    // its return decides which elements count, a branch, not a value. A comparator (`sort`, two elements) orders them instead.
+    const tests = row.returns !== "callback" && row.returns !== "void" && row.parameters.filter((item) => item === "element").length === 1;
+    if (tests && returns.length) {
+      const at = this.location(fn);
+      const testId = this.ensureElement(fn, "branch-condition", call.ownerId, { terminalKind: "branch-condition", label: `${name} test` }, null, null, null, "proven", proof("standard-library", `${name} tests each element with what this function returns.`, [at]));
+      for (const returnId of returns) {
+        const [tested, testedStatus] = this.libraryProof(node, `${name} tests each element with what this function returns; the value is not kept.`, [at]);
+        this.addRelation(returnId, testId, "predicate-return", [at], tested, testedStatus);
+      }
+    }
     if (row.returns !== "callback") return true;
     const where = [this.location(argument)];
     for (const returnId of returns) {

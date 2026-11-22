@@ -22,13 +22,13 @@ export function eachIgnored(token) {
 
 export function filterTests(token) {
   const rows = [1, 2];
-  const kept = rows.filter(() => token); // @trace cb-filter-test forward token @reaches cb-filter-test return
+  const kept = rows.filter(() => token); // @trace cb-filter-test forward token @reaches cb-filter-test branch-condition
   return kept; // @never-reaches cb-filter-test
 }
 
 export function filterKeeps(token) {
   const rows = [token]; // @trace cb-filter forward token
-  const kept = rows.filter((row) => row.ok); // @visits cb-filter parameter @reaches cb-filter return
+  const kept = rows.filter((row) => row.ok); // @visits cb-filter parameter @reaches cb-filter branch-condition
   return kept; // @reaches cb-filter return
 }
 

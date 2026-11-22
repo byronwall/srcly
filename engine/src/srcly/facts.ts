@@ -5,7 +5,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
 import { yieldsOnlyCallback } from "../analysis/framework-flows";
-import { browserMember, importedCallee, isStandardLibraryCallee } from "../analysis/program-evidence-support";
+import { browserMember, importedCallee, isBoundHandlerPair, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
 import { assumedThrough } from "./anchor-slice";
@@ -202,9 +202,20 @@ function libraryFilledParameter(ts: typeof TypeScript, checker: TypeScript.TypeC
   if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return false;
   while (ts.isParenthesizedExpression(fn.parent)) fn = fn.parent;
   const call = fn.parent;
+  // A function written as a prop of a package's component (`<ErrorBoundary fallback={(err) => …}>`): the component calls it.
+  if (ts.isJsxExpression(call) && ts.isJsxAttribute(call.parent)) return packageComponent(ts, checker, call.parent.parent.parent.tagName);
   if (!ts.isCallExpression(call) || !call.arguments.includes(fn as TypeScript.Expression) || isStandardLibraryCallee(ts, checker, call.expression)) return false;
   const declaration = checker.getResolvedSignature(call)?.declaration;
   return !!declaration && declaration.getSourceFile().isDeclarationFile && !declaration.getSourceFile().hasNoDefaultLib;
+}
+
+/** Whether a JSX tag names a component a package declares (not a page element, not one of the program's own). */
+function packageComponent(ts: typeof TypeScript, checker: TypeScript.TypeChecker, tag: TypeScript.JsxTagNameExpression): boolean {
+  if (ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return false;
+  let symbol = checker.getSymbolAtLocation(tag);
+  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  const declarations = symbol?.declarations ?? [];
+  return declarations.length > 0 && declarations.every((item) => item.getSourceFile().isDeclarationFile && !item.getSourceFile().hasNoDefaultLib);
 }
 
 /** Whether the element is the callee expression of a call or `new`. */
@@ -273,6 +284,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, candidates)) return "unused";
   if (testedOnly(ts, tier1.program.getTypeChecker(), node)) return "branch";
   if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
+  // A handler written with its data (`onClick={[remove, id]}`): the page takes the pair and calls the handler with the data (`bindsEventData`).
+  if (isBoundHandlerPair(ts, tier1.program.getTypeChecker(), node)) return "handed-back";
   // A call through a function the library supplied (`resolve(value)` in `new Promise((resolve) => …)`) hands its argument back to that library.
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && suppliedByLibrary(ts, tier1.program.getTypeChecker(), node.expression)) return "handed-back";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;

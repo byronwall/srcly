@@ -248,6 +248,42 @@ export function resourceFlow(ts: typeof TypeScript, checker: TypeScript.TypeChec
   return !second || options ? { returns: 0 } : { returns: 1, source: 0, callback: 1 };
 }
 
+/**
+ * The resource action a callee names: `mutate` or `refetch` destructured from
+ * the second element of a `createResource` binding
+ * (`const [data, { mutate, refetch }] = createResource(…)`), with that call.
+ * Null for any other callee.
+ */
+export function resourceAction(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { name: "mutate" | "refetch"; factory: TypeScript.CallExpression } | null {
+  if (!ts.isIdentifier(callee)) return null;
+  const element = checker.getSymbolAtLocation(callee)?.valueDeclaration;
+  if (!element || !ts.isBindingElement(element) || element.dotDotDotToken || !ts.isObjectBindingPattern(element.parent)) return null;
+  const key = (element.propertyName ?? element.name).getText();
+  const actions = element.parent.parent;
+  if ((key !== "mutate" && key !== "refetch") || !ts.isBindingElement(actions) || !ts.isArrayBindingPattern(actions.parent) || actions.parent.elements.indexOf(actions) !== 1) return null;
+  const declaration = actions.parent.parent;
+  const factory = ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(ts, declaration.initializer) : undefined;
+  return factory && ts.isCallExpression(factory) && isResourceFactory(ts, checker, factory) ? { name: key, factory } : null;
+}
+
+/**
+ * Whether a JSX attribute's value is a handler written with its data
+ * (`onClick={[remove, id]}`) where the attribute's own type says so: a tuple
+ * whose first element is a function (Solid's `BoundEventHandler`).
+ */
+export function isBoundHandlerPair(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node): node is TypeScript.ArrayLiteralExpression {
+  if (!ts.isArrayLiteralExpression(node) || node.elements.length !== 2 || node.elements.some((item) => ts.isSpreadElement(item))) return false;
+  let holder: TypeScript.Node = node.parent;
+  while (ts.isParenthesizedExpression(holder)) holder = holder.parent;
+  if (!ts.isJsxExpression(holder) || !ts.isJsxAttribute(holder.parent)) return false;
+  const expected = checker.getContextualType(node);
+  const types = expected?.isUnion() ? expected.types : expected ? [expected] : [];
+  return types.some((type) => {
+    const first = type.getProperty("0");
+    return !!first && !!type.getProperty("1") && checker.getTypeOfSymbol(first).getCallSignatures().length > 0;
+  });
+}
+
 /** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
 const FRAMEWORK_CALLS: Record<string, RegExp> = {
   "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,

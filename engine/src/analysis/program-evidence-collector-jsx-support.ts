@@ -5,7 +5,8 @@ import type { PendingComponentPropBinding } from "./program-evidence-collector-c
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue, wrapperFillsParameters } from "./value-origin";
-import { stateRoleOf } from "./program-evidence-state-pairs";
+import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { watchedFunction } from "./framework-flows";
 import { isImmerDraft, storeApiCall, storeCreators, storeMember } from "./zustand-store";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
@@ -20,6 +21,7 @@ import {
   importedCallee,
   isAssignmentOperator,
   firstBindingIdentifier,
+  isBoundHandlerPair,
   functionNameNode,
   isExitStatusAssignment,
   isSelectionOperator,
@@ -182,6 +184,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     if (aliasId) {
       this.addRelation(aliasId, occurrenceId, "references", [this.location(opening.tagName)], proof("compiler-symbol", "The JSX tag names this value and renders it here.", [this.location(opening.tagName)]), "proven");
     }
+    // One function written as the element's child (`<Mouse>{(x) => …}</Mouse>`) is its `children` prop.
+    const element = opening.parent;
+    const written = this.ts.isJsxElement(element) ? element.children.filter((child) => !this.ts.isJsxText(child) || child.text.trim() !== "") : [];
+    const child = written.length === 1 && this.ts.isJsxExpression(written[0]) && written[0].expression ? unwrap(this.ts, written[0].expression) : undefined;
+    if (child && (this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child))) for (const each of targets) this.childFunctions.push({ target: each.id, value: child, at: opening });
     for (const each of targets) {
       this.addRelation(
         occurrenceId,
@@ -221,6 +228,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         ? attribute.initializer.expression
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
+      // Solid's bound handler (`onClick={[remove, id]}`): the page calls `remove(id, event)`; the pair is no DOM attribute.
+      if (!component && this.bindsEventData(value, ownerId)) continue;
       const valueId = this.expression(value, ownerId);
       const context = attribute.name.getText() === "value" ? provided : null;
       if (context) {
@@ -538,7 +547,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
 
   protected connectCalls(): void {
     this.connectContexts();
+    this.connectContextPairs();
     this.connectStores();
+    this.connectWatchedFunctions();
     const props = new Map<string, PendingComponentPropBinding[]>();
     for (const prop of this.componentPropBindings) {
       const bindings = props.get(prop.target.id) ?? [];
@@ -671,8 +682,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * prop a caller hands on from its own props (`onRemove={props.onRemove}`)
    * is what that caller's own occurrences hand in, a few levels up.
    */
-  private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean }[] {
-    return (props.get(ownerId) ?? []).flatMap((pending) => {
+  private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] {
+    // The children a component's elements hand in are written where it is rendered: load those places.
+    const owner = name === "children" ? this.functionsById.get(ownerId) : undefined;
+    const named = owner ? functionNameNode(this.ts, owner.declaration as TypeScript.FunctionLikeDeclaration) : null;
+    if (named) this.requireReferences(named);
+    const children = name === "children" ? this.childFunctions.filter((item) => item.target === ownerId).map((item) => ({ value: item.value as TypeScript.Node, paired: true, at: item.at as TypeScript.Node })) : [];
+    return [...children, ...(props.get(ownerId) ?? []).flatMap((pending) => {
       const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
       if (pending.target.id !== ownerId || pending.attribute.name.getText() !== name || !value) return [];
       const read = unwrap(this.ts, value);
@@ -680,21 +696,25 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const caller = receiver && this.ts.isParameter(receiver) && receiver.parent.parameters[0] === receiver ? this.functionsByNode.get(nodeKey(this.root, receiver.parent)) : undefined;
       const outer = caller && depth < 4 && this.ts.isPropertyAccessExpression(read) ? this.handedProps(props, caller.id, read.name.text, depth + 1) : [];
       return outer.length ? outer : [{ value, paired: true }];
-    });
+    })];
   }
+
+  /** Functions written as a component element's one child, by the component they are handed to (its `children` prop), and that element's opening tag. */
+  private readonly childFunctions: { target: string; value: TypeScript.Expression; at: TypeScript.JsxOpeningLikeElement }[] = [];
 
   private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
     const node = call.node;
     const slot = this.handlerSlot(node.expression);
     // A handler handed in by a caller is paired with that caller; a context's provider is above every reader, so its handler is not.
-    const handed: { value: TypeScript.Node; paired: boolean }[] = !slot
+    const handed: { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] = !slot
       ? [...this.contextMethod(node.expression), ...this.storeMethod(node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
         : this.handedProps(props, slot.owner.id, slot.index, 0);
-    for (const { value, paired } of handed) {
-      const boundAt = this.location(value);
+    for (const { value, paired, at } of handed) {
+      // Where the function was handed in: an attribute's value, or the opening tag of the element whose child it is (inside that occurrence).
+      const boundAt = this.location(at ?? value);
       const handledBy = (detail: string, where: ProgramEvidenceLocation[]) => paired ? proof("bound-handler", detail, [...where, boundAt]) : proof("argument-binding", detail, where);
       // A state setter handed in (`onPick={setPicked}`): the call's argument is the new state.
       const role = this.ts.isExpression(value) ? stateRoleOf(this.ts, this.checker, value) : null;
@@ -743,6 +763,39 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * is the call's value; without one, the call is the state, as
    * `useStore.getState()` is. Order and time are not proven, as for a state pair.
    */
+  /**
+   * A call that watches a function it is given (`useSubmission(action)`, a
+   * `watchedFunction` row): its result's `field` holds what the function
+   * returns, and its `input` each call's arguments, by position. The function
+   * is the one the action wraps, however it is reached (`resolveValue`).
+   */
+  private connectWatchedFunctions(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const imported = importedCallee(this.ts, this.checker, call.node.expression);
+      const fields = imported ? watchedFunction(imported.module, imported.name) : null;
+      const argument = fields ? call.node.arguments[fields.at] : undefined;
+      const fn = argument ? this.targetFunction(unwrap(this.ts, argument)) : null;
+      if (!fields || !argument || !fn) continue;
+      const node = call.node;
+      const key = (item: TypeScript.Node) => { const { span } = this.location(item); return `${span.startLine}:${span.startColumn}`; };
+      const detail = (words: string, at: TypeScript.Node = node) => proof("framework-state", words, [this.location(at)]);
+      const packed = { [key(argument)]: fields.field, ...(fields.input ? { [key(node.expression)]: fields.input } : {}) };
+      const packId = this.ensureElement(node, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify(packed) }, null, null, null, "proven", detail("The call's result is an object of fields the watched function fills."));
+      for (const returnId of this.returnsByFunction.get(fn.id) ?? []) {
+        this.addRelation(returnId, packId, "pack-field", [this.location(argument)], detail(`The result's ${fields.field} is what the watched function returns.`, argument), "proven");
+      }
+      for (const other of fields.input ? this.calls : []) {
+        if (other.target?.id !== fn.id || !this.ts.isCallExpression(other.node) || other.node.arguments.length === 0) continue;
+        const args = other.node.arguments;
+        const listId = this.ensureElement(other.node, "object-pack", other.ownerId, { operation: "object-pack", fields: JSON.stringify(Object.fromEntries(args.map((item, index) => [key(item), String(index)]))) }, null, null, null, "proven", detail("The call's arguments, as a list."));
+        for (const item of args) this.addRelation(this.expression(item, other.ownerId), listId, "pack-field", [this.location(item)], detail("This call of the watched function passes this argument.", item), "proven");
+        this.addRelation(listId, packId, "pack-field", [this.location(node.expression)], detail(`The result's ${fields.input} holds the arguments of each call of the watched function.`, node.expression), "proven");
+      }
+      this.addRelation(packId, call.id, "framework-flow", [this.location(node)], detail("The call yields the watched function's result fields."), "proven");
+    }
+  }
+
   private connectStores(): void {
     for (const call of this.calls) {
       if (!this.ts.isCallExpression(call.node)) continue;
@@ -862,11 +915,99 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         name = key.text;
       }
     }
-    if (!holder || !this.ts.isCallExpression(holder) || !holder.arguments[0]) return null;
-    const imported = importedCallee(this.ts, this.checker, holder.expression);
-    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return null;
-    const context = this.contextKey(holder.arguments[0]);
+    const read = holder ? this.contextRead(holder) : null;
+    const context = read ? this.contextKey(read.arguments[0]) : null;
     return context ? { context, name } : null;
+  }
+
+  /**
+   * A handler written with its data (`[remove, id]`) where the attribute's
+   * own type says so: a tuple whose first element is a function (Solid's
+   * `BoundEventHandler`). The data binds the handler's first parameter.
+   */
+  private bindsEventData(value: TypeScript.Expression, ownerId: string | null): boolean {
+    const pair = unwrap(this.ts, value);
+    if (!isBoundHandlerPair(this.ts, this.checker, pair)) return false;
+    const [handlerNode, data] = pair.elements;
+    const handler = this.targetFunction(unwrap(this.ts, handlerNode));
+    const parameter = handler?.declaration.parameters[0];
+    const binding = parameter ? firstBindingIdentifier(this.ts, parameter.name) : null;
+    const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    if (parameterId) {
+      const where = [this.location(data), this.location(parameter!)];
+      this.addRelation(this.expression(data, ownerId), parameterId, "argument-binding", where, proof("argument-binding", "The page calls the bound handler with this data as its first argument.", where), "proven");
+    }
+    return true;
+  }
+
+  /** The context read and position a callee takes from a context's tuple (`const [, setName] = useContext(Ctx)`), or null. */
+  private contextTupleElement(callee: TypeScript.Expression): { read: TypeScript.CallExpression; index: number } | null {
+    const node = unwrap(this.ts, callee);
+    const element = this.ts.isIdentifier(node) ? this.checker.getSymbolAtLocation(node)?.valueDeclaration : undefined;
+    if (!element || !this.ts.isBindingElement(element) || element.dotDotDotToken || !this.ts.isArrayBindingPattern(element.parent)) return null;
+    const declaration = element.parent.parent;
+    const read = this.ts.isVariableDeclaration(declaration) && declaration.initializer ? this.contextRead(declaration.initializer) : null;
+    const index = element.parent.elements.indexOf(element);
+    return read && index <= 1 ? { read, index } : null;
+  }
+
+  protected override contextPairHalf(callee: TypeScript.Expression): boolean {
+    return this.contextTupleElement(callee) !== null;
+  }
+
+  /**
+   * A state pair provided whole through a context (`value={pair}` after
+   * `const pair = createSignal("")`): a reader's element 0 is its getter and
+   * element 1 its setter, so the setter's argument becomes the state the
+   * getter's calls read, as for a destructured pair. Order and time are not proven.
+   */
+  private connectContextPairs(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const half = this.contextTupleElement(call.node.expression);
+      const context = half ? this.contextKey(half.read.arguments[0]) : null;
+      if (!half || !context) continue;
+      const above = this.contextAncestry.above(half.read, context);
+      const where = [this.location(call.node)];
+      for (const provided of this.contextValues.get(context) ?? []) {
+        if (!contextApplies(above, provided)) continue;
+        const value = unwrap(this.ts, provided);
+        const declaration = this.ts.isIdentifier(value) ? this.checker.getSymbolAtLocation(value)?.valueDeclaration : undefined;
+        if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer || !stateFactory(this.ts, this.checker, declaration.initializer)) continue;
+        const stateId = this.stateElement(declaration.name);
+        if (half.index === 0) {
+          this.addRelation(stateId, call.id, "references", where, proof("framework-state", "The context's getter reads the state its setter writes; order and time are not proven.", where), "partial");
+          continue;
+        }
+        const argument = call.node.arguments.length === 1 ? unwrap(this.ts, call.node.arguments[0]) : undefined;
+        if (!argument || this.ts.isArrowFunction(argument) || this.ts.isFunctionExpression(argument)) continue;
+        const at = [this.location(argument)];
+        this.addRelation(this.expression(argument, call.ownerId), stateId, "references", at, proof("framework-state", "The context's setter's argument becomes the state its getter reads; order and time are not proven.", at), "partial");
+      }
+    }
+  }
+
+  /**
+   * The `useContext(Ctx)` call an expression is: the call itself, or a call of
+   * a hook of the program's whose one return is that call
+   * (`const useCart = () => useContext(CartContext)!`). Null otherwise.
+   */
+  private contextRead(expression: TypeScript.Expression): TypeScript.CallExpression | null {
+    const call = unwrap(this.ts, expression);
+    if (!this.ts.isCallExpression(call)) return null;
+    const imported = importedCallee(this.ts, this.checker, call.expression);
+    if (imported?.name === "useContext" && (imported.module === "solid-js" || imported.module === "react")) return call.arguments[0] ? call : null;
+    if (imported) return null;
+    const hook = this.targetFunction(call.expression)?.declaration;
+    const body = hook && "body" in hook ? hook.body : undefined;
+    if (!body) return null;
+    const returned = this.ts.isBlock(body)
+      ? body.statements.length === 1 && this.ts.isReturnStatement(body.statements[0]) ? body.statements[0].expression : undefined
+      : body;
+    const inner = returned ? unwrap(this.ts, returned) : undefined;
+    if (!inner || !this.ts.isCallExpression(inner)) return null;
+    const read = importedCallee(this.ts, this.checker, inner.expression);
+    return read?.name === "useContext" && (read.module === "solid-js" || read.module === "react") && inner.arguments[0] ? inner : null;
   }
 
   /**
@@ -929,11 +1070,15 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
   private connectMemberState(): void {
     // A parameter property (`constructor(public label: string)`) writes its member, as `this.label = label` would.
+    // A getter that reads `this` reads it from the receiver of each read of its member (`state.full` binds `this` to `state`).
+    const getterThis = new Map<string, string>();
     for (const fn of this.functionsById.values()) {
       // A getter's returns are what each read of its member sees (`named.shout`).
       if (this.ts.isGetAccessorDeclaration(fn.declaration)) {
         const key = this.symbolId(fn.declaration.name);
         if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), ...(this.returnsByFunction.get(fn.id) ?? [])]);
+        const thisId = key ? this.thisBinding(fn.declaration) : null;
+        if (key && thisId) getterThis.set(key, thisId);
       }
       // React merges what a class component's static `getDerivedStateFromError` or `getDerivedStateFromProps` returns into its `state`.
       const stateKey = this.derivedStateMember(fn.declaration);
@@ -954,6 +1099,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const writes = key ? this.memberWrites.get(key) : undefined;
       if (!writes) continue;
       const readId = this.elementIfPresent(read.node, "field-read") ?? this.expression(read.node, read.ownerId);
+      const thisId = getterThis.get(key!);
+      if (thisId) {
+        const where = [this.location(read.node.expression)];
+        this.addRelation(this.expression(read.node.expression, read.ownerId), thisId, "argument-binding", where, proof("argument-binding", "Reading the member runs its getter with this receiver as `this`.", where), "proven");
+      }
       for (const valueId of writes) {
         if (valueId === readId) continue;
         this.addRelation(valueId, readId, "member-state", [this.location(read.node)], proof("compiler-symbol", "The checker names the same member this value was written into.", [this.location(read.node)]), "proven");

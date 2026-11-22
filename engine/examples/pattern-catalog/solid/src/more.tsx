@@ -56,8 +56,8 @@ export function Safe(props: { label: string }) { // @trace s-error-boundary forw
   return <ErrorBoundary fallback={(err) => <p>{String(err)}</p>}><span>{props.label}</span></ErrorBoundary>;
 }
 
-// S31 memo of a filtered list
-export function Filtered(props: { items: string[]; query: string }) { // @trace s-filter-memo forward props.query @want dom-terminal|render-terminal
+// S31 memo of a filtered list: the query only tests each item (it picks which render), so it ends at the filter's test, never in the page.
+export function Filtered(props: { items: string[]; query: string }) { // @trace s-filter-memo forward props.query @want branch-condition
   const shown = createMemo(() => props.items.filter((item) => item.includes(props.query)));
   return <For each={shown()}>{(item) => <p>{item}</p>}</For>;
 }

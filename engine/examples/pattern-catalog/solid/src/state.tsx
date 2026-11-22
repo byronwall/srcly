@@ -87,8 +87,8 @@ export function Page(props: { body: string }) { // @trace s-children forward pro
   return <Panel><p>{props.body}</p></Panel>;
 }
 
-// S13 Index
-export function Tags(props: { tags: string[] }) { // @trace s-index forward props.tags @want dom-terminal
+// S13 Index: each item is a text child, a render
+export function Tags(props: { tags: string[] }) { // @trace s-index forward props.tags @want render-terminal
   return <Index each={props.tags}>{(tag) => <span>{tag()}</span>}</Index>;
 }
 
