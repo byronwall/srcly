@@ -77,6 +77,7 @@ import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type Libr
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { returnedTerminal } from "./program-evidence-returned-terminals";
 import { DeferredMap } from "./deferred-map";
+import { InstanceSites } from "./instance-sites";
 import { strictNulls } from "../project/typescript";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
@@ -124,6 +125,7 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly resourceBySymbol = new Map<string, string>();
   protected readonly returnsByFunction = new DeferredMap<string, string[]>();
   protected readonly calls: CollectorCallInfo[] = [];
+  private instanceSitesValue: InstanceSites | null = null;
   protected readonly references: CollectorReferenceInfo[] = [];
   protected readonly referenceIds = new Set<string>();
   /** The state element of each reactive pair's getter (by symbol): its reads see the state, not the pair's pattern. */
@@ -575,12 +577,19 @@ export class ProgramEvidenceCollectorSupport {
     return value ? this.functionsByNode.get(nodeKey(this.root, value.origin)) ?? null : null;
   }
 
+  /** Call and `new` sites by callee, found once, on first use. */
+  protected get instanceSites(): InstanceSites {
+    return (this.instanceSitesValue ??= new InstanceSites(this.ts, this.checker, this.files));
+  }
+
   /** A function named by the declaration around the call it is given (`functionNameNode`) is what that name holds, unless a row says the call makes something else. */
   private bindsItsFunction(info: CollectorFunctionInfo): boolean {
     const call = info.declaration.parent;
     if (!call || !this.ts.isCallExpression(call) || call.arguments[0] !== info.declaration) return true;
     const imported = importedCallee(this.ts, this.checker, call.expression);
-    return !imported || yieldsFirstFunction(imported.module, imported.name);
+    if (imported) return yieldsFirstFunction(imported.module, imported.name);
+    // A wrapper of the project's returns its argument only when the call's type is the argument's (`wrap<T>(fn: T): T`); `compute(fn): () => number` makes another function.
+    return this.checker.getTypeAtLocation(call) === this.checker.getTypeAtLocation(info.declaration);
   }
 
   /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`, its `select`), or null. */

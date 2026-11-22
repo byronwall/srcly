@@ -9,7 +9,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, rowFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -168,7 +168,10 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   private flowOf(node: TypeScript.CallExpression): FrameworkFlow | undefined {
     if (isResourceFactory(this.ts, this.checker, node)) return resourceFlow(this.ts, this.checker, node);
     const imported = importedCallee(this.ts, this.checker, node.expression);
-    return imported ? frameworkFlow(imported.module, imported.name) : undefined;
+    if (imported) return frameworkFlow(imported.module, imported.name);
+    // A standard-library member's row (`Object.assign` passes its objects through, a field staying that field).
+    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression));
+    return row?.model === "passes-through" ? rowFlow(row) : undefined;
   }
 
   private watchesFunction(node: TypeScript.CallExpression): boolean {

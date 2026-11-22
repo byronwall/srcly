@@ -38,7 +38,11 @@ const argument = (row: LibraryModelRow) => (row.args !== undefined && /^\d+$/.te
 
 /** How the call moves values (`FrameworkFlow`), or undefined for a call no flow row names. */
 export function frameworkFlow(module: string, name: string): FrameworkFlow | undefined {
-  const row = frameworkRow(module, name);
+  return rowFlow(frameworkRow(module, name));
+}
+
+/** How a row's call moves values (`FrameworkFlow`): an imported call's, or a standard-library member's (`Object.assign`). */
+export function rowFlow(row: LibraryModelRow | null): FrameworkFlow | undefined {
   if (!row) return undefined;
   const at = argument(row);
   if (row.model === "passes-through") return { passes: at === undefined ? "*" : [at] };

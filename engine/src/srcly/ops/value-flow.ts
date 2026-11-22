@@ -14,7 +14,7 @@ import {
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
 import { assumedCallee, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
-import { elementTraits, relationTraits } from "../kinds";
+import { elementTraits, proofStrength, relationTraits } from "../kinds";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
@@ -91,7 +91,7 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
 
 class LedgerBuilder {
   private rows: LedgerRow[] = [];
-  /** Some step the ledger walked assumes what code with no source does (`assumedCallee`). */
+  /** Some step the ledger walked assumes what code with no source does (`assumedCallee`), or rests on an assumed proof (`shared-instance`). */
   private assumed = false;
   /** Elements the forward walk visited: a dead end counts only where the walk went. */
   private readonly visited = new Set<string>();
@@ -386,7 +386,7 @@ class LedgerBuilder {
         const key = `${step.kind}|${step.element.id}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        if (step.kind !== "boundary" && assumedCallee(this.tier1, step.relation)) this.assumed = true;
+        if (step.kind !== "boundary" && (proofStrength(step.relation.proof.kind) === "assumed" || assumedCallee(this.tier1, step.relation))) this.assumed = true;
         this.add({
           kind: step.kind,
           label: step.element.label,

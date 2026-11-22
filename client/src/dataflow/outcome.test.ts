@@ -19,6 +19,7 @@ describe("outcome words and colors", () => {
   it("treats only the engine's assumed proof kinds as assumed steps", () => {
     expect(isAssumedProof("external-call")).toBe(true);
     expect(isAssumedProof("partial-classification")).toBe(true);
+    expect(isAssumedProof("shared-instance")).toBe(true);
     expect(isAssumedProof("framework-state")).toBe(false);
     expect(isAssumedProof("host-api")).toBe(false);
   });
