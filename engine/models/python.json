@@ -968,6 +968,55 @@
       "model": "terminal",
       "role": "http-response",
       "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "asyncio.tasks",
+      "name": "gather",
+      "model": "passes-through",
+      "note": "returns the results of the awaitables it is given"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "request.*",
+      "model": "passes-through",
+      "note": "reads the request"
+    },
+    {
+      "language": "py",
+      "module": "flask.globals",
+      "name": "request.*",
+      "model": "passes-through",
+      "note": "reads the request"
+    },
+    {
+      "language": "py",
+      "module": "rest_framework.serializers",
+      "member": "BaseSerializer.is_valid",
+      "model": "passes-through",
+      "note": "tests the data the serializer holds"
+    },
+    {
+      "language": "py",
+      "module": "rest_framework.serializers",
+      "member": "Serializer.is_valid",
+      "model": "passes-through",
+      "note": "tests the data the serializer holds"
+    },
+    {
+      "language": "py",
+      "module": "rest_framework.serializers",
+      "member": "ModelSerializer.is_valid",
+      "model": "passes-through",
+      "note": "tests the data the serializer holds"
+    },
+    {
+      "language": "py",
+      "module": "concurrent.futures._base",
+      "member": "Future.result",
+      "model": "passes-through",
+      "note": "returns the value the future holds"
     }
   ]
 }

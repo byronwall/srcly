@@ -105,11 +105,23 @@ A Python root uses the same engine contracts as TypeScript. `engine/python/srcly
 - A first-party Celery task's `delay(…)` and `apply_async(args=…, kwargs=…)` bind its parameters like a call, so a task's inputs trace back to every place that queues it, and a queued value walks into the task. The call's result is the task's handle, never its return.
 - A file or folder anchor lists a Python module's public top-level functions and classes as its exports, each one opening into its trace.
 
-- Catalog: `engine/examples/pattern-catalog/python` holds 75 everyday Python patterns (plain Python, boundaries, FastAPI, Flask, Django, DRF, SQLAlchemy, Celery, click, pandas). The first run reached 44 wanted ends, and the run after the rules below reaches 64.
+- Catalog: `engine/examples/pattern-catalog/python` holds 75 everyday Python patterns (plain Python, boundaries, FastAPI, Flask, Django, DRF, SQLAlchemy, Celery, click, pandas). The first run reached 44 wanted ends, the run after the rules below reached 64 (60 `ok`), and the scope and callable rules at the end of this list bring it to 75 `ok`, every one at its wanted end.
 - A `yield` or `yield from` leaves a generator as a return does, and the yield of a `@contextmanager` function reaches the `with ... as` name.
 - An argument to a network, database or subprocess call ends at the call as an external effect.
 - A method call finds its library row through the class its receiver was built from or annotated with, or through a library base class of a first-party class. The packages do not need to be installed. New rows cover argparse, SQLAlchemy and SQLModel `Session`, pandas, Django and DRF `Response`.
 - In `x = f(x)`, the read on the right sees the earlier `x`.
+- `global X` binds and reads the module's `X`; `nonlocal X` the nearest enclosing function's. Loads join their bindings after every body of the module is walked, so the order of the functions does not matter.
+- Module state: a write to a module name's constant key or attribute (`CURRENT["theme"] = theme`) can be what any read of that key in the module sees (partial, flow-insensitive). A read of another key is not joined.
+- A function returned as a value (`return apply`) goes to the caller of the function that returns it. When that function is an entry (nothing calls, holds, decorates or registers it), the closure's returns leave the program as `return`. Returned by a function the program calls, the closure escapes, and its return stays an unproven hand-off.
+- A call of a local `def` enters it. `to_ops = functools.partial(send, "ops")` bound once makes `to_ops(x)` a call of `send` with `"ops"` first.
+- `f(*items)` and `f(**options)` fill the parameters that nothing else binds: proven for a parameter with no default, partial otherwise.
+- A `match` capture binds from the subject: `case x` the subject itself, a capture inside a sequence, mapping or class pattern an element of it.
+- A library call that calls the function it is given (`FORWARDING_CALLS`: `BackgroundTasks.add_task`, `Executor.submit`, `asyncio.to_thread`) binds that function's parameters from the arguments after it. `submit` and `to_thread` also return the function's return (`submit` in a future, whose `result()` is a `passes-through` row).
+- A call of a parameter (`fn(item)`) is a call of the function every call site passes for it, when they all pass the same one and nothing else holds the function. A library function with a terminal row (`print`) makes the call that terminal. Call sites that pass different functions leave it external.
+- A method's row is also looked up by the receiver's own class: `handle.write` on an `open(..., "w")` handle is `_io.TextIOWrapper.write` (a file write), while mypy names the shared base `_io._TextIOBase.write`, which a `StringIO` has too.
+- A field or key written on a local name before that name is handed to a sending terminal (`article.title = …` then `article.save()`, `row["k"] = …` then `print(row)`) goes with it. A Django manager's `get`, `create`, `first` or `last` names an instance of its model.
+- `passes-through` rows (Flask's `request.*`, DRF's `is_valid`, `asyncio.gather`) and a query result's methods after a database origin (`.scalars()`, `.all()`) are modelled: their result derives from their receiver and arguments, so a trace through them is `ok`, not `assumed`.
+- A dependency that FastAPI calls for a route (`Depends(f)` on a handler, or on such a dependency) fills a parameter with an explicit marker (`Header()`, `Query()`, …) or a `Request` annotation from the request, proven. Its other parameters stay assumed.
 
 ## Python roots in the UI
 

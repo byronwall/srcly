@@ -163,3 +163,22 @@ The rules remove stops, but whole-export traces have several stops each, and 40%
 - **Calls with no resolved symbol** (tRPC proxies, `any`): 50 traces.
 - **Callback props that no caller hands a function to** (`onConfirm()`): 53 traces. Some are real unknowns. The rest are components that only a library renders.
 - **Solid `createResource` input and result boundaries:** 27 and 34 traces. The boundary is shown as framework runtime, not proven.
+
+## Python catalog (November 2026)
+
+The `python` root of the catalog (75 patterns, `--root python`) went from 60 `ok` (64 at the wanted end) to 75 `ok`, all 75 at the wanted end, with no `assumed` and no `partial`. The rules are listed in `docs/dataflow-coverage.md` (Python rules).
+
+| Gap | Patterns it closed |
+| --- | --- |
+| `global` and `nonlocal` bind in the outer scope | `o-global`, `o-nonlocal` |
+| Module state joins a key's writes to its reads | `o-module-state` |
+| A closure an entry returns leaves the program | `p-closure` |
+| Local `def` calls, `functools.partial`, `**options` | `p-nested-call`, `p-partial`, `p-dict-unpack` |
+| A callback parameter is the function every call site passes | `p-callback` |
+| `match` captures | `p-match` |
+| A receiver's own class row, saved field writes | `b-file-write`, `w-django-save` |
+| Library calls that call a function they are given | `f-background-task` |
+| `passes-through` rows and query results | `w-flask-args`, `w-drf-serializer`, `o-gather`, `d-sa-select` |
+| A route dependency's marked parameter is a request origin | `f-depends-chain` |
+
+No Python catalog gap is open.
