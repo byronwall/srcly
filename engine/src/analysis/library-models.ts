@@ -15,11 +15,16 @@ import { calleeName, importedCallee } from "./program-evidence-support";
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
 const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGINE_BUNDLE__;
 
-/** The model types (plan §3), `wraps`: a call that returns the function it is given, and `cell`: a call that makes one state each time it runs (`createSignal`, zustand's `create`). */
-export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "passes-through", "consumes", "calls-back", "wraps", "cell"] as const;
+/**
+ * The model types (plan §3), `wraps`: a call that returns the function it is
+ * given, `cell`: a call that makes one state each time it runs
+ * (`createSignal`, zustand's `create`), and `slot`: a JSX component that
+ * calls a function it is given with values (`<For each>{(row) => …}</For>`).
+ */
+export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "passes-through", "consumes", "calls-back", "wraps", "cell", "slot"] as const;
 
 /** The models that say what they do only with `flows` access paths. */
-const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back", "wraps", "passes-through"]);
+const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back", "wraps", "passes-through", "slot"]);
 
 /**
  * An access path (CodeQL's models-as-data tokens): a root, then steps.
@@ -58,7 +63,12 @@ export const libraryModelRowSchema = z
     role: z.string().min(1).optional().describe("An origin or terminal role."),
     result: z.string().regex(/^(call|\d+)$/).optional().describe("For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`)."),
     settles: z.literal("reject").optional().describe("For `consumes`: the call makes a promise that only rejects, with its first argument (`Promise.reject`)."),
-    flows: z.array(libraryFlowSchema).optional().describe("For `calls-back`, `wraps` and `passes-through` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
+    flows: z.array(libraryFlowSchema).optional().describe("For `calls-back`, `wraps`, `passes-through` and `slot` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them; `slots.ts` for a `slot`, whose `Argument[0]` is the props: `Argument[0].Member[each].ArrayElement -> Argument[0].Member[children].Parameter[0]`). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
+    variant: z.object({
+      attribute: z.string().min(1).describe("A boolean attribute (`keyed`)."),
+      flows: z.array(libraryFlowSchema).describe("The flows that replace the row's `flows` when the occurrence sets it."),
+    }).strict().optional().describe("For a `slot`: other flows when the occurrence sets a boolean attribute (`<Show keyed>` hands its child the value, not an accessor of it). An occurrence that sets it to a value no reader can decide takes neither."),
+    makes: z.array(libraryPathSchema).optional().describe("For a `slot`: what the component makes itself and hands a function it calls, which no argument supplies (`Argument[0].Member[children].Parameter[1]` `For`'s index accessor, `Argument[0].Member[fallback].Parameter[0]` the error an `ErrorBoundary` caught)."),
     init: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths whose value seeds the call's one state (`Argument[0]`; `Argument[0].ReturnValue` when a function initial value is called; `Argument[1].ReturnValue.Awaited` for a fetcher)."),
     writes: z.union([z.literal("this"), z.array(libraryPathSchema)]).optional().describe("For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value)."),
     reads: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`)."),
@@ -69,7 +79,8 @@ export const libraryModelRowSchema = z
   })
   .strict()
   .refine((row) => (row.name === undefined) !== (row.member === undefined), { message: "a row names exactly one of `name` or `member`" })
-  .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps` or `passes-through` row names its `flows`, and no other row does" })
+  .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps`, `passes-through` or `slot` row names its `flows`, and no other row does" })
+  .refine((row) => row.model === "slot" || (row.variant === undefined && row.makes === undefined), { message: "only a `slot` row names a `variant` or what it `makes`" })
   .refine((row) => (row.model === "cell") === [row.init, Array.isArray(row.writes) ? row.writes : undefined, row.reads, row.yields, row.optional].some((field) => field !== undefined), { message: "a `cell` row names its paths (`init`, `writes`, `reads`, `yields`), and no other row does" });
 
 export const libraryModelFileSchema = z

@@ -115,6 +115,133 @@
     {
       "language": "ts",
       "module": "solid-js",
+      "name": "For",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[each].ArrayElement -> Argument[0].Member[children].Parameter[0]",
+        "Argument[0].Member[children].ReturnValue -> ReturnValue.ArrayElement",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "makes": [
+        "Argument[0].Member[children].Parameter[1]"
+      ],
+      "proof": "solid-for",
+      "note": "`createMemo(mapArray(() => props.each, props.children))`: the child takes each item as a value and an accessor of its index, which no prop supplies; the list holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "Index",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[each].ArrayElement -> Argument[0].Member[children].Parameter[0].ReturnValue",
+        "Argument[0].Member[children].ReturnValue -> ReturnValue.ArrayElement",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "makes": [
+        "Argument[0].Member[children].Parameter[1]"
+      ],
+      "proof": "solid-for",
+      "note": "`createMemo(indexArray(() => props.each, props.children))`: the child takes an accessor of each item and its index as a number, which no prop supplies; the list holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "Show",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[when] -> Argument[0].Member[children].Parameter[0].ReturnValue",
+        "Argument[0].Member[when] -> ReturnValue : test",
+        "Argument[0].Member[children].ReturnValue -> ReturnValue",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "variant": {
+        "attribute": "keyed",
+        "flows": [
+          "Argument[0].Member[when] -> Argument[0].Member[children].Parameter[0]",
+          "Argument[0].Member[when] -> ReturnValue : test",
+          "Argument[0].Member[children].ReturnValue -> ReturnValue",
+          "Argument[0].Member[fallback] -> ReturnValue"
+        ]
+      },
+      "proof": "solid-show",
+      "note": "Renders its child while `when` is truthy; a function child takes an accessor of the value, or with `keyed` the value itself."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "Switch",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[children] -> ReturnValue",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "note": "Renders the first `Match` whose `when` is truthy (the `Match` row says what its child takes), else `fallback`."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "Match",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[when] -> Argument[0].Member[children].Parameter[0].ReturnValue",
+        "Argument[0].Member[when] -> ReturnValue : test",
+        "Argument[0].Member[children].ReturnValue -> ReturnValue",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "variant": {
+        "attribute": "keyed",
+        "flows": [
+          "Argument[0].Member[when] -> Argument[0].Member[children].Parameter[0]",
+          "Argument[0].Member[when] -> ReturnValue : test",
+          "Argument[0].Member[children].ReturnValue -> ReturnValue",
+          "Argument[0].Member[fallback] -> ReturnValue"
+        ]
+      },
+      "proof": "solid-show",
+      "note": "Inside a `Switch`: renders its child while `when` is truthy and no earlier `Match` is; a function child takes an accessor of the value, or with `keyed` the value itself."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "ErrorBoundary",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[children] -> ReturnValue",
+        "Argument[0].Member[fallback] -> ReturnValue",
+        "Argument[0].Member[fallback].ReturnValue -> ReturnValue"
+      ],
+      "makes": [
+        "Argument[0].Member[fallback].Parameter[0]",
+        "Argument[0].Member[fallback].Parameter[1]"
+      ],
+      "note": "Renders its children; when they throw, a function `fallback` takes the error and a `reset` function, which no prop supplies, and renders what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "Suspense",
+      "model": "slot",
+      "flows": [
+        "Argument[0].Member[children] -> ReturnValue",
+        "Argument[0].Member[fallback] -> ReturnValue"
+      ],
+      "note": "Renders `fallback` while a resource its children read is loading, then its children; it calls no function it is given."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/web",
+      "name": "Dynamic",
+      "model": "slot",
+      "flows": [
+        "Argument[0] -> Argument[0].Member[component].Parameter[0]",
+        "Argument[0].Member[component].ReturnValue -> ReturnValue"
+      ],
+      "note": "`createDynamic(() => props.component, others)`: calls the `component` prop with the other props and renders what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
       "name": "untrack",
       "model": "calls-back",
       "flows": [

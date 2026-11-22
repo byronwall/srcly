@@ -9,7 +9,7 @@ import { cellHas, cellYields, pairCall } from "./cells";
 import type { LibraryModelRow } from "./library-models";
 import { watchedFunction } from "./framework-flows";
 import type { ProgramEvidenceLocation } from "./program-evidence";
-import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
+import { handsProp, renderedProp, testsProp } from "./slots";
 import { ContextAncestry, contextApplies } from "./program-evidence-context-ancestry";
 import { programEvidenceCandidateIndex } from "./program-evidence-candidate-index";
 import {
@@ -203,7 +203,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
     for (const attribute of opening.attributes.properties) {
       this.checkCancellation();
-      if (dynamic && this.ts.isJsxAttribute(attribute) && attribute.name.getText() === "component") continue;
+      if (dynamic && this.ts.isJsxAttribute(attribute) && attribute.initializer && this.ts.isJsxExpression(attribute.initializer) && attribute.initializer.expression === dynamic) continue;
       // A spread hands every field of its value to the occurrence: a component's props, or the element's attributes.
       if (this.ts.isJsxSpreadAttribute(attribute)) {
         const spreadId = this.expression(attribute.expression, ownerId);
@@ -250,13 +250,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       );
       for (const each of targets) this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, each);
       // A context's provided value goes to its readers (`connectContexts`), not into the page.
-      // Solid's `<For each>` and `<Index each>` hand their items to the render callback (`connectSolidFor`); the list is no DOM attribute.
-      const listed = attribute.name.getText() === "each"
-        && (isSolidComponent(this.ts, this.checker, opening.tagName, "For") || isSolidComponent(this.ts, this.checker, opening.tagName, "Index"));
-      if (!component && !context && !listed) {
-        // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
-        const branch = attribute.name.getText() === "when"
-          && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
+      // A slot's props go where its row says (`slots.ts`): a `<Show when>` decides which branch renders,
+      // and a `<For each>` hands its items to the render callback (`connectSlot`); neither is a DOM attribute.
+      const slot = component || context ? null : this.modelFor(opening.tagName);
+      const branch = testsProp(slot, attribute.name.getText());
+      if (!component && !context && (branch || !handsProp(slot, attribute.name.getText()))) {
         this.addTerminal(
           value,
           ownerId,
@@ -295,12 +293,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
   }
 
-  /** The `component` a Solid `<Dynamic>` renders, when the tag is `solid-js/web`'s `Dynamic`. */
-  private dynamicComponent(opening: TypeScript.JsxOpeningLikeElement): TypeScript.Expression | undefined {
-    if (!this.ts.isIdentifier(opening.tagName)) return undefined;
-    const imported = importedCallee(this.ts, this.checker, opening.tagName);
-    if (imported?.module !== "solid-js/web" || imported.name !== "Dynamic") return undefined;
-    const attribute = opening.attributes.properties.find((item): item is TypeScript.JsxAttribute => this.ts.isJsxAttribute(item) && item.name.getText() === "component");
+  /** The component a slot renders with its other props (`<Dynamic component>`): the prop its row hands the props to. */
+  private slotComponent(opening: TypeScript.JsxOpeningLikeElement): TypeScript.Expression | undefined {
+    const name = renderedProp(this.modelFor(opening.tagName));
+    const attribute = name ? opening.attributes.properties.find((item): item is TypeScript.JsxAttribute => this.ts.isJsxAttribute(item) && item.name.getText() === name) : undefined;
     const value = attribute?.initializer && this.ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : undefined;
     return value ?? undefined;
   }
@@ -334,7 +330,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     if (provided) return { provided, dynamic: undefined, targets: [], aliasId: null };
     const rendered = this.renderedComponent(opening.tagName);
     // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
-    const dynamic = rendered.targets.length ? undefined : this.dynamicComponent(opening);
+    const dynamic = rendered.targets.length ? undefined : this.slotComponent(opening);
     return dynamic ? { provided, dynamic, targets: this.componentsOf(dynamic), aliasId: null } : { provided, dynamic, ...rendered };
   }
 

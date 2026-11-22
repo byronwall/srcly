@@ -14,6 +14,8 @@ import {
 } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
 import { asyncCellCall, asyncCellFlow } from "./cells";
+import { rowPaths } from "./framework-flows";
+import { slotCalls, slotRow } from "./slots";
 
 type FunctionInfo = {
   id: string;
@@ -483,7 +485,7 @@ function exactShowRenderProp(
   const when = exactShowWhenAttribute(context, condition);
   if (!when) return null;
   const show = openingForAttribute(context.ts, when);
-  if (!show || !isSolidShow(context, show) || !hasOneStaticShowWhen(context.ts, show, when)) return null;
+  if (!show || !handsValueToChild(context, show, when.name.getText()) || !hasOneStaticShowWhen(context.ts, show, when)) return null;
   const renderProp = singleShowRenderProp(context.ts, show);
   return renderProp ? { show, when, renderProp: renderProp.renderProp } : null;
 }
@@ -497,26 +499,20 @@ function exactShowWhenAttribute(
   const attribute = expression.parent;
   if (!context.ts.isJsxAttribute(attribute)
     || attribute.initializer !== expression
-    || !context.ts.isIdentifier(attribute.name)
-    || attribute.name.text !== "when") {
+    || !context.ts.isIdentifier(attribute.name)) {
     return null;
   }
   return attribute;
 }
 
-function isSolidShow(
+/** Whether a slot row hands this attribute's value, not an element of it, to the occurrence's function child (`<Show when>`, `<Match when>`). */
+function handsValueToChild(
   context: CarrierContext,
   opening: TypeScript.JsxOpeningLikeElement,
+  attribute: string,
 ): boolean {
-  if (context.moduleFor(opening.tagName) !== "solid-js" || !context.symbolId(opening.tagName)) return false;
-  let symbol = context.checker.getSymbolAtLocation(opening.tagName);
-  if (!symbol) return false;
-  try {
-    if (symbol.flags & context.ts.SymbolFlags.Alias) symbol = context.checker.getAliasedSymbol(symbol);
-  } catch {
-    return false;
-  }
-  return symbol.getName() === "Show";
+  const row = slotRow(context.modelFor(opening.tagName));
+  return Boolean(row) && slotCalls(rowPaths(row)).some((call) => call.input === attribute && !call.element && call.render === "children");
 }
 
 function hasOneStaticShowWhen(
@@ -527,7 +523,7 @@ function hasOneStaticShowWhen(
   let count = 0;
   for (const property of show.attributes.properties) {
     if (ts.isJsxSpreadAttribute(property)) return false;
-    if (!ts.isJsxAttribute(property) || !ts.isIdentifier(property.name) || property.name.text !== "when") continue;
+    if (!ts.isJsxAttribute(property) || !ts.isIdentifier(property.name) || property.name.text !== expected.name.getText()) continue;
     if (property !== expected) return false;
     count += 1;
   }
