@@ -267,8 +267,8 @@ The intake question: does this library have a body we can read, or is it a primi
 | Solid `createSignal`, `createMemo`, effects, `createStore`, `splitProps`, `mergeProps` | The reactive core: a scheduler and `Proxy` objects | 14 | | Primitive: keep rows |
 | Context (React and Solid) | Solid: `Owner.context[context.id] ?? context.defaultValue`. React: the dispatcher | 0 | 107 | Primitive: one keyed-store row |
 | I/O (fetch, fs, DB, print, Python boundaries) | Ends in native code or the network | 161 | | Primitive: keep rows |
-| Solid `For`, `Index`, `Show`, `children` | 5 to 15 lines each on `createMemo` and `mapArray` | 0 | 128 | Built on primitives |
-| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | Plain JS on the reactive core | 6 | | Built on primitives |
+| Solid `For`, `Index`, `Show`, `children` | 5 to 15 lines each on `createMemo` and `mapArray` | 1 | 128 | Built on primitives |
+| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | Plain JS on the reactive core | 5 | | Built on primitives |
 | Router `createAsync`, `query`, `cache`, `action` | `createAsync` is `createResource(() => fn())`; `query` keeps a module `Map` keyed by name and arguments | 8 | resource 140 (shared with Solid) | Built on primitives; the `Map` is a keyed store with a computed key |
 | zustand | 80 lines: a closure `let state` and `useSyncExternalStoreWithSelector` | 1 | 70 | Built on primitives |
 | React Query, Solid Query | About 1,800 lines of classes in `query-core`: an observer on `useSyncExternalStore`, a cache `Map` keyed by a hash of the query key, a `Promise` retryer | 9 | options 85 | Built on primitives, but deep; the hashed key stays `assumed` |
