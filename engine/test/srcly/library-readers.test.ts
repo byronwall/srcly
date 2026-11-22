@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   frameworkRow,
+  rowPaths,
   hasNoValue,
   makesAccessor,
   makesPredicate,
@@ -20,6 +21,7 @@ import {
   yieldsOnlyCallback,
 } from "../../src/analysis/framework-flows";
 import { callsInitialValue, holdsState, pairShaped, reducerArgument, settlesAsync } from "../../src/analysis/cells";
+import { handsProp, renderedProp, slotCalls, slotRow, testsProp } from "../../src/analysis/slots";
 import { builtinLibraryModels, libraryFlowSchema, libraryModelKey, type LibraryModelRow } from "../../src/analysis/library-models";
 
 const keyOf = (row: LibraryModelRow) => libraryModelKey(row.language, row.module, (row.name ?? row.member)!);
@@ -28,7 +30,7 @@ const keyOf = (row: LibraryModelRow) => libraryModelKey(row.language, row.module
 function answers(row: LibraryModelRow): Record<string, unknown> {
   // `rowFlow` reads a member row only for `passes-through` (`flowOf`); a promise's `settles` stays a field only for `reject`.
   const out: Record<string, unknown> = { rowFlow: row.name || row.model === "passes-through" ? rowFlow(row) : undefined, standardCallback: standardCallback(row), promiseChannels: promiseChannels(row), settles: row.settles === "reject" ? row.settles : undefined, writes: row.writes === "this" ? row.writes : undefined };
-  if (row.language === "ts" && row.name && frameworkRow(row.module, row.name) === row) {
+  if (row.language === "ts" && row.name && row.model !== "slot" && frameworkRow(row.module, row.name) === row) {
     const { module, name } = row;
     Object.assign(out, {
       yieldsOnlyCallback: yieldsOnlyCallback(module, name), hasNoValue: hasNoValue(module, name), wrappedPosition: wrappedPosition(module, name),
@@ -43,7 +45,14 @@ function answers(row: LibraryModelRow): Record<string, unknown> {
       callsInitialValue: callsInitialValue(row), reducerArgument: reducerArgument(row),
     });
   }
-  return Object.fromEntries(Object.entries(out).filter(([, value]) => value !== undefined && value !== null && value !== false));
+  // A slot's calls, read from its paths (migration stage 4: `For`, `Show` and `Dynamic` were hand-coded).
+  if (slotRow(row)) {
+    Object.assign(out, {
+      slotCalls: slotCalls(rowPaths(row)), keyedCalls: row.variant ? slotCalls(rowPaths({ ...row, flows: row.variant.flows })) : undefined,
+      renders: renderedProp(row), tests: ["when"].filter((name) => testsProp(row, name)), hands: ["each", "when", "fallback", "component"].filter((name) => handsProp(row, name)),
+    });
+  }
+  return Object.fromEntries(Object.entries(out).filter(([, value]) => value !== undefined && value !== null && value !== false && !(Array.isArray(value) && !value.length)));
 }
 
 describe("library row readers", () => {

@@ -236,6 +236,27 @@ ts:solid-js#mapArray (calls-back)
 ts:solid-js#indexArray (calls-back)
   rowFlow: {"returns":1,"source":0,"callback":1}
   makesAccessor: true
+ts:solid-js#For (slot)
+  slotCalls: [{"input":"each","element":true,"render":"children","parameter":0,"accessor":false}]
+  hands: ["each"]
+ts:solid-js#Index (slot)
+  slotCalls: [{"input":"each","element":true,"render":"children","parameter":0,"accessor":true}]
+  hands: ["each"]
+ts:solid-js#Show (slot)
+  slotCalls: [{"input":"when","element":false,"render":"children","parameter":0,"accessor":true}]
+  keyedCalls: [{"input":"when","element":false,"render":"children","parameter":0,"accessor":false}]
+  tests: ["when"]
+  hands: ["when"]
+ts:solid-js#Match (slot)
+  slotCalls: [{"input":"when","element":false,"render":"children","parameter":0,"accessor":true}]
+  keyedCalls: [{"input":"when","element":false,"render":"children","parameter":0,"accessor":false}]
+  tests: ["when"]
+  hands: ["when"]
+ts:solid-js#ErrorBoundary (slot)
+  hands: ["fallback"]
+ts:solid-js/web#Dynamic (slot)
+  renders: "component"
+  hands: ["component"]
 ts:solid-js#untrack (calls-back)
   rowFlow: {"returns":0}
   yieldsOnlyCallback: true

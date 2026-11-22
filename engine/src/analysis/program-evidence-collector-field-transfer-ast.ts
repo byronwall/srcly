@@ -46,19 +46,6 @@ export function resolvesArrayMethod(
   )));
 }
 
-export function isSolidComponent(
-  ts: typeof TypeScript,
-  checker: TypeScript.TypeChecker,
-  tag: TypeScript.JsxTagNameExpression,
-  name: "Show" | "Match" | "For" | "Index",
-): boolean {
-  const symbol = checker.getSymbolAtLocation(tag);
-  const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
-  return Boolean(target?.declarations?.some((declaration) => (
-    declaration.getSourceFile().fileName.includes("/solid-js/") && target.getName() === name
-  )));
-}
-
 export function staticAttributeName(
   ts: typeof TypeScript,
   attribute: TypeScript.JsxAttribute,

@@ -43,7 +43,8 @@
               "consumes",
               "calls-back",
               "wraps",
-              "cell"
+              "cell",
+              "slot"
             ],
             "description": "What the member does."
           },
@@ -63,12 +64,46 @@
             "const": "reject"
           },
           "flows": {
-            "description": "For `calls-back`, `wraps` and `passes-through` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`).",
+            "description": "For `calls-back`, `wraps`, `passes-through` and `slot` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them; `slots.ts` for a `slot`, whose `Argument[0]` is the props: `Argument[0].Member[each].ArrayElement -> Argument[0].Member[children].Parameter[0]`). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`).",
             "type": "array",
             "items": {
               "type": "string",
               "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
               "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
+            }
+          },
+          "variant": {
+            "description": "For a `slot`: other flows when the occurrence sets a boolean attribute (`<Show keyed>` hands its child the value, not an accessor of it). An occurrence that sets it to a value no reader can decide takes neither.",
+            "type": "object",
+            "properties": {
+              "attribute": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A boolean attribute (`keyed`)."
+              },
+              "flows": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
+                  "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
+                },
+                "description": "The flows that replace the row's `flows` when the occurrence sets it."
+              }
+            },
+            "required": [
+              "attribute",
+              "flows"
+            ],
+            "additionalProperties": false
+          },
+          "makes": {
+            "description": "For a `slot`: what the component makes itself and hands a function it calls, which no argument supplies (`Argument[0].Member[children].Parameter[1]` `For`'s index accessor, `Argument[0].Member[fallback].Parameter[0]` the error an `ErrorBoundary` caught).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+              "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
             }
           },
           "init": {
