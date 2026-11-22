@@ -117,8 +117,9 @@ Browser
 | `POST /api/dataflow/anchor-graph` | `routers/dataflow.py:anchor_graph` | A value's neighbourhood from any expression (`span` + `text`, or `name` + `line`), `direction` backward / forward / both; 404 for a name not on its line |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
-| `GET /api/change-lens?path=&window=&mode=&ref=&base=&head=&since=&until=&worktree=` | `routers/changelens.py:get_change_lens` → `services/changelens/service.py:build_payload` | The window's commits, edited chunks and files (`ChangeLensPayload`); paths are relative to `selection.repoRoot`; 409 with a reason outside a Git repo |
+| `GET /api/change-lens?path=&window=&mode=&ref=&base=&head=&since=&until=&worktree=` | `routers/changelens.py:get_change_lens` → `services/changelens/service.py:build_payload` | The window's commits, edited chunks and structural files, plus a separate Git changed-path inventory for committed selections; paths are relative to `selection.repoRoot`; 409 with a reason outside a Git repo |
 | `GET /api/change-lens/hunk?path=&chunk=&commit=` (+ the same selection params) | `routers/changelens.py:get_change_lens_hunk` → `service.py:hunk_diff` | One chunk's unified diff, base → head or one commit's step (`commit` = sha or `WORKTREE`); 404 for an unknown chunk |
+| `GET /api/change-lens/path-diff?path=&id=&commit=` (+ the same selection params) | `routers/changelens.py:get_change_lens_path_diff` → `services/changelens/inventory.py` | Exact committed endpoint or first-parent step for one inventory row; bounded Git text evidence, side-specific source locators, or a named reason |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
 | `GET /api/compare/sources?kind=prs\|worktrees\|branches` | `routers/compare.py:list_sources` → `services/compare/sources.py` | One picker section each (PRs with worktree/needs-fetch context, live worktrees newest first, branches with ahead/behind); a source that can't load returns `available: false` + reason |
 | `GET /api/compare/commits?base=&head=` | `routers/compare.py:get_commits` → `git_refs.list_commits` | First-parent commits in a range, oldest first, each with its first parent (commit stepper; capped at 100) |
@@ -220,6 +221,7 @@ Which code chunks a branch or a time window edited. User guide: `site/src/docs/p
 | Off-main notice in the status row: branch, behind/ahead of the default ref, Branch/origin/main history toggle (`chist`) | `client/src/changelens/BranchNotice.tsx` |
 | Maps: Only edits packing (floored area, pooled small chunks, collapse), In repo bands, tile states and the delta scale, legend | `client/src/changelens/LensMap.tsx`, `layout.ts`, `colors.ts`, `labels.ts`, `Legend.tsx` |
 | Review panel (props only): `ReviewBuckets`, `ChunkInspector`, `HunkDiff`, `CommitRail`; dev harness `client/panel-harness.html` | `client/src/changelens/panel/` |
+| Changed-path inventory, path evidence and exact Compare return receipt (`cpanel`, `cpath`, `cpside`, `cpline`, `cworktree`) | `client/src/changelens/panel/ChangedPaths.tsx`, `ChangeLensView.tsx`, `urlState.ts`; handoff in `client/src/compare/api.ts` and `CompareApp.tsx` |
 | Browser smoke on the acceptance repo | `client/e2e/changes.spec.ts` |
 
 ### Client: app shell and first run

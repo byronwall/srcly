@@ -35,7 +35,7 @@ interface CodeModalProps {
   gitRef?: string | null;
   /** The side selected in Changes, shown beside the source path. */
   revisionSide?: "base" | "head";
-  /** The scanned root, so the header can show a repo-relative path. */
+  /** Scan root for live source; the exact Git worktree root for a historical revision. */
   rootPath?: string;
 }
 
@@ -77,11 +77,13 @@ export default function CodeModal(props: CodeModalProps) {
     isOpen: () => props.isOpen,
     filePath: () => props.filePath,
     gitRef: () => props.gitRef,
+    repoRoot: () => props.rootPath,
   });
 
   const markers = useMetricMarkers({
     filePath: () => (props.isOpen ? props.filePath : null),
     gitRef: () => props.gitRef,
+    repoRoot: () => props.rootPath,
   });
 
   const {

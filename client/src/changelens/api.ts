@@ -1,11 +1,10 @@
 // Fetches for the Changes view.
 //
-// The view never sends `ref` or `worktree`: it reads the checked-out branch
-// (HEAD) and includes uncommitted edits, which is what "after a coding
-// session" means. Custom windows pick other revisions through base and head.
+// The default reads HEAD and includes uncommitted edits. The Changes UI can
+// explicitly request the committed range. Custom windows pick base and head.
 // `history: main` makes a time window read the default branch instead of HEAD.
 
-import type { ChangeLensPayload, LensHistory, LensHunkDiff, LensMode, LensWindow } from "./types";
+import type { ChangeLensPayload, LensHistory, LensHunkDiff, LensMode, LensPathDiff, LensWindow } from "./types";
 
 export interface LensQuery {
   /** Absolute path of the scan root. */
@@ -17,6 +16,7 @@ export interface LensQuery {
   since?: string;
   until?: string;
   history?: LensHistory | null;
+  committedOnly?: boolean;
 }
 
 /** A failed request. Status 409 means the folder is not a git repo. */
@@ -30,6 +30,7 @@ export class LensError extends Error {
 
 function params(q: LensQuery): URLSearchParams {
   const p = new URLSearchParams({ path: q.path, window: q.window, mode: q.mode });
+  if (q.committedOnly) p.set("worktree", "false");
   if (q.history) p.set("history", q.history);
   if (q.window === "custom") {
     if (q.base) p.set("base", q.base);
@@ -40,8 +41,8 @@ function params(q: LensQuery): URLSearchParams {
   return p;
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal });
   if (res.ok) return (await res.json()) as T;
   let reason = `The server answered ${res.status}`;
   try {
@@ -61,4 +62,12 @@ export function fetchHunk(q: LensQuery, chunk: string, commit?: string): Promise
   p.set("chunk", chunk);
   if (commit) p.set("commit", commit);
   return getJson<LensHunkDiff>(`/api/change-lens/hunk?${p}`);
+}
+
+
+export function fetchPathDiff(q: LensQuery, id: string, commit?: string, signal?: AbortSignal): Promise<LensPathDiff> {
+  const p = params(q);
+  p.set("id", id);
+  if (commit) p.set("commit", commit);
+  return getJson<LensPathDiff>(`/api/change-lens/path-diff?${p}`, signal);
 }

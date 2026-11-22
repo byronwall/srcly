@@ -141,7 +141,7 @@ const LINKS_PARAM = "links";
 const SYMBOLS_PARAM = "symbols";
 const TO_PARAM = "to";
 /** The Changes view's parameters, in the order `changes` keeps them. */
-export const CHANGES_PARAMS = ["cw", "cm", "cl", "cc", "cs", "cbase", "chead", "csince", "cuntil", "clens", "chist"] as const;
+export const CHANGES_PARAMS = ["cw", "cm", "cl", "cc", "cs", "cbase", "chead", "csince", "cuntil", "clens", "chist", "cpanel", "cpath", "cpside", "cpline", "cworktree"] as const;
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 

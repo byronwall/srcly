@@ -5,6 +5,7 @@ export function useFileContent(args: {
   isOpen: () => boolean;
   filePath: () => string | null;
   gitRef?: () => string | null | undefined;
+  repoRoot?: () => string | undefined;
   fetchImpl?: typeof fetch;
 }) {
   const [rawCode, setRawCode] = createSignal("");
@@ -29,6 +30,7 @@ export function useFileContent(args: {
 
     const path = args.filePath()!;
     const ref = args.gitRef?.() ?? null;
+    const repoRoot = ref ? args.repoRoot?.() : undefined;
     const controller = new AbortController();
 
     setLoading(true);
@@ -41,6 +43,7 @@ export function useFileContent(args: {
         const text = await fetchFileContent({
           path,
           ref,
+          repoRoot,
           fetchImpl: args.fetchImpl,
           signal: controller.signal,
         });

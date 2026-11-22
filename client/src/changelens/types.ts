@@ -193,6 +193,42 @@ export interface LensSummary {
   reverted: number;
 }
 
+export interface LensChangedPath {
+  id: string;
+  path: string;
+  oldPath?: string | null;
+  status: "added" | "modified" | "deleted" | "renamed" | "reverted";
+  commits: string[];
+  hasNetDiff: boolean;
+  measured: boolean;
+  metricReason: string | null;
+}
+
+export interface LensChangedPaths {
+  rows: LensChangedPath[];
+  baseRevision: string | null;
+  headRevision: string | null;
+  compareUnavailableReason: string | null;
+  unavailableReason: string | null;
+}
+
+export interface LensPathDiff {
+  id: string;
+  path: string;
+  oldPath?: string | null;
+  status: LensChangedPath["status"];
+  from: string;
+  to: string;
+  diff: string;
+  truncated: boolean;
+  reason: string | null;
+  baseRevision?: string | null;
+  headRevision?: string | null;
+  compareUnavailableReason?: string | null;
+  baseSource: LensSourceLocation | null;
+  headSource: LensSourceLocation | null;
+}
+
 export interface ChangeLensPayload {
   selection: LensSelection;
   /** First-parent commits in the window, oldest first; capped (see `selection.notes`). */
@@ -202,6 +238,7 @@ export interface ChangeLensPayload {
   summary: LensSummary;
   /** Catalog ids of the metrics that have a before/after on at least one chunk. */
   metricIds: string[];
+  changedPaths?: LensChangedPaths | null;
 }
 
 /** `GET /api/change-lens/hunk`: the diff text behind one chunk. */

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pathlib import Path
 from fastapi.responses import PlainTextResponse
 import mimetypes
+import re
 
 from app.services.analysis import get_ipynb_analyzer
 
@@ -14,13 +15,14 @@ router = APIRouter(prefix="/api/files", tags=["files"])
 def get_file_content(
     path: str = Query(..., description="Absolute path to the file"),
     ref: str | None = Query(None, description="Git commit to read the file from instead of the disk"),
+    pinned_root: str | None = Query(None, alias="repoRoot", description="Worktree root for an exact historical object"),
 ):
     """
     Get the raw content of a file, from disk or (with ``ref``) from a git commit.
     """
     file_path = Path(path)
     if ref:
-        return _content_at_ref(file_path, ref)
+        return _content_at_ref(file_path, ref, pinned_root)
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -59,9 +61,31 @@ def get_file_content(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
 
-def _content_at_ref(file_path: Path, ref: str) -> str:
+def _content_at_ref(file_path: Path, ref: str, pinned_root: str | None = None) -> str:
     """``git show <ref>:<path>``; the file may no longer exist on disk."""
     from app.services.compare.git_refs import GitError, repo_root, run_git
+
+    if pinned_root is not None:
+        if not re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", ref):
+            raise HTTPException(status_code=400, detail="Pinned historical source needs a full Git object SHA")
+        root = Path(pinned_root)
+        if not root.is_absolute() or not file_path.is_absolute() or ".." in (*root.parts, *file_path.parts):
+            raise HTTPException(status_code=400, detail="Historical path must be inside the pinned repository root")
+        try:
+            relative = file_path.relative_to(root)
+            if not relative.parts:
+                raise ValueError("The repository root is not a historical file")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Historical path must be inside the pinned repository root") from exc
+        try:
+            repo = repo_root(root)
+            if root.resolve(strict=True) != repo:
+                raise ValueError("Historical source needs the pinned Git worktree root, not a subdirectory")
+            # Keep the path lexical: this checkout can now hold a symlink at
+            # this path, but it is the historical Git tree that owns the blob.
+            return run_git(repo, "show", f"{ref}:{relative.as_posix()}")
+        except (GitError, OSError, ValueError) as exc:
+            raise HTTPException(status_code=404, detail=f"File not found at {ref}: {exc}") from exc
 
     existing = file_path
     while not existing.exists() and existing != existing.parent:
@@ -78,6 +102,7 @@ def _content_at_ref(file_path: Path, ref: str) -> str:
 def get_file_markers(
     path: str = Query(..., description="Absolute path to the file"),
     ref: str | None = Query(None, description="Git commit to read the file from instead of the disk"),
+    pinned_root: str | None = Query(None, alias="repoRoot", description="Worktree root for an exact historical object"),
 ):
     """
     Where each metric fires in a file: ``{metric_id: [{line, end_line, note}]}``.
@@ -88,7 +113,7 @@ def get_file_markers(
     file_path = Path(path)
     try:
         if ref:
-            markers = collect_markers_for_text(_content_at_ref(file_path, ref), file_path.suffix)
+            markers = collect_markers_for_text(_content_at_ref(file_path, ref, pinned_root), file_path.suffix)
         elif not file_path.is_file():
             raise HTTPException(status_code=404, detail="File not found")
         else:

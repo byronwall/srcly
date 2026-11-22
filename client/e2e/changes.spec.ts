@@ -119,3 +119,108 @@ test.describe("Changes view on the acceptance repo", () => {
     await expect(code.locator(".code-modal-content")).toContainText("export function legacyCleanup");
   });
 });
+
+test("Changed paths carries a committed JSON diff through source, Compare, and Back", async ({ page }) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-e2e-path-inventory-"));
+  const source = path.join(dir, "repo");
+  execFileSync("git", ["clone", "--quiet", "--no-local", repo, source]);
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: source, encoding: "utf8" }).trim();
+  const snapshot = (name: string) => {
+    git("add", "-A");
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "commit", "-qm", name);
+    return git("rev-parse", "HEAD");
+  };
+  const file = "config/model.json";
+  const touched = "config/temporary-model.json";
+  const write = (rel: string, value: string) => fs.writeFileSync(path.join(source, rel), `{ "origin": "${value}" }\n`);
+  write(file, "parameter");
+  write(touched, "original");
+  const base = snapshot("Baseline data");
+  write(file, "request");
+  write(touched, "temporary");
+  const step = snapshot("Update model tables");
+  write(touched, "original");
+  const head = snapshot("Restore the temporary model");
+
+  await page.goto(`/?${new URLSearchParams({ repo: source, view: "changes", cw: "custom", cbase: base, chead: head })}`);
+  await lensReady(page);
+  await page.locator("[data-lens-toggle-paths]").press("Enter");
+  const inventory = page.locator("[data-changed-paths]");
+  await expect(inventory.locator("[data-changed-path]")).toHaveCount(2);
+  const row = inventory.locator(`[data-changed-path="${file}"]`);
+  await row.press("Enter");
+  await expect(row).toHaveAttribute("aria-current", "true");
+  const evidence = page.locator(`[data-path-evidence="${file}"]`);
+  await expect(evidence.locator("[data-no-structural-metrics]")).toBeVisible();
+  await expect(evidence.locator('[data-line="add"]')).toContainText("request");
+
+  await evidence.locator('[data-source-line-side="head"][data-source-line="1"]').press("Enter");
+  const code = page.getByRole("dialog");
+  await expect(code.locator('[data-source-side="head"]')).toHaveAttribute("title", head);
+  await expect(code.locator(".code-modal-content")).toContainText("request");
+  await page.keyboard.press("Escape");
+  await expect(code).toHaveCount(0);
+
+  const receipt = new URL(page.url()).search;
+  await evidence.locator("[data-path-compare]").press("Enter");
+  await expect(page).toHaveURL((url) => url.searchParams.get("compare") === `${base}..${head}` && url.searchParams.get("cfile") === file);
+  await expect(page.locator("[data-compare-path-handoff]")).toContainText(file);
+  await expect(page).toHaveURL((url) => {
+    const params = JSON.parse(url.searchParams.get("cchanges") ?? "{}");
+    return params.source?.side === "head" && params.source?.revision === head && params.source?.startLine === 1;
+  });
+  await page.getByRole("button", { name: "Open after", exact: true }).press("Enter");
+  await expect(code.locator('[data-source-side="head"]')).toHaveAttribute("title", head);
+  await expect(code.locator(".code-modal-content")).toContainText("request");
+  await page.keyboard.press("Escape");
+  await expect(code).toHaveCount(0);
+  await expect(page.locator("[data-compare-no-endpoint]")).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL((url) => url.search === receipt);
+  await expect(row).toHaveAttribute("aria-current", "true");
+  await expect(evidence.locator('[data-line="add"]')).toContainText("request");
+
+  const touchedRow = inventory.locator(`[data-changed-path="${touched}"]`);
+  await touchedRow.press("Enter");
+  const touchedEvidence = page.locator(`[data-path-evidence="${touched}"]`);
+  await expect(touchedEvidence.locator("[data-diff-same]")).toBeVisible();
+  const selector = touchedEvidence.getByLabel("Changed path evidence window");
+  await selector.selectOption(step);
+  await expect(touchedEvidence.locator('[data-line="add"]')).toContainText("temporary");
+  await touchedEvidence.locator('[data-path-source="head"]').press("Enter");
+  await expect(code.locator('[data-source-side="head"]')).toHaveAttribute("title", step);
+  await page.keyboard.press("Escape");
+  await selector.selectOption("");
+  await touchedEvidence.locator("[data-path-compare]").press("Enter");
+  await expect(page.locator("[data-compare-no-endpoint]")).toContainText("has no endpoint diff");
+  await expect(page.getByRole("button", { name: "Open after", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.searchParams.get("cfile") === touched);
+  await page.getByRole("button", { name: "Back to Changes" }).click();
+  await expect(touchedRow).toHaveAttribute("aria-current", "true");
+  await page.locator('[data-lens-group="mode"] [data-lens-option="net"]').click();
+  await expect(touchedRow).toHaveCount(0);
+  await expect(row).toBeVisible();
+});
+
+test("Dirty checkout can switch the path inventory to the committed range and back", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo, view: "changes" })}`);
+  await lensReady(page);
+  await page.locator("[data-lens-toggle-paths]").press("Enter");
+  const inventory = page.locator("[data-changed-paths]");
+  await expect(inventory.getByRole("status")).toContainText("committed");
+  const toggle = page.locator("[data-lens-worktree]");
+  await expect(toggle).toContainText("Show committed range");
+  const requestedCommitted = page.waitForResponse((r) => {
+    const url = new URL(r.url());
+    return url.pathname === "/api/change-lens" && url.searchParams.get("worktree") === "false" && r.ok();
+  });
+  await toggle.press("Enter");
+  await requestedCommitted;
+  await lensReady(page);
+  await expect(page).toHaveURL((url) => url.searchParams.get("cworktree") === "off");
+  await expect(inventory.locator("[data-changed-path]").first()).toBeVisible();
+  await expect(toggle).toContainText("Include working tree");
+  await toggle.press("Enter");
+  await expect(inventory.getByRole("status")).toContainText("committed");
+  await expect(page).toHaveURL((url) => !url.searchParams.has("cworktree"));
+});

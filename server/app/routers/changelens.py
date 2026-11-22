@@ -3,6 +3,7 @@ Change Lens: the code chunks a window of git history edited.
 
     GET /api/change-lens        the window's commits, chunks and files (ChangeLensPayload)
     GET /api/change-lens/hunk   the diff text behind one chunk (LensHunkDiff)
+    GET /api/change-lens/path-diff  exact evidence for one changed path (LensPathDiff)
 
 The payload types are in client/src/changelens/types.ts.
 """
@@ -77,6 +78,29 @@ def get_change_lens_hunk(
     try:
         return service.hunk_diff(
             _folder(path), _params(window, mode, ref, base, head, since, until, worktree, history), chunk, commit or None
+        )
+    except LensError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
+@router.get("/path-diff")
+def get_change_lens_path_diff(
+    path: str = Query(..., description="Absolute path of the analyzed folder"),
+    id: str = Query(..., description="One changedPaths row id from the payload"),
+    commit: Optional[str] = Query(None, description="A touching commit SHA; omit for effective endpoints"),
+    window: Literal["branch", "24h", "7d", "custom"] = "branch",
+    mode: Literal["touched", "net"] = "touched",
+    ref: str = "HEAD",
+    base: Optional[str] = None,
+    head: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    worktree: Optional[bool] = None,
+    history: Optional[Literal["head", "main"]] = None,
+):
+    try:
+        return service.path_diff(
+            _folder(path), _params(window, mode, ref, base, head, since, until, worktree, history), id, commit or None
         )
     except LensError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc

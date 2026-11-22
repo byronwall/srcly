@@ -23,6 +23,11 @@ export interface LensState {
   layout: LensLayout;
   commit: string | null;
   chunk: string | null;
+  changedPaths?: boolean;
+  changedPath?: string | null;
+  committedOnly?: boolean;
+  pathLine?: number | null;
+  pathSide?: "base" | "head" | null;
   base: string;
   head: string;
   since: string;
@@ -57,12 +62,16 @@ export function parseLens(changes: string | undefined): LensState {
   const lens = p.get("clens") ?? "";
   const dot = lens.lastIndexOf(".");
   const color = lens.slice(dot + 1);
+  const pathLine = Number(p.get("cpline"));
   return {
     window: WINDOWS.includes(window) ? window : DEFAULT_LENS.window,
     mode: p.get("cm") === "net" ? "net" : "touched",
     layout: p.get("cl") === "repo" ? "repo" : "edits",
     commit: p.get("cc"),
     chunk: p.get("cs"),
+    ...(p.get("cpanel") === "paths" ? { changedPaths: true, changedPath: p.get("cpath"), pathSide: p.get("cpside") === "base" ? "base" : p.get("cpside") === "head" ? "head" : null } : {}),
+    ...(p.get("cpanel") === "paths" && Number.isSafeInteger(pathLine) && pathLine > 0 ? { pathLine } : {}),
+    ...(p.get("cworktree") === "off" ? { committedOnly: true } : {}),
     base: custom ? (p.get("cbase") ?? "") : "",
     head: custom ? (p.get("chead") ?? "") : "",
     since: custom ? (p.get("csince") ?? "") : "",
@@ -81,12 +90,19 @@ export function serializeLens(s: LensState): string {
   if (s.layout !== DEFAULT_LENS.layout) p.set("cl", s.layout);
   if (s.commit) p.set("cc", s.commit);
   if (s.chunk) p.set("cs", s.chunk);
+  if (s.changedPaths) {
+    p.set("cpanel", "paths");
+    if (s.changedPath) p.set("cpath", s.changedPath);
+    if (s.pathSide) p.set("cpside", s.pathSide);
+    if (s.pathLine) p.set("cpline", String(s.pathLine));
+  }
   if (s.window === "custom") {
     if (s.base) p.set("cbase", s.base);
     if (s.head) p.set("chead", s.head);
     if (s.since) p.set("csince", s.since);
     if (s.until) p.set("cuntil", s.until);
   }
+  if (s.committedOnly) p.set("cworktree", "off");
   if (s.history) p.set("chist", s.history);
   if (s.metric !== DEFAULT_LENS.metric || s.color !== DEFAULT_LENS.color) p.set("clens", `${s.metric}.${s.color}`);
   return p.toString();

@@ -14,12 +14,26 @@ const ROW_BG: Record<DiffLine["kind"], string> = {
 const HIT_BG: Record<"add" | "del", string> = { add: "#c6f0d4", del: "#fbd0d0" };
 const SIGN: Record<DiffLine["kind"], string> = { add: "+", del: "−", ctx: " ", note: "" };
 
-function Line(props: { line: DiffLine }) {
+type DiffSide = "base" | "head";
+
+function LineNumber(props: { side: DiffSide; line: number | null; open?: () => void }) {
+  const style = "w-[5ch] shrink-0 select-none pr-1.5 text-right";
+  return (
+    <Show when={props.line && props.open} fallback={<span class={`${style} text-[var(--plc-on-disabled)]`}>{props.line ?? ""}</span>}>
+      <button type="button" class={`${style} text-[var(--plc-on-muted)] hover:underline focus-visible:outline`}
+        data-source-line={props.line} data-source-line-side={props.side}
+        aria-label={`Open ${props.side} source at line ${props.line}`}
+        onClick={() => props.open?.()}>{props.line}</button>
+    </Show>
+  );
+}
+
+function Line(props: { line: DiffLine; canOpenLine?: (side: DiffSide) => boolean; onOpenLine?: (side: DiffSide, line: number) => void }) {
   const l = props.line;
   return (
     <div class="flex min-w-full" data-line={l.kind} style={{ background: ROW_BG[l.kind] }}>
-      <span class="w-[5ch] shrink-0 select-none pr-1.5 text-right text-[var(--plc-on-disabled)]">{l.old ?? ""}</span>
-      <span class="w-[5ch] shrink-0 select-none pr-1.5 text-right text-[var(--plc-on-disabled)]">{l.new ?? ""}</span>
+      <LineNumber side="base" line={l.old} open={l.kind === "del" && l.old && props.canOpenLine?.("base") ? () => props.onOpenLine?.("base", l.old!) : undefined} />
+      <LineNumber side="head" line={l.new} open={l.kind === "add" && l.new && props.canOpenLine?.("head") ? () => props.onOpenLine?.("head", l.new!) : undefined} />
       <span
         class="w-[2ch] shrink-0 select-none text-center"
         style={{ color: l.kind === "add" ? "var(--plc-success)" : l.kind === "del" ? "var(--plc-error)" : undefined }}
@@ -53,7 +67,7 @@ function Line(props: { line: DiffLine }) {
 }
 
 /** The diff text behind one chunk, with line numbers and word highlights. Esc closes it. */
-export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; error?: string; ignoreEscape?: boolean; onClose: () => void }) {
+export function HunkDiff(props: { diff: Pick<LensHunkDiff, "path" | "from" | "to" | "diff" | "truncated"> & { oldPath?: string | null } | null; noHunksReason?: string | null; canOpenLine?: (side: DiffSide) => boolean; onOpenLine?: (side: DiffSide, line: number) => void; loading: boolean; error?: string; ignoreEscape?: boolean; onClose: () => void }) {
   const hunks = createMemo(() => (props.diff ? parseUnifiedDiff(props.diff.diff) : []));
   const counts = createMemo(() => {
     let added = 0;
@@ -93,17 +107,19 @@ export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; e
                     {d().from} → {d().to}
                   </span>
                   <Show when={d().oldPath}>
-                    <span class="truncate" title={d().oldPath}>
+                    <span class="truncate" title={d().oldPath ?? undefined}>
                       from {d().oldPath}
                     </span>
                   </Show>
                   <Show when={d().truncated}>
                     <span class="shrink-0 text-[var(--plc-warning)]">clipped</span>
                   </Show>
-                  <span class="plc-data-sm ml-auto shrink-0">
-                    <span class="text-[var(--plc-success)]">+{counts().added}</span>{" "}
-                    <span class="text-[var(--plc-error)]">−{counts().deleted}</span>
-                  </span>
+                  <Show when={!props.noHunksReason || hunks().length > 0}>
+                    <span class="plc-data-sm ml-auto shrink-0">
+                      <span class="text-[var(--plc-success)]">+{counts().added}</span>{" "}
+                      <span class="text-[var(--plc-error)]">−{counts().deleted}</span>
+                    </span>
+                  </Show>
                 </>
               )}
             </Show>
@@ -132,7 +148,7 @@ export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; e
           </Match>
           <Match when={!hunks().length}>
             <p class="p-3 text-[12px] text-[var(--plc-on-subtle)]" data-diff-same>
-              No line differs between these two sides.
+              {props.noHunksReason ?? "No line differs between these two sides."}
             </p>
           </Match>
           <Match when={true}>
@@ -146,7 +162,7 @@ export function HunkDiff(props: { diff: LensHunkDiff | null; loading: boolean; e
                       </span>
                       <span class="truncate">{h.section}</span>
                     </div>
-                    <For each={h.lines}>{(l) => <Line line={l} />}</For>
+                    <For each={h.lines}>{(l) => <Line line={l} canOpenLine={props.canOpenLine} onOpenLine={props.onOpenLine} />}</For>
                   </div>
                 )}
               </For>

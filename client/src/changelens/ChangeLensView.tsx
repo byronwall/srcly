@@ -9,16 +9,18 @@ import { atFromTreePath, baseName, splitAt } from "../navigation/location";
 import { go, location } from "../navigation/store";
 import { findTreeNodeByPath } from "../utils/dataProcessing";
 import { ViewTools } from "../viz/viewToolbar";
-import { fetchChangeLens, fetchHunk, LensError, type LensQuery } from "./api";
+import { fetchChangeLens, fetchHunk, fetchPathDiff, LensError, type LensQuery } from "./api";
 import BranchNotice, { historyApplies, isOffMain } from "./BranchNotice";
 import { plural, timeLimits } from "./labels";
 import { inScope, type RepoNode } from "./layout";
 import Legend from "./Legend";
 import LensMap from "./LensMap";
 import { ChunkInspector, CommitRail, HunkDiff, ReviewBuckets } from "./panel";
-import type { ChangeLensPayload, LensChunk, LensHunkDiff, LensSourceLocation } from "./types";
+import type { ChangeLensPayload, LensChunk, LensHunkDiff, LensPathDiff, LensSourceLocation } from "./types";
 import { lens, setLens } from "./urlState";
 import WindowBar from "./WindowBar";
+import { ChangedPaths } from "./panel/ChangedPaths";
+import { enterPathCompare, readCompareParam } from "../compare/api";
 
 /** Below this width the panel moves under the map. */
 const NARROW_PX = 900;
@@ -82,7 +84,7 @@ export default function ChangeLensView(props: {
   const query = createMemo<LensQuery | null>(
     () => {
       const s = lens();
-      return props.rootPath ? { path: props.rootPath, window: s.window, mode: s.mode, base: s.base, head: s.head, since: s.since, until: s.until, history: historyApplies(s) ? s.history : null } : null;
+      return props.rootPath ? { path: props.rootPath, window: s.window, mode: s.mode, base: s.base, head: s.head, since: s.since, until: s.until, history: historyApplies(s) ? s.history : null, committedOnly: Boolean(s.committedOnly) } : null;
     },
     null,
     { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
@@ -121,6 +123,14 @@ export default function ChangeLensView(props: {
   const scan = createMemo(() => repoTree(props.data, props.rootPath, base()));
   const selected = createMemo<LensChunk | null>(() => payload()?.chunks.find((c) => c.id === lens().chunk) ?? null);
   const commit = createMemo(() => payload()?.commits.find((c) => c.sha === lens().commit) ?? null);
+  const inventory = () => payload()?.changedPaths;
+  const hasChanges = (p: ChangeLensPayload) => p.chunks.length > 0 || Boolean(p.changedPaths?.rows.length);
+  const pathRows = createMemo(() => (inventory()?.rows ?? []).filter((r) => inScope(r.path, scope()) || Boolean(r.oldPath && inScope(r.oldPath, scope()))));
+  const activePath = createMemo(() => lens().changedPaths ? pathRows().find((r) => r.id === lens().changedPath) ?? null : null);
+  const pathCommit = () => {
+    const sha = commit()?.sha;
+    return sha && activePath()?.commits.includes(sha) ? sha : undefined;
+  };
   const inView = createMemo(() => payload()?.chunks.filter((c) => inScope(c.path, scope())).length ?? 0);
   const zoom = (path: string) => go({ at: scanPath(base(), path) });
 
@@ -192,12 +202,66 @@ export default function ChangeLensView(props: {
   const [sourceError, setSourceError] = createSignal<string>();
   const [sourceLoading, setSourceLoading] = createSignal(false);
   let sourceRequest = 0;
-  createEffect(on([query, selected, commit, hunk], () => {
+  createEffect(on([query, selected, commit, hunk, activePath], () => {
     sourceRequest++;
     setSource(null);
     setSourceError(undefined);
     setSourceLoading(false);
   }));
+  const [pathDiff, setPathDiff] = createSignal<LensPathDiff | null>(null);
+  const [pathError, setPathError] = createSignal<string>();
+  const [pathLoading, setPathLoading] = createSignal(false);
+  createEffect(on([query, activePath, pathCommit, loading], ([q, row, step, busy]) => {
+    setPathDiff(null);
+    setPathError(undefined);
+    setPathLoading(Boolean(q && row));
+    if (!q || !row || busy) return;
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+    fetchPathDiff(q, row.id, step, controller.signal).then(
+      (result) => {
+        if (controller.signal.aborted) return;
+        setPathDiff(result);
+        setPathLoading(false);
+      },
+      (e: unknown) => {
+        if (controller.signal.aborted) return;
+        setPathError(e instanceof Error ? e.message : String(e));
+        setPathLoading(false);
+      },
+    );
+  }));
+  const choosePath = (id: string) => {
+    setHunk(null);
+    setLens({ changedPath: id, pathSide: null, pathLine: null });
+  };
+  const pathSource = (side: LensSourceLocation["side"]) => side === "base" ? pathDiff()?.baseSource : pathDiff()?.headSource;
+  const openPathSource = (target: LensSourceLocation, line: number | null = null) => {
+    setLens({ pathSide: target.side, pathLine: line }, "step");
+    setSource(line ? { ...target, startLine: line, endLine: line } : target);
+  };
+  const compareTarget = createMemo(() => {
+    const row = activePath();
+    const data = pathDiff();
+    const inv = inventory();
+    if (!row || !data || !inv || data.id !== row.id) return null;
+    const base = pathCommit() ? data.baseRevision : inv.baseRevision;
+    const head = pathCommit() ? data.headRevision : inv.headRevision;
+    const reason = data.compareUnavailableReason ?? (!pathCommit() ? inv.compareUnavailableReason : null);
+    if (reason || !base || !head) return { reason: reason || "Compare needs two exact committed revisions.", args: null };
+    const preferred = (lens().pathSide === "base" ? data.baseSource : data.headSource) ?? data.baseSource ?? data.headSource;
+    const line = preferred && lens().pathSide === preferred.side ? lens().pathLine : null;
+    return {
+      reason: null,
+      args: {
+        base, head, path: pathCommit() ? data.path : row.path,
+        oldPath: (pathCommit() ? data.oldPath : row.oldPath) ?? undefined,
+        touchedOnly: !pathCommit() && !row.hasNetDiff,
+        scope: scope(),
+        source: preferred?.revision ? { side: preferred.side, revision: preferred.revision, path: preferred.path, startLine: line ?? preferred.startLine, endLine: line ?? preferred.endLine } : undefined,
+      },
+    };
+  });
   const openCode = async (chunk: LensChunk) => {
     const q = query();
     if (!q || loading()) return;
@@ -259,14 +323,14 @@ export default function ChangeLensView(props: {
   const mainOffer = createMemo(() => {
     const p = payload();
     const b = p?.selection.branch ?? null;
-    if (!p || p.chunks.length || !isOffMain(b) || p.selection.history !== "head" || !b.defaultCommits) return null;
+    if (!p || hasChanges(p) || !isOffMain(b) || p.selection.history !== "head" || !b.defaultCommits) return null;
     const commits = plural(b.defaultCommits, "commit");
     return p.selection.window === "branch"
       ? { label: `Show ${b.defaultRef}'s last 7 days (${commits})`, patch: { window: "7d" as const, history: "main" as const, commit: null } }
       : { label: `Show ${b.defaultRef}'s history (${commits})`, patch: { history: "main" as const, commit: null } };
   });
 
-  const state = () => (error() ? (error()!.status === 409 ? "not-git" : "error") : !payload() ? "loading" : !payload()!.chunks.length ? "empty" : loading() ? "refreshing" : "ready");
+  const state = () => (error() ? (error()!.status === 409 ? "not-git" : "error") : !payload() ? "loading" : loading() ? "refreshing" : !hasChanges(payload()!) ? "empty" : "ready");
 
   /** Root › scope › the selected chunk's folders, file and name. Every folder and file zooms. */
   const crumbs = createMemo(() => {
@@ -286,6 +350,11 @@ export default function ChangeLensView(props: {
     <div ref={rootRef} class="flex h-full w-full flex-col bg-[var(--plc-surface)]" data-change-lens data-lens-state={state()}>
       <ViewTools>
         <WindowBar state={lens()} metricIds={payload()?.metricIds ?? []} onChange={(patch) => setLens(patch)} />
+        <Show when={lens().committedOnly || (lens().changedPaths && payload()?.selection.includesWorktree)}>
+          <Button size="xs" data-lens-worktree aria-pressed={Boolean(lens().committedOnly)} onClick={() => setLens({ committedOnly: !lens().committedOnly, commit: null, pathSide: null, pathLine: null })}>
+            {lens().committedOnly ? "Include working tree" : "Show committed range"}
+          </Button>
+        </Show>
       </ViewTools>
 
       {/* What the window resolved to. One fixed-height row at rest; notes wrap under it. */}
@@ -311,7 +380,7 @@ export default function ChangeLensView(props: {
               </Show>
               <span class="shrink-0">{p().selection.mode === "touched" ? "Touched: every chunk a commit changed" : "Net: what differs from start to end"}</span>
               {/* An empty window says why in the middle of the view, not twice. */}
-              <For each={p().chunks.length ? p().selection.notes : []}>{(note) => <span class="text-[var(--plc-on-subtle)]" data-lens-note>{note}</span>}</For>
+              <For each={hasChanges(p()) ? p().selection.notes : []}>{(note) => <span class="text-[var(--plc-on-subtle)]" data-lens-note>{note}</span>}</For>
             </>
           )}
         </Show>
@@ -351,6 +420,7 @@ export default function ChangeLensView(props: {
               </>
             )}
           </Show>
+          <Show when={inventory()?.unavailableReason}><p role="status">{inventory()!.unavailableReason}</p></Show>
           <p class="mt-1">Pick another window in the toolbar: 7 days reaches further back, and Custom takes any two revisions.</p>
         </Message>
       </Show>
@@ -397,6 +467,12 @@ export default function ChangeLensView(props: {
                     )}
                   </Show>
                 </nav>
+                <Button size="xs" data-lens-toggle-paths aria-pressed={Boolean(lens().changedPaths)} onClick={() => {
+                  if (!lens().changedPaths) setHunk(null);
+                  setLens({ changedPaths: !lens().changedPaths, changedPath: null, pathSide: null, pathLine: null });
+                }}>
+                  {lens().changedPaths ? "Structural review" : "Changed paths"}
+                </Button>
                 <span class="min-w-0 flex-1 truncate text-right tabular-nums text-[var(--plc-on-subtle)]" data-lens-summary>
                   {fileCount(p())} · {plural(p().summary.chunks, "chunk")} · {p().summary.churnLines.toLocaleString("en-US")} lines churned / {p().summary.netLines.toLocaleString("en-US")} net
                   {p().summary.reverted ? ` · ${p().summary.reverted} reverted` : ""}
@@ -419,7 +495,7 @@ export default function ChangeLensView(props: {
                 <Show when={lens().layout === "edits" && inView() === 0}>
                   <div class="absolute inset-0 flex items-center justify-center text-[13px] text-[var(--plc-on-muted)]" data-lens-message="empty-scope">
                     <span>
-                      No edits under <span class="plc-data-sm text-[12px] text-[var(--plc-on-surface)]">{scanPath(base(), scope())}</span> in this window.{" "}
+                      {pathRows().length ? "No structural chunks under" : "No edits under"} <span class="plc-data-sm text-[12px] text-[var(--plc-on-surface)]">{scanPath(base(), scope())}</span> in this window.{" "}
                       <button type="button" class="text-[var(--plc-accent)] hover:text-[var(--plc-accent-hover)]" onClick={() => go({ at: "" })}>
                         Show the whole repo
                       </button>
@@ -428,9 +504,45 @@ export default function ChangeLensView(props: {
                 </Show>
               </div>
               <Legend lens={{ metric: lens().metric, color: lens().color }} layout={lens().layout} />
-              <Show when={hunk()}>
+              <Show when={activePath()}>
+                {(row) => (
+                  <section class="flex h-[50%] min-h-[220px] shrink-0 flex-col border-t border-[var(--plc-border)]" aria-label="Changed path evidence" data-path-evidence={row().path}>
+                    <div class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--plc-border)] px-3 py-1.5 text-[12px]">
+                      <label class="flex items-center gap-1.5">
+                        Evidence
+                        <select aria-label="Changed path evidence window" class="max-w-[21ch] bg-[var(--plc-surface)]" value={pathCommit() ?? ""} onChange={(e) => setLens({ commit: e.currentTarget.value || null, pathSide: null, pathLine: null })}>
+                          <option value="">Whole window</option>
+                          <For each={payload()?.commits.filter((c) => row().commits.includes(c.sha)) ?? []}>
+                            {(c) => <option value={c.sha}>{c.short} {c.subject}</option>}
+                          </For>
+                        </select>
+                      </label>
+                      <Show when={!row().measured}>
+                        <span data-no-structural-metrics title={row().metricReason ?? undefined}>No structural metrics</span>
+                      </Show>
+                      <Show when={pathDiff()?.baseSource}>{(target) => <Button size="xs" data-path-source="base" onClick={() => openPathSource(target())}>Open base source</Button>}</Show>
+                      <Show when={pathDiff()?.headSource}>{(target) => <Button size="xs" data-path-source="head" onClick={() => openPathSource(target())}>Open head source</Button>}</Show>
+                      <Show when={compareTarget()?.args}>{(args) => <Button size="xs" data-path-compare onClick={() => enterPathCompare(args())}>Open in Compare</Button>}</Show>
+                      <Show when={compareTarget()?.reason}>{(reason) => <span class="text-[var(--plc-on-muted)]">Compare unavailable: {reason()}</span>}</Show>
+                    </div>
+                    <div class="min-h-0 flex-1">
+                      <HunkDiff diff={pathDiff()} loading={pathLoading()} error={pathError()} noHunksReason={pathDiff()?.reason}
+                        canOpenLine={(side) => Boolean(pathSource(side))}
+                        onOpenLine={(side, line) => {
+                          const target = pathSource(side);
+                          if (target) openPathSource(target, line);
+                        }}
+                        ignoreEscape={Boolean(source())} onClose={() => {
+                          // The normal app stays mounted under Compare; Escape there belongs to Compare.
+                          if (!readCompareParam()) setLens({ changedPath: null, pathSide: null, pathLine: null });
+                        }} />
+                    </div>
+                  </section>
+                )}
+              </Show>
+              <Show when={hunk() && !activePath()}>
                 <div class="h-[50%] min-h-[220px] shrink-0 border-t border-[var(--plc-border)]" data-lens-hunk>
-                  <HunkDiff diff={diff()} loading={diffLoading()} error={diffError()} ignoreEscape={Boolean(source())} onClose={() => setHunk(null)} />
+                  <HunkDiff diff={diff()} loading={diffLoading()} error={diffError()} ignoreEscape={Boolean(source())} onClose={() => { if (!readCompareParam()) setHunk(null); }} />
                 </div>
               </Show>
               </div>
@@ -439,6 +551,7 @@ export default function ChangeLensView(props: {
               </div>
             </div>
             <aside class="flex min-h-0 shrink-0 flex-col border-[var(--plc-border)]" classList={{ "w-[340px] border-l": !narrow(), "h-[42%] border-t": narrow() }} data-lens-panel>
+              <Show when={lens().changedPaths} fallback={<>
               <div class="max-h-[45%] shrink-0 overflow-auto border-b border-[var(--plc-border)]">
                 <ReviewBuckets payload={p()} selected={lens().chunk} onSelect={(chunk) => setLens({ chunk })} />
               </div>
@@ -448,6 +561,9 @@ export default function ChangeLensView(props: {
                   <p role="alert" class="px-3 pb-3 text-[12px] text-[var(--plc-warning)]">{sourceError()}</p>
                 </Show>
               </div>
+              </>}>
+                <ChangedPaths inventory={inventory()} rows={pathRows()} selected={lens().changedPath} busy={loading()} onSelect={choosePath} />
+              </Show>
             </aside>
           </div>
         )}

@@ -2,12 +2,16 @@ export async function fetchFileContent(args: {
   path: string;
   /** Read the file from this git commit instead of the disk. */
   ref?: string | null;
+  repoRoot?: string;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
 }): Promise<string> {
   const fetchImpl = args.fetchImpl ?? fetch;
   const query = new URLSearchParams({ path: args.path });
-  if (args.ref) query.set("ref", args.ref);
+  if (args.ref) {
+    query.set("ref", args.ref);
+    if (args.repoRoot) query.set("repoRoot", args.repoRoot);
+  }
   const res = await fetchImpl(`/api/files/content?${query}`, {
     signal: args.signal,
   });
@@ -23,10 +27,14 @@ export async function fetchFileContent(args: {
 export async function fetchFileMarkers(args: {
   path: string;
   ref?: string | null;
+  repoRoot?: string;
   signal?: AbortSignal;
 }): Promise<Record<string, { line: number; end_line: number; note: string }[]>> {
   const query = new URLSearchParams({ path: args.path });
-  if (args.ref) query.set("ref", args.ref);
+  if (args.ref) {
+    query.set("ref", args.ref);
+    if (args.repoRoot) query.set("repoRoot", args.repoRoot);
+  }
   const res = await fetch(`/api/files/markers?${query}`, { signal: args.signal });
   if (!res.ok) throw new Error(`Failed to locate metrics: ${res.status} ${res.statusText}`);
   const body = await res.json();
