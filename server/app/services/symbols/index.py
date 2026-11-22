@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolPath, SymbolSearchHit, SymbolStats
-from app.services.deps.common import is_test_path, walk_source_files
+from app.services.deps.common import SourceSignature, is_test_path, source_signature, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
 
@@ -550,27 +550,17 @@ def _demote(kind: RefKind) -> RefKind:
     return "write" if kind == "write" else "read"
 
 
-_cache: Dict[Path, Tuple[Tuple[int, int], SymbolIndex]] = {}
+_cache: Dict[Path, Tuple[SourceSignature, SymbolIndex]] = {}
 _lock = threading.Lock()
 
 SOURCE_EXTENSIONS = TS_EXTENSIONS | {".py"}
 
 
-def _signature(files: List[Path]) -> Tuple[int, int]:
-    total = 0
-    for f in files:
-        try:
-            total ^= hash((str(f), f.stat().st_mtime_ns))
-        except OSError:
-            continue
-    return len(files), total
-
-
 def build_symbol_index(root: Path, use_cache: bool = True) -> SymbolIndex:
     root = root.resolve()
     files = walk_source_files(root, SOURCE_EXTENSIONS)
-    sig = _signature(files)
     if use_cache:
+        sig = source_signature(files)
         with _lock:
             hit = _cache.get(root)
         if hit is not None and hit[0] == sig:

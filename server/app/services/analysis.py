@@ -562,22 +562,27 @@ class _GitListing:
     """Ignored entries relative to the root; wholly ignored trees end in "/"."""
 
 
-def _list_with_git(root_path: Path, cancel: CancelToken | None = None) -> _GitListing | None:
+def _list_with_git(
+    root_path: Path, cancel: CancelToken | None = None, *, include_ignored: bool = True
+) -> _GitListing | None:
     """
     List ``root_path`` with ``git ls-files --cached --others --exclude-standard``.
 
     Returns None if git cannot list the tree. Nested repositories and
     submodules show up as directories and are returned in ``nested``.
     """
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        # --directory collapses wholly ignored trees (node_modules, build output)
-        # into one "dir/" entry; listing every file in them costs seconds on big
-        # repos. (--no-empty-directory is avoided: some git versions then list nothing.)
-        ignored_future = pool.submit(
-            _git_ls_files, root_path, "--others", "--ignored", "--exclude-standard", "--directory"
-        )
+    if include_ignored:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            # --directory collapses wholly ignored trees (node_modules, build output)
+            # into one "dir/" entry; listing every file in them costs seconds on big repos.
+            ignored_future = pool.submit(
+                _git_ls_files, root_path, "--others", "--ignored", "--exclude-standard", "--directory"
+            )
+            listed = _git_ls_files(root_path, "--cached", "--others", "--exclude-standard")
+            ignored = ignored_future.result()
+    else:
         listed = _git_ls_files(root_path, "--cached", "--others", "--exclude-standard")
-        ignored = ignored_future.result()
+        ignored = []
     if listed is None:
         return None
 
@@ -617,6 +622,27 @@ def _list_with_git(root_path: Path, cancel: CancelToken | None = None) -> _GitLi
         listing.files.append(str(full))
         listing.stats.append(st)
     return listing
+
+
+def git_inventory_files(root_path: Path) -> list[str] | None:
+    """The tree scan's Git candidates, before per-view analysis filters.
+
+    Tracked files stay visible even when they match an ignore rule. Structural
+    views don't need the tree's ignored counts or its binary/minified sniff.
+    None signals that callers should use their non-Git discovery fallback.
+    """
+    root_path = root_path.resolve()
+    if not _is_inside_git_work_tree(root_path):
+        return None
+    pending = [root_path]
+    files: list[str] = []
+    while pending:
+        listing = _list_with_git(pending.pop(), include_ignored=False)
+        if listing is None:
+            return None
+        files.extend(listing.files)
+        pending.extend(listing.nested)
+    return files
 
 
 def _discover_with_git(

@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set
 from app.config import IGNORE_DIRS
 
 MAX_SOURCE_BYTES = 1_000_000
+SourceSignature = tuple[tuple[Path, int, int], ...]
 
 _TEST_DIRS = {"test", "tests", "__tests__", "__mocks__", "spec", "e2e"}
 _TEST_FILE = re.compile(
@@ -51,8 +52,36 @@ def _gitignore_spec(root: Path):
 
 
 def walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
-    """Source files under root, skipping ignored, hidden and gitignored paths."""
+    """Eligible Imports/Symbols source files, with the tree's Git visibility."""
+    from app.services.analysis import git_inventory_files
+
     root = root.resolve()
+    inventory = git_inventory_files(root)
+    if inventory is not None:
+        out: list[Path] = []
+        for name in inventory:
+            path = Path(name)
+            if any(part.startswith(".") for part in path.relative_to(root).parts[:-1]):
+                continue
+            source = _eligible_source(root, path, extensions)
+            if source is not None:
+                out.append(source)
+        return sorted(set(out))
+    return _walk_source_files(root, extensions)
+
+
+def _eligible_source(root: Path, path: Path, extensions: Set[str]) -> Path | None:
+    if path.name.endswith(".d.ts") or path.suffix not in extensions:
+        return None
+    try:
+        source = path.resolve()
+        return source if source.is_relative_to(root) and source.stat().st_size <= MAX_SOURCE_BYTES else None
+    except OSError:
+        return None
+
+
+def _walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
+    """Keep the existing pathspec discovery for folders without a Git listing."""
     repo_root, spec = _gitignore_spec(root)
 
     def ignored(p: Path, is_dir: bool) -> bool:
@@ -73,19 +102,25 @@ def walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
             if d not in IGNORE_DIRS and not d.startswith(".") and not ignored(base / d, True)
         )
         for name in sorted(filenames):
-            if name.endswith(".d.ts"):
-                continue
             p = base / name
             if ignored(p, False):
                 continue
-            if p.suffix in extensions:
-                try:
-                    if p.stat().st_size > MAX_SOURCE_BYTES:
-                        continue
-                except OSError:
-                    continue
-                out.append(p.resolve())
-    return out
+            source = _eligible_source(root, p, extensions)
+            if source is not None:
+                out.append(source)
+    return list(dict.fromkeys(out))
+
+
+def source_signature(files: List[Path]) -> SourceSignature:
+    """Exact source identities and file stats, independent of inventory order."""
+    stamps = []
+    for path in sorted(files):
+        try:
+            st = path.stat()
+            stamps.append((path, st.st_mtime_ns, st.st_size))
+        except OSError:
+            stamps.append((path, -1, -1))
+    return tuple(stamps)
 
 
 @dataclass
