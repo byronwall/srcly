@@ -188,7 +188,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const element = opening.parent;
     const written = this.ts.isJsxElement(element) ? element.children.filter((child) => !this.ts.isJsxText(child) || child.text.trim() !== "") : [];
     const child = written.length === 1 && this.ts.isJsxExpression(written[0]) && written[0].expression ? unwrap(this.ts, written[0].expression) : undefined;
-    if (child && (this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child))) for (const each of targets) this.childFunctions.push({ target: each.id, value: child });
+    if (child && (this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child))) for (const each of targets) this.childFunctions.push({ target: each.id, value: child, at: opening });
     for (const each of targets) {
       this.addRelation(
         occurrenceId,
@@ -682,12 +682,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * prop a caller hands on from its own props (`onRemove={props.onRemove}`)
    * is what that caller's own occurrences hand in, a few levels up.
    */
-  private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean }[] {
+  private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] {
     // The children a component's elements hand in are written where it is rendered: load those places.
     const owner = name === "children" ? this.functionsById.get(ownerId) : undefined;
     const named = owner ? functionNameNode(this.ts, owner.declaration as TypeScript.FunctionLikeDeclaration) : null;
     if (named) this.requireReferences(named);
-    const children = name === "children" ? this.childFunctions.filter((item) => item.target === ownerId).map((item) => ({ value: item.value as TypeScript.Node, paired: true })) : [];
+    const children = name === "children" ? this.childFunctions.filter((item) => item.target === ownerId).map((item) => ({ value: item.value as TypeScript.Node, paired: true, at: item.at as TypeScript.Node })) : [];
     return [...children, ...(props.get(ownerId) ?? []).flatMap((pending) => {
       const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
       if (pending.target.id !== ownerId || pending.attribute.name.getText() !== name || !value) return [];
@@ -699,21 +699,22 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     })];
   }
 
-  /** Functions written as a component element's one child, by the component they are handed to (its `children` prop). */
-  private readonly childFunctions: { target: string; value: TypeScript.Expression }[] = [];
+  /** Functions written as a component element's one child, by the component they are handed to (its `children` prop), and that element's opening tag. */
+  private readonly childFunctions: { target: string; value: TypeScript.Expression; at: TypeScript.JsxOpeningLikeElement }[] = [];
 
   private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
     const node = call.node;
     const slot = this.handlerSlot(node.expression);
     // A handler handed in by a caller is paired with that caller; a context's provider is above every reader, so its handler is not.
-    const handed: { value: TypeScript.Node; paired: boolean }[] = !slot
+    const handed: { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] = !slot
       ? [...this.contextMethod(node.expression), ...this.storeMethod(node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
         : this.handedProps(props, slot.owner.id, slot.index, 0);
-    for (const { value, paired } of handed) {
-      const boundAt = this.location(value);
+    for (const { value, paired, at } of handed) {
+      // Where the function was handed in: an attribute's value, or the opening tag of the element whose child it is (inside that occurrence).
+      const boundAt = this.location(at ?? value);
       const handledBy = (detail: string, where: ProgramEvidenceLocation[]) => paired ? proof("bound-handler", detail, [...where, boundAt]) : proof("argument-binding", detail, where);
       // A state setter handed in (`onPick={setPicked}`): the call's argument is the new state.
       const role = this.ts.isExpression(value) ? stateRoleOf(this.ts, this.checker, value) : null;
