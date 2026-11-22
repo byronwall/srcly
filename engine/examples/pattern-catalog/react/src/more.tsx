@@ -93,10 +93,11 @@ export function GoTo(props: { slug: string }) { // @trace r-router-push forward 
 }
 
 // R33 derived state during render with a filter
+// The query only tests each item (it picks which render), so it ends at the filter's test, never in the page.
 export function Search(props: { items: string[] }) {
   const [query, setQuery] = useState("");
   const shown = props.items.filter((item) => item.includes(query));
-  return <div><input onChange={(e) => setQuery(e.target.value)} />{shown.map((s) => <p key={s}>{s}</p>)}</div>; // @trace r-filter-derived forward e.target.value @want render-terminal
+  return <div><input onChange={(e) => setQuery(e.target.value)} />{shown.map((s) => <p key={s}>{s}</p>)}</div>; // @trace r-filter-derived forward e.target.value @want branch-condition
 }
 
 // R34 localStorage-backed state
