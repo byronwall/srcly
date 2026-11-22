@@ -220,6 +220,41 @@ Do A, B, F and H, and use E and J to write rows. Skip C, G and I for now: a summ
 
 After these four, a new library costs rows only, unless it adds a genuinely new shape. The Python FastAPI binding stays code, because it is a rule about program structure, not a library member. G is worth one spike on zustand later, to see whether its summary matches the cell row.
 
+## 5b. Other engines, and analysing dependency source
+
+Constraint from Byron: decide value flow from source only, the target's code and its dependencies' code. No runtime analysis and no traces. This rules out TASER (it runs test suites) and Jelly's approximate interpretation (a dynamic pre-pass).
+
+| Engine | What it does better than srcly | Library knowledge | Fit |
+| --- | --- | --- | --- |
+| [CodeQL](https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-javascript/) | Mature models-as-data with access paths (`Member[x].Parameter[0].ReturnValue`). Type models name a type once (`mysql.Connection` = `Member[createConnection].ReturnValue`), so every later use of that type is covered. For Java, C# and Go it generates summary models from library source (provenance `df-generated`), and hand rows override them. | Rows plus generated summaries | Cannot ship inside srcly: free only for open-source code on GitHub. Weak on React flow ([ReactAppScan](https://yinzhicao.org/reactappscan/reactappscan.pdf)); its newest hook model is `useRef` (CLI 2.24.0). No Solid. |
+| [Pysa](https://pyre-check.org/docs/pysa-basics/) | Infers propagation automatically for any function whose body it can see, dependencies included. Models (`.pysa`) are needed only for code it cannot see. | Inferred from bodies; hand models for stubs | Python only, taint not values, same "unseen code propagates" default srcly uses. |
+| [Jelly](https://github.com/cs-au-dk/jelly) | Analyses `node_modules` packages as code (points-to plus access paths), so calls through library code resolve with no model. | None needed for call resolution | BSD. Call graphs and library usage, not value traces. |
+| [Joern](https://docs.joern.io/) | One code property graph for many languages; fuzzy parsing handles partial code. | Hand "semantics"; unknown externals over-approximate | Apache-2.0. Same library problem as srcly, with weaker JS types. |
+| [Graph.js](https://github.com/formalsec/graphjs) | Fast npm package scanning with multiversion dependency graphs. | None | Does not follow external modules. |
+| [StubDroid](https://dx.doi.org/10.1145/2884781.2884816) (research) | Infers data-flow summaries for a whole library statically, once, and reuses them. More precise and cheaper than hand models in its evaluation. | Generated, cached per library | Android, not JS. The method is the point. |
+
+What the engines agree on:
+
+- **Access paths are the standard row format.** CodeQL's tokens match option A almost word for word. Adopt its vocabulary rather than invent one.
+- **Analyse what you can see; model only what you cannot.** Pysa and CodeQL's generated models both do this. Hand rows exist for code with no body: native code, runtimes, schedulers.
+- **Type models multiply a row.** One row that says "`useQueryClient()` returns a `QueryClient`" lets the `QueryClient.*` method rows apply everywhere that type flows.
+
+### What dependency source shows
+
+zustand's whole runtime is about 80 lines of plain JS (`node_modules/zustand/esm/vanilla.mjs` and `index.mjs`). `setState` merges into a closure `let state`; `getState` returns it; the hook is `useSyncExternalStoreWithSelector(api.subscribe, api.getState, …, selector)`. Source analysis of zustand would reach the store with **no zustand row**, as long as the engine has two general abilities and one row:
+
+1. A closure variable written by one function and read by another (`let state` in `createStoreImpl`): a general rule that also helps user code.
+2. Following calls into `node_modules` packages, as Jelly does, with a per-version cache of summaries (StubDroid).
+3. One row for the floor: `useSyncExternalStore` yields what `getSnapshot` returns (the `WithSelector` shim is also plain JS).
+
+Middleware (`persist`, `immer`) is plain JS too, so it would come free. The open zustand worker instead recognises middleware by the `StateCreator` type alias.
+
+React and Solid themselves are different. `useState` in `react.development.js` calls `dispatcher.useState`, which is set by the renderer at run time; Solid's reactive core is a scheduler. No source analysis sees through those, so the framework primitives stay hand rows (the cell, slot and keyed-store shapes).
+
+This changes option C's score. Analysing *all* of `node_modules` is still too costly, but **summarising userland libraries down to a short list of framework primitives** is source-only, needs no rows for zustand-like libraries, and matches what Pysa and CodeQL do. A summary computed from source is a proof, so it can be `ok` where the analysis is complete, and `assumed` where it meets dynamic code.
+
+Suggested spike: summarise `zustand` from `node_modules` source down to a `useSyncExternalStore` row, and compare the edges with today's `connectStores` on the `zustand-store.tsx` fixture. It needs the closure-variable rule first.
+
 ## 6. Migration plan
 
 Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test.ts` green and run `cd engine && pnpm survey-gate`. Run the pattern catalog (`node --import tsx scripts/pattern-catalog.ts`) before and after, and diff it.
