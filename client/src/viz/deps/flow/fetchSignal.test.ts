@@ -22,3 +22,33 @@ describe("createFetch", () => {
     dispose();
   });
 });
+
+it("clears an anchor's previous result while loading and after failure, ignoring late replies", async () => {
+  const pending = new Map<string, { resolve: (value: string) => void; reject: (error: Error) => void }>();
+  const { fetch, setKey, dispose } = createRoot((dispose) => {
+    const [key, setKey] = createSignal("first");
+    return { fetch: createFetch(key, (k) => new Promise<string>((resolve, reject) => pending.set(k, { resolve, reject })), { keepPrevious: false }), setKey, dispose };
+  });
+  try {
+    pending.get("first")!.resolve("first graph");
+    await Promise.resolve();
+    expect(fetch.value()).toBe("first graph");
+    setKey("second");
+    expect(fetch.loading()).toBe(true);
+    expect(fetch.value()).toBeUndefined();
+    setKey("third");
+    pending.get("third")!.reject(new Error("No program element"));
+    await Promise.resolve();
+    expect(fetch.error()?.message).toBe("No program element");
+    expect(fetch.value()).toBeUndefined();
+    pending.get("second")!.resolve("late second graph");
+    await Promise.resolve();
+    expect(fetch.value()).toBeUndefined();
+    expect(fetch.error()?.message).toBe("No program element");
+    fetch.retry();
+    expect(fetch.error()).toBeNull();
+    pending.get("third")!.resolve("retried graph");
+    await Promise.resolve();
+    expect(fetch.value()).toBe("retried graph");
+  } finally { dispose(); }
+});

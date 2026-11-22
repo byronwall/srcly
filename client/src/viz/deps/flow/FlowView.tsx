@@ -25,7 +25,7 @@ import { FlowLegend } from "./FlowLegend";
 import { DepthControl, DirectionSwitch, FlowModeSwitch, ModelSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
-import { stopsOf } from "./inspectorModel";
+import { canAnchorBox, stopsOf } from "./inspectorModel";
 import { PythonApps } from "./PythonApps";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
@@ -142,7 +142,7 @@ export default function FlowView(props: {
     const spec = parseAnchor(raw)!;
     if ("exports" in spec) throw new Error("An exports anchor has no single graph");
     return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...anchorFields(spec), ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
-  });
+  }, { keepPrevious: false });
   const anchorGraph = anchorFetch.value;
   // The other anchors (T20): each its own query, one at a time, kept by generation so a Return does not refetch.
   type ExtraAnchor = { raw: string; graph: AnchorGraphResult | null; outcome: string; reason: string | null };
@@ -190,7 +190,7 @@ export default function FlowView(props: {
   const addAnchorFrom = (id: string) => {
     const box = model()?.byId.get(id);
     const specs = anchorSpecs();
-    if (!box || !specs.length || specs.length >= MAX_ANCHORS || exportsSpec()) return;
+    if (!box || !canAnchorBox(box) || !specs.length || specs.length >= MAX_ANCHORS || exportsSpec()) return;
     // By element id: the engine anchors at the very element the box stands for, so the traces share ids by construction.
     const next: Anchor = { file: box.file, element: id };
     if (specs.some((a) => encodeAnchor(a) === encodeAnchor(next))) return;
@@ -200,7 +200,7 @@ export default function FlowView(props: {
   /** Re-anchor on a drawn box by its element id, keeping the direction. */
   const traceFrom = (id: string) => {
     const box = model()?.byId.get(id);
-    if (!box || !("side" in box) || box.kind === "scope") return;
+    if (!box || !canAnchorBox(box) || box.kind === "scope") return;
     setSelected(null);
     go({ anchor: encodeAnchor({ file: box.file, element: id }), open: undefined });
   };
@@ -360,9 +360,9 @@ export default function FlowView(props: {
 
   let token = 0;
   createEffect(() => {
+    const mine = ++token;
     const m = model();
     if (!m) return setLayout(null);
-    const mine = ++token;
     const rect = host?.getBoundingClientRect();
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
     const aspectRatio = viewport ? viewport.width / viewport.height : 1.6;

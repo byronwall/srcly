@@ -6,6 +6,11 @@ import { isAssumedProof } from "../../../dataflow/outcome";
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, STOP_REASONS, stopWord, type FlowMark } from "./marks";
 
+/** Frontiers describe where a walk stopped; their display ids are not program elements. */
+export function canAnchorBox(box: FlowBox | undefined): boolean {
+  return !!box && "side" in box && box.kind !== "frontier";
+}
+
 /** Route mode words for the render backbone; anchor mode names the engine's relation (`argument`, `return value`, …). */
 export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field" | "structural" | (string & {});
 
