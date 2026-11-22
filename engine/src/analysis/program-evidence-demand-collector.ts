@@ -79,6 +79,19 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
     }
   }
 
+  protected override requireComponentPropSites(name: TypeScript.Node, prop: string): void {
+    for (const reference of this.referenceCandidates(name, true)) {
+      this.checkCancellation();
+      let tag = reference;
+      while (this.ts.isPropertyAccessExpression(tag.parent) && tag.parent.name === tag) tag = tag.parent;
+      const opening = tag.parent;
+      if (!(this.ts.isJsxOpeningElement(opening) || this.ts.isJsxSelfClosingElement(opening)) || opening.tagName !== tag) continue;
+      if (!opening.attributes.properties.some((attribute) => this.ts.isJsxAttribute(attribute) && attribute.name.getText() === prop)) continue;
+      const root = this.partition(opening);
+      if (!this.roots.has(root)) this.requestedRoots.add(root);
+    }
+  }
+
   protected override addFunction(node: TypeScript.FunctionLikeDeclaration, ownerId: string | null) {
     const info = super.addFunction(node, ownerId);
     this.returnsByFunction.defer(info.id, () => {

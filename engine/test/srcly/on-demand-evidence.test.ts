@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { CompactRelationIndex } from "../../src/analysis/program-evidence-connector-index";
 import { ProgramEvidenceCollector } from "../../src/analysis/program-evidence-collector";
@@ -204,6 +205,71 @@ describe("on-demand evidence parity", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   }, 30_000);
+
+  describe("React search callback", () => {
+    // Use the catalog's actual source; the shim supplies only the checker
+    // inputs exercised here, so the engine's test needs no React installation.
+    const catalog = fileURLToPath(new URL("../../examples/pattern-catalog/react/src/state.tsx", import.meta.url));
+    const state = fs.readFileSync(catalog, "utf8");
+    const react = `declare module "react" {
+      export function useState<T>(initial: T): [T, (next: T | ((previous: T) => T)) => void];
+    }`;
+    const searchValue = "e.target.value";
+    const queryFor = (root: string) => {
+      // The file has other input handlers with the same expression.
+      const trace = `props.onQuery(${searchValue})`;
+      const query = expressionQuery(root, "state.tsx", trace, "forward");
+      const column = query.span.startColumn + trace.indexOf(searchValue);
+      return { ...query, span: { ...query.span, startColumn: column, endColumn: column + searchValue.length } };
+    };
+
+    it("matches eager forward proof in a cold and shuffled session", () => {
+      const root = fixture({
+        "state.tsx": state,
+        "react.d.ts": react,
+        "other.ts": `export function unrelated(input: string) { return input.trim(); }`,
+      });
+      try {
+        const query = queryFor(root);
+        const cold = sessionFor(root);
+        const demand = anchorGraphOp(cold, query);
+        const eager = anchorGraphOp(eagerSessionFor(root), query);
+        expect(eager.outcome).toBe("ok");
+        expect(eager.nodes.some((node) => node.elementKind === "render-terminal" && node.label === "query")).toBe(true);
+        expect(eager.edges.flatMap((edge) => edge.proof)).toContainEqual(expect.objectContaining({
+          kind: "bound-handler",
+          detail: expect.stringContaining("setter handed in at setQuery"),
+        }));
+        expect(demand).toEqual(eager);
+        const stats = requireTypescript(cold.tier1(), "callback demand test").provider().getInstrumentation();
+        expect(stats.totalExpansionSourceFilesVisited).toBe(1);
+        expect(stats.totalExpansionPartitionsVisited).toBeLessThan(6);
+        const shuffled = sessionFor(root);
+        anchorGraphOp(shuffled, expressionQuery(root, "other.ts", "input.trim()", "forward"));
+        expect(anchorGraphOp(shuffled, query)).toEqual(eager);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    }, 30_000);
+
+    it("keeps a frontier for a genuinely unresolved supplied callback", () => {
+      const root = fixture({
+        "state.tsx": state.replace("onQuery={setQuery}", "onQuery={externalHandler()}") + `\ndeclare function externalHandler(): (q: string) => void;\n`,
+        "react.d.ts": react,
+        "other.tsx": `function Search(props: { onQuery: (q: string) => void }) { return <p>not the same component</p>; }
+        export function Other() { return <Search onQuery={(value) => console.log(value)} />; }`,
+      });
+      try {
+        const { demand, eager } = compareWithEager(root, queryFor(root));
+        expect(demand).toEqual(eager);
+        expect(demand.outcome).toBe("partial");
+        expect(demand.nodes.some((node) => node.kind === "frontier")).toBe(true);
+        expect(demand.nodes.some((node) => node.elementKind === "render-terminal" || node.file === "other.tsx")).toBe(false);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    }, 30_000);
+  });
 
   it("matches eager traces from a provider to a separate context consumer", () => {
     const root = fixture({

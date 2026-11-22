@@ -738,10 +738,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * is what that caller's own occurrences hand in, a few levels up.
    */
   private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] {
-    // The children a component's elements hand in are written where it is rendered: load those places.
-    const owner = name === "children" ? this.functionsById.get(ownerId) : undefined;
+    // A child partition can be collected before the caller that supplies its
+    // prop. Request those JSX sites; connectCalls retries with the new bindings.
+    const owner = this.functionsById.get(ownerId);
     const named = owner ? functionNameNode(this.ts, owner.declaration as TypeScript.FunctionLikeDeclaration) : null;
-    if (named) this.requireReferences(named);
+    if (named) {
+      if (name === "children") this.requireReferences(named);
+      else this.requireComponentPropSites(named, name);
+    }
     const children = name === "children" ? this.childFunctions.filter((item) => item.target === ownerId).map((item) => ({ value: item.value as TypeScript.Node, paired: true, at: item.at as TypeScript.Node })) : [];
     return [...children, ...(props.get(ownerId) ?? []).flatMap((pending) => {
       const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
