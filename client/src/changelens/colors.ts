@@ -29,8 +29,8 @@ export interface TileLook {
   value: number | null;
 }
 
-/** Added in a delta lens: there is no "before" to subtract from. */
-export const ADDED_FILL = "#d3f0de";
+/** Marks an added chunk: its fill is its value, so "new" is the outline. */
+export const ADDED_OUTLINE = "1.5px solid #2f9e5b";
 export const DELETED_FILL = "repeating-linear-gradient(135deg, rgba(190, 60, 60, 0.42) 0 1px, #fbecec 1px 5px)";
 /** Dots on white: work that came and went. It must not read as an empty part of the map. */
 export const REVERTED_FILL = "radial-gradient(rgba(100, 116, 139, 0.34) 0.8px, transparent 1.1px) 0 0 / 6px 6px, #fbfcfd";
@@ -64,7 +64,8 @@ export function tileLook(chunk: LensChunk, lens: Lens): TileLook {
   if (!pair || pair.after === null) return { state: "not-measured", fill: NOT_MEASURED_FILL, value: null };
   const state: TileState = chunk.status === "added" ? "added" : chunk.status === "moved" ? "moved" : "value";
   if (lens.color === "now") return { state, fill: treemapFillColor(lens.metric, { [lens.metric]: pair.after }, 0), value: pair.after };
-  if (chunk.status === "added") return { state, fill: ADDED_FILL, value: null };
+  // New code adds all of its value: a delta lens draws it as a rise from nothing, so a hard new file reads hot.
+  if (chunk.status === "added") return { state, fill: deltaColor(pair.after, deltaSpan(lens.metric)), value: pair.after };
   // A chunk that exists at base without a base value has no delta to draw.
   if (pair.before === null) return { state: "not-measured", fill: NOT_MEASURED_FILL, value: null };
   const delta = pair.after - pair.before;

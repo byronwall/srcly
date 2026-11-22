@@ -6,7 +6,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, 
 import { ChevronDown, ChevronRight } from "lucide-solid";
 import type { Rect } from "../compare/treemapLayout";
 import { metricLabel } from "../utils/metricsStore";
-import { STATE_GLYPH, tileLook, type Lens, type TileLook } from "./colors";
+import { ADDED_OUTLINE, STATE_GLYPH, tileLook, type Lens, type TileLook } from "./colors";
 import { beforeAfter, folderLabel, matchNote, plural, signed, STATUS_LABEL } from "./labels";
 import { inScope, layoutEdits, pooledChunks, layoutRepo, neighbour, repoTreeFromFiles, type ChunkTile, type GroupTile, type RepoFileTile, type RepoNode } from "./layout";
 import { WORKTREE, type ChangeLensPayload, type LensChunk, type LensCommit } from "./types";
@@ -148,7 +148,7 @@ export default function LensMap(props: {
           ...box(p.tile.rect),
           background: look().fill,
           opacity: dimmed(chunk.id) ? 0.22 : 1,
-          outline: look().state === "moved" ? "1px dashed rgba(15, 23, 42, 0.65)" : look().state === "reverted" ? "1px dashed var(--plc-on-disabled)" : p.band ? "1px solid rgba(15, 23, 42, 0.55)" : undefined,
+          outline: look().state === "added" ? ADDED_OUTLINE : look().state === "moved" ? "1px dashed rgba(15, 23, 42, 0.65)" : look().state === "reverted" ? "1px dashed var(--plc-on-disabled)" : p.band ? "1px solid rgba(15, 23, 42, 0.55)" : undefined,
           "outline-offset": p.band ? "-1px" : "-2px",
           "box-shadow": selected() ? "0 0 0 2px var(--plc-accent), inset 0 0 0 1px #fff" : undefined,
           "z-index": selected() ? 3 : p.band ? 2 : 1,
