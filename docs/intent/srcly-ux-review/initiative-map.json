@@ -1,0 +1,150 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Srcly UX review follow-through",
+    "slug": "srcly-ux-review",
+    "scale": "program",
+    "current_phase": "intent",
+    "last_updated": "2026-11-22",
+    "summary": "Preserve source-backed investigation while fixing trust defects and separating analysis scope, revision identity, and provenance.",
+    "status": "planned",
+    "next_action": "Verify and land narrow fixes. Shape the linked workflows independently starting with a falsifiable user-visible proof."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-11-22"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "not-created",
+      "updated_at": null
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "not-created",
+      "updated_at": null
+    }
+  },
+  "sources": [
+    {
+      "id": "maintainer-intent",
+      "type": "conversation",
+      "location": "November 22 maintainer follow-through request (private; not embedded)",
+      "anchor": "Separate focused bugs from projects that need shaping; land initial intent.",
+      "authority": "user"
+    },
+    {
+      "id": "study",
+      "type": "doc",
+      "location": "November 22 Srcly UX evaluation package (private; repository-safe synthesis in study-crosswalk.md)",
+      "anchor": "S01–S20, UX-001–UX-018, R01–R10.",
+      "authority": "research"
+    },
+    {
+      "id": "source-pin",
+      "type": "repo",
+      "location": "https://github.com/byronwall/srcly/commit/a4d2a8e04b4b4f1a346695c3daa56240e6a57716",
+      "anchor": "Pinned evaluated development revision.",
+      "authority": "repo"
+    },
+    {
+      "id": "triage",
+      "type": "repo",
+      "location": "https://github.com/byronwall/srcly/issues/442",
+      "anchor": "Project scope and acceptance in #440–#446.",
+      "authority": "repo"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "decision",
+        "statement": "Land initial intent and independently verified bug fixes; shape larger projects before implementation.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "now",
+        "sources": [
+          "maintainer-intent"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "requirement",
+        "statement": "Make source identity and evidence limits visible. Preserve unknowns rather than implying false certainty.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "near-term",
+        "sources": [
+          "study",
+          "source-pin"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "proposal",
+        "statement": "Withhold receipt-based provenance, general behavioral comparison and persistent question workspaces from the initial implementation slice.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "study",
+          "triage"
+        ]
+      }
+    ],
+    "themes": [
+      "evidence and scope",
+      "stable source identity",
+      "complete change inventory",
+      "explicit provenance"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "not-started",
+    "appetite": null,
+    "problem": null,
+    "recommended_shape": null,
+    "success_moves": [],
+    "first_proof": null,
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "not-started",
+    "repository_snapshot": {
+      "revision": "a4d2a8e04b4b4f1a346695c3daa56240e6a57716"
+    },
+    "dependencies": [],
+    "fast_local_loop": null,
+    "milestones": [],
+    "cut_line": [],
+    "open_decisions": []
+  },
+  "history": [
+    {
+      "date": "2026-11-22",
+      "event": "created",
+      "phase": "intent",
+      "note": "Summarized the UX review and mapped findings to independent issues or small PR lanes without pre-approving the candidate shapes."
+    }
+  ]
+}
