@@ -1,5 +1,5 @@
 diagram "Solid's For is five lines"
-subtitle "We hand-code 128 lines for components Solid builds from two primitives"
+subtitle "128 lines of ours for components Solid writes in a few lines"
 
 node src "solid-js/dist/solid.js" shape=code lang=js numbers=on start=1448 <<JS
 function For(props) {
@@ -26,7 +26,7 @@ edge a src.for -> prims "reduces to"
 edge b src.idx -> prims
 edge c ours -> prims "would become" kind=async
 
-footnote 1 "With summaries from source, <For each={list}>{(item) => …}</For> is just mapArray(list, child): the item flow comes from mapArray's row, not from For's."
+footnote 1 "mapArray (95 lines) keeps state per item, so it is a cell row. With it, <For each={list}>{(item) => …}</For> is mapArray(list, child), and the item flow comes from that row, not from For's. Show is 20 lines and branches on keyed."
 near ours prims side=right
 
 legend amber "Library source"

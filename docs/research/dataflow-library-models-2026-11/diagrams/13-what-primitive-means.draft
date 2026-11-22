@@ -1,7 +1,7 @@
 diagram "What \"primitive\" means here"
-subtitle "The code exists, but the path runs through the runtime, not the code"
+subtitle "Both keep state once per call, so both need a cell row"
 
-group follow "Followable: zustand's write and read share a variable" color=mint
+group follow "Readable: zustand's write and read share a variable" color=mint
 node z "zustand/esm/vanilla.mjs" shape=code lang=js in=follow <<JS
 let state;
 const setState = (partial) => {
@@ -12,7 +12,7 @@ const getState = () => state;
 JS
 range z.w lines=4 color=amber
 range z.r lines=6 color=violet
-note "A source analysis follows set to state to get. No row needed." near=z side=below
+note "The path is in the code, but let state exists once per create call: two stores must never mix. A generator could read this and write the cell row." near=z side=below
 
 group proto "Runtime protocol: React's useState" color=orange
 node r1 "react: the call" shape=code lang=js in=proto <<JS

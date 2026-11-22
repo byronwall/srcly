@@ -2,11 +2,36 @@
 
 Byron's question: "I am worried that extending this to cover more patterns requires adding huge amounts of custom code for every library that is supported. Can we do better?"
 
-Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, plus flow edges that the libraries' own `.d.ts` generics propose, would make most new library support rows-only. Two engine concepts (a state cell and a component slot) would absorb the imperative code that remains.
+Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, with cell and keyed-store shapes for state that exists once per call, makes new library support rows-only. Reading library source can later *generate* rows offline; it must not run inside the scan. The "Revised direction" section below records why.
 
 Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine file changed. The diagrams in `diagrams/` are Draftably 0.16.0 files; each PNG carries its `.draft` source (`npx draftably@0.16.0 extract`). The spike scripts and their raw output are outside the repo, in the session notes folder `lib-model-audit/`.
 
 ![Where library knowledge lives today](diagrams/1-where-library-code-lives.png)
+
+## Revised direction after an independent review
+
+A separate review (Fable 5.2, read-only; full text in the notes folder as `lib-model-audit/review-fable.md`) re-measured this audit. The inventory holds. It rejected one part of the plan and corrected one framing. This section supersedes the recommendation in section 5 and the conclusions of sections 5b and 5c where they differ.
+
+**What the review measured:**
+
+- **Dependency JS inside the scan Program erases user types.** TypeScript reaches package JS only with `noDtsResolution`, which applies to the whole Program. On family-finances, the share of user-code identifiers typed `any` rose from 10.4% to 46.1%. The engine resolves calls through the checker, so most rules would stop, including the `QueryClient.*` member rows from #423 (`libraryMemberModel` requires a declaration file).
+- **The heap doubles.** Family-finances went from 509 MB to 1,120 MB at `maxNodeModuleJsDepth: 4`, which pulled in 2,345 files from 118 packages (TypeScript, ESLint, Next, react-dom). TypeScript has no per-package depth limit. A repo already at 2 to 3 GB cannot take this.
+- **Builds disagree.** TypeScript bound zustand's shim to React's minified production build by branch order. Solid's server build makes `createEffect` a no-op and signals plain closures. A summary from the wrong build is a confident false `ok`.
+- **Library JS is untyped,** and the engine stops by rule at an untyped receiver of unknown origin (#420). Reading zustand needs a value-based call resolver for JavaScript, not "two general abilities and one row".
+- **Nothing defined a complete summary.** A summary may be `ok` only if every call on its path has one resolved callee; there is no computed access, `Proxy`, getter, `apply` or `eval` on the path; every write to each closure variable and field is found; every build agrees or one is named as the truth; and state is kept per call.
+
+**The corrected framing.** A hand row is needed where **state exists once per call** (every `createSignal`, every zustand `create`), or where the build picks the function at run time (React's dispatcher). "The runtime decides the path" was only half of it: Solid's `createSignal` is 15 lines of plain code, but every signal shares `readSignal` and `writeSignal`, so an analysis without per-call instances joins every write to every read. A correct source summary of zustand must say exactly what a cell row says. Source reading can generate cell rows; it cannot replace them.
+
+**The revised plan:**
+
+1. **Rows are the only interface.** Do migration stages 1 to 4b: access paths, then the cell, slot and keyed-store shapes. The cell row must name extra handles (`getState`, `setState`, `subscribe`, middleware pass-through), so `engine/src/analysis/zustand-store.ts` (177 lines, added by #419) can go too.
+2. **No dependency JS in the scan Program.** The `SRCLY_DEP_SOURCE` slice is dropped.
+3. **Reading source becomes an offline row generator** (option Q in the review): `engine/scripts/summarise-package.ts <package dir>` builds a small Program on one package and prints rows with provenance `generated`, a version range and a hash of the entry file. Generated rows are checked in, reviewed as a diff, and pass the same survey gate as hand rows. Build it only if the inline test below shows the gap is small.
+4. **Types stay `assumed` hints** (stage 5). They need today's `.d.ts` Program, which is one more reason to keep it as it is.
+
+**First step, running now:** the inline test. Copy zustand 4.5.7's 88 lines in as user code, trace two stores, and count the engine's stops. Few stops, all fixed by general rules that also help typed user code, means the offline generator is worth building. More than about five new rules, any JavaScript-only rule, or any cross-store join means rows win outright. The result goes to `lib-model-audit/inline-test.md`.
+
+**Numbers that moved since the audit's base** (`40cd9a68`): 297 rows on `origin/main` (#423 added 11 React Query rows); zustand's custom code is about 226 lines (#419); `library-models.ts` is 201 lines.
 
 ## Worked examples
 
@@ -41,7 +66,7 @@ These five pictures show the scope on real code. Read them before the numbers.
 | `engine/models/python.json` | 128 | stdlib, logging, requests, httpx, sqlalchemy, sqlmodel, django, flask, starlette, pandas, rest_framework | 60 origins, 61 terminals, 7 pass-throughs |
 | `engine/models/ecmascript.json` | 48 | TypeScript `lib.*.d.ts` | 30 `calls-back` (`map`, `then`, timers), 18 `consumes` |
 | `engine/models/solid.json` | 38 | solid-js, solid-js/store, @solidjs/router, @tanstack/solid-query, @solid-primitives | 12 `calls-back`, 10 `wraps`, 5 query options, 5 pass-throughs, 2 state pairs, 2 terminals |
-| `engine/models/node.json` | 35 | node:fs, http, https, globals | 18 origins, 17 terminals |
+| `engine/models/node.json` | 35 | node:fs, http, https, globals | 19 origins, 16 terminals |
 | `engine/models/web.json` | 17 | DOM lib, globals | 14 `consumes`, 2 origins, 1 terminal |
 | `engine/models/react.json` | 14 | react, @tanstack/react-query, zustand | 4 query options, 3 `wraps`, 3 `calls-back`, 2 state pairs, 1 store, 1 pass-through |
 | `engine/models/utilities.json` | 6 | lodash, lodash-es, lodash.debounce, lodash.throttle | 6 `wraps` |
@@ -211,14 +236,16 @@ Scores: coverage is patterns that work with no new row; risk is the chance of a 
 
 ### Recommendation
 
-Do A, B, F and H, and use E and J to write rows. Skip C and I: C analyses too much, and I needs running code. G (summaries down to a primitive floor) is the strongest later step; section 5c shows which modelled libraries it would cover.
+*Superseded in part by "Revised direction" at the top: G moves out of the scan and becomes an offline row generator.*
+
+Do A, B, F and H, and use E and J to write rows. Skip C and I: C analyses too much, and I needs running code.
 
 - **A** stops vocabulary growth. Every new library step that fits shapes 1 to 7 becomes data.
 - **B** makes unmodelled libraries trace along the right path, so a trace reaches its real end with an honest `assumed`. A 1-line confirmation row then promotes a proposal to `ok`. Types propose; rows confirm.
 - **F** turns the cell and slot emitters into two general ones.
 - **H** turns context, and the cache patterns of query libraries, into one keyed-store rule.
 
-After these four, a new library costs rows only, unless it adds a genuinely new shape. The Python FastAPI binding stays code, because it is a rule about program structure, not a library member. G is worth one spike on zustand later, to see whether its summary matches the cell row.
+After these four, a new library costs rows only, unless it adds a genuinely new shape. The Python FastAPI binding stays code, because it is a rule about program structure, not a library member. The inline test decides whether an offline row generator is worth building.
 
 ## 5b. Other engines, and analysing dependency source
 
@@ -253,33 +280,35 @@ React and Solid themselves are different. `useState` in `react.development.js` c
 
 This changes option C's score. Analysing *all* of `node_modules` is still too costly, but **summarising userland libraries down to a short list of framework primitives** is source-only, needs no rows for zustand-like libraries, and matches what Pysa and CodeQL do. A summary computed from source is a proof, so it can be `ok` where the analysis is complete, and `assumed` where it meets dynamic code.
 
-Suggested spike: summarise `zustand` from `node_modules` source down to a `useSyncExternalStore` row, and compare the edges with today's `connectStores` on the `zustand-store.tsx` fixture. It needs the closure-variable rule first.
+**Measured limits (from the review).** Doing this inside the scan Program fails: `noDtsResolution` erases user types (10.4% to 46.1% of identifiers typed `any` on family-finances), the heap doubles, and TypeScript picks a build by accident. The idea survives only as an offline generator of rows, decided by the inline test (see "Revised direction").
 
 ## 5c. Library intake applied to what we model today
 
-The intake question: can a source analysis follow the value through this library's code, or does the path run through a runtime? A *primitive* is the second kind. Its code exists, but which function runs is chosen at run time (React's dispatcher), the write waits in a queue for a scheduler, or the value leaves the program (I/O). Only primitives need hand rows.
+The intake question: does this library hold state that exists once per call, or does a runtime pick the function? Then it needs a hand row (a cell, a keyed store, or a boundary). Otherwise it is plain code over such rows, and a row generator could describe it. *Corrected after review:* an earlier draft said "the path runs through a runtime"; the real divider is per-call state.
 
-![What "primitive" means here](diagrams/13-what-primitive-means.png) I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
+![What "primitive" means here](diagrams/13-what-primitive-means.png)
+
+I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
 
 ![What each modelled library is made of](diagrams/10-library-layers.png)
 
 | Library | What its source is | Rows today | Custom code today | Verdict |
 | --- | --- | ---: | ---: | --- |
 | React hooks, `memo`, `forwardRef` | Calls into `dispatcher`, which the renderer sets at run time | 9 | state pairs 33 | Primitive: keep rows |
-| Solid `createSignal`, `createMemo`, effects, `createStore`, `splitProps`, `mergeProps` | The reactive core: a scheduler and `Proxy` objects | 14 | | Primitive: keep rows |
+| Solid `createSignal`, `createMemo`, effects, `createStore`, `splitProps`, `mergeProps` | `createSignal` is 15 lines: one object per call, read and written through shared `readSignal` and `writeSignal`. Stores use `Proxy`. `splitProps`, `mergeProps`, `untrack` and `batch` are plain code | 14 | | Per-call state: cell rows |
 | Context (React and Solid) | Solid: `Owner.context[context.id] ?? context.defaultValue`. React: the dispatcher | 0 | 107 | Primitive: one keyed-store row |
 | I/O (fetch, fs, DB, print, Python boundaries) | Ends in native code or the network | 161 | | Primitive: keep rows |
-| Solid `For`, `Index`, `Show`, `children` | 5 to 15 lines each on `createMemo` and `mapArray` | 1 | 128 | Built on primitives |
-| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | Plain JS on the reactive core | 5 | | Built on primitives |
-| Router `createAsync`, `query`, `cache`, `action` | `createAsync` is `createResource(() => fn())`; `query` keeps a module `Map` keyed by name and arguments | 8 | resource 140 (shared with Solid) | Built on primitives; the `Map` is a keyed store with a computed key |
-| zustand | 80 lines: a closure `let state` and `useSyncExternalStoreWithSelector` | 1 | 70 | Built on primitives |
+| Solid `For`, `Index`, `Show`, `children` | `For` and `Index` are 5 lines on `createMemo` and `mapArray` (95 lines, with per-item state). `Show` is 20 lines and branches on `keyed` | 1 | 128 | Plain code over cells |
+| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | `on` and `onMount` are plain code; `mapArray` and `createSelector` keep per-call state | 5 | | Mixed |
+| Router `createAsync`, `query`, `cache`, `action` | `createAsync` is `createResource(() => fn())`; `query` keeps a module `Map` keyed by name and arguments | 8 | resource 140 (models Solid's `createResource`, a cell) | Plain code over cells; the `Map` is a keyed store with a computed key |
+| zustand | 88 lines (4.5.7): one closure `let state` per `create` call, and `useSyncExternalStoreWithSelector` | 1 | 70 at the audit's base; about 226 after #419 | Per-call state: a cell row (a generator could write it) |
 | React Query, Solid Query | About 1,800 lines of classes in `query-core`: an observer on `useSyncExternalStore`, a cache `Map` keyed by a hash of the query key, a `Promise` retryer | 9 | options 85 | Built on primitives, but deep; the hashed key stays `assumed` |
 | lodash, `@solid-primitives` | Closures on `setTimeout`; storage on `localStorage` | 11 | | Built on primitives |
 
 What this shows:
 
-- **23 of 58 framework rows are at the right layer.** They describe primitives: the flow runs through a runtime, so no source analysis can follow it.
-- **35 of 58 rows, and about 420 of the 650 hard lines, describe code we could read.** Solid's own components are the plainest case:
+- **The 23 core rows are at the right layer.** They describe per-call state or a runtime-chosen function.
+- **About 200 of the 650 hard lines describe plain code over those rows:** Solid's `For` and `Show` (128) and zustand's emitter (70 at base). An earlier draft said 420; the 140 resource lines model `createResource`, which is itself a cell, and React Query (85) is too deep to count. Solid's components are the plainest case:
 
 ![Solid's For is five lines](diagrams/11-solid-for-is-five-lines.png)
 
@@ -306,9 +335,13 @@ Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test
 
 ![Migration to rows-only library support](diagrams/4-migration.png)
 
-**First step:** stage 1. It changes no behaviour, it is small, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's zustand, React Query and Solid workers merge, because they edit the same readers.
+**Revised after review:** the cell row in stage 3 names `getState`, `setState`, `subscribe` and middleware pass-through, so `zustand-store.ts` goes too. If the inline test passes, add an offline row generator after stage 4b; its rows pass the same survey gate as hand rows.
+
+**First step:** the inline test (running now), then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
 
 ## 7. Open questions
+
+- Which build is the truth for a row generator (browser or server, development or production)? The review found Solid's builds disagree on `createEffect`. The generator must name one and report a conflict when builds differ.
 
 - Should a type proposal (stage 5) show in the UI as its own kind of `assumed` step ("follows the types")? It gives a better path than an opaque library step, but the outcome stays `assumed`. This study assumes yes; it needs no product decision before stage 1.
 - The legacy route report (about 16,000 SolidStart-specific lines) is outside this study. If it is retired, the library-specific line count roughly halves.

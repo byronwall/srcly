@@ -1,15 +1,15 @@
 diagram "What each modelled library is made of"
-subtitle "35 of 58 framework rows describe code we could read instead"
+subtitle "Rows belong where state exists once per call; the rest is plain code"
 
-group built "Built on primitives · 35 rows, about 420 lines of custom code" color=amber
-node b_solidui "Solid For, Index, Show\n5 to 15 lines each" in=built
-node b_res "createResource, createAsync\nsignals plus a Promise" in=built
+group built "Plain code over cells · a generator could write these rows" color=amber
+node b_solidui "Solid For, Index, Show\n5 to 20 lines each" in=built
+node b_res "Router createAsync\nwraps createResource, a cell" in=built
 node b_router "Router query, cache, action\na Map keyed by name" in=built
-node b_zus "zustand\n80 lines of closure" in=built
+node b_zus "zustand\none closure state per create call" in=built
 node b_rq "React Query, Solid Query\n1,800 lines of classes" in=built
 node b_util "lodash, solid-primitives\ndebounce, throttle, storage" in=built
 
-group prim "Primitives: the flow runs through a runtime · 23 rows, keep as rows" color=mint
+group prim "Per-call state or a runtime-picked function · hand rows" color=mint
 node p_react "React hooks\ndispatcher set by the renderer" in=prim
 node p_signal "Solid signal and memo\nscheduler" in=prim
 node p_ctx "Context lookup\nkeyed store" in=prim
@@ -27,7 +27,7 @@ edge e7 b_rq -> p_js "Map keyed by hash"
 edge e8 b_util -> p_js "setTimeout"
 edge e9 b_util -> p_io "localStorage"
 
-legend amber "Read from source (summaries)"
+legend amber "Rows a generator could write offline"
 legend mint "Hand rows: cell, slot, keyed store, boundaries"
 
 layout root flow gap=72 direction=down
