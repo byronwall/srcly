@@ -70,7 +70,8 @@ export type ProgramProofKind =
   | "external-call"
   | "standard-library"
   | "framework-state"
-  | "shared-instance";
+  | "shared-instance"
+  | "computed-key";
 export type ProgramProof = {
   kind: ProgramProofKind;
   detail: string;

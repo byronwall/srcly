@@ -122,6 +122,62 @@
       "member": "Node.contains",
       "model": "consumes",
       "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Storage.getItem",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0]",
+      "reads": [
+        "ReturnValue"
+      ],
+      "role": "external-read",
+      "note": "Reads the stored entry for the key: what a setItem of the same key on the same storage wrote, else what the browser kept from before."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Storage.setItem",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0]",
+      "writes": [
+        "Argument[1]"
+      ],
+      "role": "external-effect",
+      "note": "Writes the value as the stored entry for the key; the browser keeps it outside the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Storage.removeItem",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0]",
+      "clears": true,
+      "role": "external-effect",
+      "note": "Drops the stored entry for the key."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Storage.clear",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "clears": true,
+      "role": "external-effect",
+      "note": "Drops every stored entry."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Storage.key",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "role": "external-read",
+      "note": "Reads the name of the entry at an index, not an entry."
     }
   ]
 }

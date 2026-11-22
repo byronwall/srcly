@@ -19,9 +19,11 @@ const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGI
  * The model types (plan §3), `wraps`: a call that returns the function it is
  * given, `cell`: a call that makes one state each time it runs
  * (`createSignal`, zustand's `create`), and `slot`: a JSX component that
- * calls a function it is given with values (`<For each>{(row) => …}</For>`).
+ * calls a function it is given with values (`<For each>{(row) => …}</For>`),
+ * and `keyed`: a call that writes, reads or clears an entry of a store under
+ * a key (a context, the query cache, `localStorage`).
  */
-export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "passes-through", "consumes", "calls-back", "wraps", "cell", "slot"] as const;
+export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "passes-through", "consumes", "calls-back", "wraps", "cell", "slot", "keyed"] as const;
 
 /** The models that say what they do only with `flows` access paths. */
 const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back", "wraps", "passes-through", "slot"]);
@@ -70,9 +72,13 @@ export const libraryModelRowSchema = z
     }).strict().optional().describe("For a `slot`: other flows when the occurrence sets a boolean attribute (`<Show keyed>` hands its child the value, not an accessor of it). An occurrence that sets it to a value no reader can decide takes neither."),
     makes: z.array(libraryPathSchema).optional().describe("For a `slot`: what the component makes itself and hands a function it calls, which no argument supplies (`Argument[0].Member[children].Parameter[1]` `For`'s index accessor, `Argument[0].Member[fallback].Parameter[0]` the error an `ErrorBoundary` caught)."),
     init: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths whose value seeds the call's one state (`Argument[0]`; `Argument[0].ReturnValue` when a function initial value is called; `Argument[1].ReturnValue.Awaited` for a fetcher)."),
-    writes: z.union([z.literal("this"), z.array(libraryPathSchema)]).optional().describe("For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value)."),
-    reads: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`)."),
+    writes: z.union([z.literal("this"), z.array(libraryPathSchema)]).optional().describe("For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `keyed` row: the paths whose value becomes the entry under the key (`Argument[1]`, `Argument[1].ReturnValue` an updater's return; for a context, its provider's props: `ReturnValue.Member[Provider].Parameter[0].Member[value]`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value)."),
+    reads: z.array(libraryPathSchema).optional().describe("For a `keyed` row: the paths that see the entry under the key (`ReturnValue`, `Argument[1].Parameter[0]` an updater's old value). For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`)."),
     yields: z.array(libraryFlowSchema).optional().describe("For a `cell`: other moves, as `flows` write them: what a read returns (`ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue`), where a dispatch puts its action (`ReturnValue.Member[1].Parameter[0] -> Argument[0].Parameter[1]`), a watched function's result fields."),
+    store: z.enum(["Argument[this]", "providers"]).optional().describe("For a `keyed` row: which store holds the entry. `Argument[this]`: the receiver (`localStorage`, a `QueryClient`), the same store when both receivers name one global or come from one call row (`useQueryClient()`). `providers`: the key is a context object, and a write reaches a read only from a provider above the read in the render tree."),
+    key: libraryPathSchema.optional().describe("For a `keyed` row: where the key is (`Argument[0]`, `Argument[0].Member[queryKey]`; `ReturnValue` for the call that makes a context, which is its own key). A constant key (a literal, a `const`, an array of them) joins as proven; any other key joins as assumed."),
+    fallback: z.array(libraryPathSchema).optional().describe("For a `keyed` row of a `providers` store: the paths a read sees only when no provider is above it (`createContext`'s `Argument[0]`)."),
+    clears: z.literal(true).optional().describe("For a `keyed` row: the call drops or refreshes the entries under the key (`invalidateQueries`, `removeItem`); it moves no value."),
     optional: z.literal("Argument[0]").optional().describe("For a `cell`: the first argument may be left out (`createResource(fetcher)` has no source); a call that leaves it out has every later argument one place earlier."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
@@ -81,7 +87,10 @@ export const libraryModelRowSchema = z
   .refine((row) => (row.name === undefined) !== (row.member === undefined), { message: "a row names exactly one of `name` or `member`" })
   .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps`, `passes-through` or `slot` row names its `flows`, and no other row does" })
   .refine((row) => row.model === "slot" || (row.variant === undefined && row.makes === undefined), { message: "only a `slot` row names a `variant` or what it `makes`" })
-  .refine((row) => (row.model === "cell") === [row.init, Array.isArray(row.writes) ? row.writes : undefined, row.reads, row.yields, row.optional].some((field) => field !== undefined), { message: "a `cell` row names its paths (`init`, `writes`, `reads`, `yields`), and no other row does" });
+  .refine((row) => row.model === "keyed" || (row.model === "cell") === [row.init, Array.isArray(row.writes) ? row.writes : undefined, row.reads, row.yields, row.optional].some((field) => field !== undefined), { message: "a `cell` row names its paths (`init`, `writes`, `reads`, `yields`), and no other row does" })
+  .refine((row) => (row.model === "keyed") === (row.key !== undefined || row.store !== undefined), { message: "a `keyed` row names its `store` and `key`, and no other row does" })
+  .refine((row) => row.model !== "keyed" || (row.store !== undefined && [row.init, row.yields, row.optional].every((field) => field === undefined) && row.writes !== "this"), { message: "a `keyed` row names its `store`, and only `key`, `writes`, `reads`, `fallback` and `clears` paths" })
+  .refine((row) => row.model === "keyed" || (row.fallback === undefined && row.clears === undefined), { message: "only a `keyed` row names a `fallback` or `clears`" });
 
 export const libraryModelFileSchema = z
   .object({
@@ -201,7 +210,7 @@ export function standardMemberModel(models: LibraryModels, member: { owner: stri
 /** An origin's or terminal's role, the element kind it marks, else null. */
 export function boundaryRole(row: LibraryModelRow | null): string | null {
   // A row with a `result` marks a function the call hands back (`returnedTerminal`), not the call.
-  return row && (row.model === "origin" || row.model === "terminal") && row.result === undefined ? row.role ?? null : null;
+  return row && (row.model === "origin" || row.model === "terminal" || row.model === "keyed") && row.result === undefined ? row.role ?? null : null;
 }
 
 /** The global members a row gives a role to (`process.env`, `process.argv`), for reads matched by the member they name. */

@@ -192,6 +192,8 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "framework-state": { strength: "modelled" },
   // A closure or field of a factory or class with more than one call or `new` site: the walk does not tell its instances apart (`InstanceSites`).
   "shared-instance": { strength: "assumed" },
+  // A keyed store's write and read where a key is computed (`["items", props.id]`): the walk cannot prove it is the other call's key (`keyed-stores.ts`).
+  "computed-key": { strength: "assumed" },
 };
 
 const NONE = {};

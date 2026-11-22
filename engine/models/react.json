@@ -181,9 +181,14 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.getQueryData",
-      "model": "origin",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0]",
+      "reads": [
+        "ReturnValue"
+      ],
       "role": "external-read",
-      "note": "The value is what the query cache holds for the key: whatever a queryFn or setQueryData put there, read outside the program's own values."
+      "note": "Reads the query cache's entry for the key: what a setQueryData of the same key on the same client wrote, else what a queryFn put there, outside the program's values."
     },
     {
       "language": "ts",
@@ -205,9 +210,18 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.setQueryData",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0]",
+      "writes": [
+        "Argument[1]",
+        "Argument[1].ReturnValue"
+      ],
+      "reads": [
+        "Argument[1].Parameter[0]"
+      ],
       "role": "external-effect",
-      "note": "Writes the value into the query cache for the key; later reads of that key see it."
+      "note": "Writes the value (or what an updater returns from the old value) as the query cache's entry for the key; reads of that key on the same client see it."
     },
     {
       "language": "ts",
@@ -221,7 +235,10 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.invalidateQueries",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0].Member[queryKey]",
+      "clears": true,
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
     },
@@ -229,7 +246,10 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.refetchQueries",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0].Member[queryKey]",
+      "clears": true,
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
     },
@@ -237,7 +257,10 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.resetQueries",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0].Member[queryKey]",
+      "clears": true,
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
     },
@@ -245,7 +268,10 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.removeQueries",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0].Member[queryKey]",
+      "clears": true,
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
     },
@@ -253,7 +279,10 @@
       "language": "ts",
       "module": "@tanstack/query-core",
       "member": "QueryClient.cancelQueries",
-      "model": "terminal",
+      "model": "keyed",
+      "store": "Argument[this]",
+      "key": "Argument[0].Member[queryKey]",
+      "clears": true,
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
     },
@@ -284,6 +313,34 @@
         "ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue"
       ],
       "note": "One store per call: what its function returns and what its set (or setState) receives are the store; an updater's draft writes it. The hook's call, its selector's parameter, getState(), get() and a subscriber read it; a selector's return is the hook call's value."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "createContext",
+      "model": "keyed",
+      "store": "providers",
+      "key": "ReturnValue",
+      "writes": [
+        "ReturnValue.Member[Provider].Parameter[0].Member[value]",
+        "ReturnValue.Parameter[0].Member[value]"
+      ],
+      "fallback": [
+        "Argument[0]"
+      ],
+      "note": "A context: its own key. Its provider's value is the entry for the readers below it (`<Ctx.Provider value>`, or React 19's `<Ctx value>`); the default is what a reader sees only where no provider is above it."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useContext",
+      "model": "keyed",
+      "store": "providers",
+      "key": "Argument[0]",
+      "reads": [
+        "ReturnValue"
+      ],
+      "note": "Reads the context's entry: the value of the nearest provider above the reader, or the default where none is."
     }
   ]
 }

@@ -563,6 +563,33 @@
         "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited"
       ],
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createContext",
+      "model": "keyed",
+      "store": "providers",
+      "key": "ReturnValue",
+      "writes": [
+        "ReturnValue.Member[Provider].Parameter[0].Member[value]"
+      ],
+      "fallback": [
+        "Argument[0]"
+      ],
+      "note": "A context: its own key. Its provider's value is the entry for the readers below it (`<Ctx.Provider value>`); the default is what a reader sees only where no provider is above it."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "useContext",
+      "model": "keyed",
+      "store": "providers",
+      "key": "Argument[0]",
+      "reads": [
+        "ReturnValue"
+      ],
+      "note": "Reads the context's entry: the value of the nearest provider above the reader, or the default where none is."
     }
   ]
 }
