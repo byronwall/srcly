@@ -6,7 +6,7 @@ export function areaOf(_level: number, area: string) { // @trace unread-param ba
 }
 
 export function status(result: { ok: boolean; error: string }) { // @trace unread-alias forward symbol result @outcome unread-alias ok
-  const { ok, error } = result;
+  const { ok, error } = result; // @reaches unread-alias field-read "error"
   return ok; // @reaches unread-alias return
 }
 

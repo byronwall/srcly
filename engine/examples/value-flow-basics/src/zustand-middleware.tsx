@@ -35,7 +35,7 @@ type StoreApiSet = (partial: Partial<Fish & Owner> | ((state: Fish & Owner) => P
 const usePond = create<Fish & Owner>()((...a) => ({ ...fishSlice(...a), ...ownerSlice(...a) })); // @edge z-slices framework-flow partial framework-state
 export function Pond(props: { count: number }) {
   const { fishes, addFish } = usePond();
-  return <button onClick={() => addFish(props.count)}>{fishes}</button>; // @trace z-slices forward props.count @outcome z-slices ok @reaches z-slices,z-get-state,z-set-state render-terminal "fishes"
+  return <button onClick={() => addFish(props.count)}>{fishes}</button>; // @trace z-slices forward props.count @outcome z-slices ok @reaches z-slices render-terminal "fishes" @never-reaches z-get-state,z-set-state
 }
 export function PondOwner() {
   const owner = usePond((state) => state.owner);

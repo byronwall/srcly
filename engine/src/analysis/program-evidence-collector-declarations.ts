@@ -261,6 +261,26 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
       const bindingId = this.symbolId(binding);
       if (bindingId) this.variablesBySymbol.set(bindingId, aliasId);
     }
+    if (this.ts.isObjectBindingPattern(node.name)) this.addBindingFields(node.name, aliasId, ownerId);
+  }
+
+  /**
+   * `const { data } = value` binds one field of the value: `data` reads the
+   * field as `value.data` would, so a field path follows it both ways. A
+   * nested pattern, a rest element or a computed key binds the whole value.
+   */
+  private addBindingFields(pattern: TypeScript.ObjectBindingPattern, aliasId: string, ownerId: string | null): void {
+    for (const element of pattern.elements) {
+      const key = element.propertyName ?? element.name;
+      const field = this.ts.isIdentifier(key) || this.ts.isStringLiteral(key) ? key.text : null;
+      if (element.dotDotDotToken || !field || !this.ts.isIdentifier(element.name)) continue;
+      const symbolId = this.symbolId(element.name);
+      if (!symbolId) continue;
+      const at = [this.location(element)];
+      const fieldId = this.ensureElement(element, "field-read", ownerId, { property: field }, symbolId, null, null, "proven", proof("property-access", "The binding element reads this field of the value.", at), "field-read");
+      this.addRelation(aliasId, fieldId, "field-input", at, proof("property-access", "The destructured value supplies the field the binding names.", at), "proven");
+      this.variablesBySymbol.set(symbolId, fieldId);
+    }
   }
 
   /** What is written into a member the project declares (`this.items`, a shared shape's `title`), by its property symbol: every read of that member sees it. */

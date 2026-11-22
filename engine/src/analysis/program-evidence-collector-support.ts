@@ -684,7 +684,10 @@ export class ProgramEvidenceCollectorSupport {
     return Boolean(file && file.isDeclarationFile && !file.hasNoDefaultLib);
   }
 
+  /** The declaration's own value: its alias (a destructured binding's name reads one field of it, `addBindingFields`). */
   protected variableId(node: TypeScript.VariableDeclaration): string | null {
+    const alias = this.ts.isObjectBindingPattern(node.name) ? this.elementIfPresent(node, "alias") : null;
+    if (alias) return alias;
     const binding = firstBindingIdentifier(this.ts, node.name);
     return binding
       ? this.variablesBySymbol.get(this.symbolId(binding) ?? "") ?? null

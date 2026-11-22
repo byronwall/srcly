@@ -314,13 +314,15 @@ export function processProgramCallBoundary(
       "proven",
     );
   } else {
-    const serviceCallKind = externalServiceCallKind(ts, context.checker, node);
+    // A row that says the call reads or writes state outside the program (a library client's cache) is that boundary, by its role.
+    const serviceCallKind = role === "external-read" ? "external-read" : role === "external-effect" ? "external-write" : externalServiceCallKind(ts, context.checker, node);
+    const named = role ? `${node.expression.getText()}(…)` : null;
     if (serviceCallKind === "external-read") {
       const readId = context.specialInput(
         node,
         "external-read",
         ownerId,
-        { operation: name, name: `database read: ${node.expression.getText()}(…)` },
+        { operation: name, name: named ? `read: ${named}` : `database read: ${node.expression.getText()}(…)` },
         "compiler-symbol",
         "The compiler-resolved service method has a source-backed contract without an in-project implementation.",
       );
@@ -354,7 +356,7 @@ export function processProgramCallBoundary(
         node,
         "external-effect",
         ownerId,
-        { operation: name, name: `database write: ${node.expression.getText()}(…)` },
+        { operation: name, name: named ? `write: ${named}` : `database write: ${node.expression.getText()}(…)` },
         "compiler-symbol",
         "The compiler-resolved service method has a source-backed write contract without an in-project implementation.",
       );

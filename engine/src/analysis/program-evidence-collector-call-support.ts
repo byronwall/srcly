@@ -10,7 +10,7 @@ import {
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
-import { builtinLibraryModels, standardMemberModel } from "./library-models";
+import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 import {
@@ -55,10 +55,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   ): void {
     const initializer = node.initializer;
     if (!initializer) return;
-    const aliasId =
-      this.variablesBySymbol.get(
-        this.symbolId(firstBindingIdentifier(this.ts, node.name)) ?? "",
-      ) ?? this.elementFor(node, "alias");
+    const aliasId = this.variableId(node) ?? this.elementFor(node, "alias");
     const initializerId = this.expression(initializer, ownerId);
     const factory = stateFactory(this.ts, this.checker, initializer);
     const first = this.ts.isArrayBindingPattern(node.name) ? node.name.elements[0] : undefined;
@@ -524,6 +521,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     this.connectExternalCallbacks(call, call.node, stateFunctions);
     const standard = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, call.node.expression));
     if (standard ? standard.writes !== "this" : !discardsValue(this.ts, call.node, this.checker)) return;
+    // A row that names the call's boundary (`client.setQueryData`, a cache write) says where its arguments go: not into the receiver.
+    if (!standard && boundaryRole(this.modelFor(call.node.expression))) return;
     const method = unwrap(this.ts, call.node.expression);
     // A function held in a field (`props.onPick(label)`) is called, not its object changed: only a method keeps its arguments in its receiver.
     const member = this.ts.isPropertyAccessExpression(method) ? this.checker.getSymbolAtLocation(method.name)?.declarations?.[0] : undefined;
