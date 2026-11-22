@@ -140,3 +140,34 @@ export function fileRoundTrip(file: string) {
   registry.push(file);
   if (!text) throw new Error("empty");
 }
+
+
+// Effects ownership: const alias chains keep the caller's receiver.
+export function constChainThenReverse(items: number[]) {
+  const same = items;
+  const sameAgain = (same);
+  sameAgain.reverse();
+  return sameAgain;
+}
+
+// Effects ownership: a mutable or reassigned binding is not a proof.
+export function reassignedParameterThenSort(items: number[]) {
+  items = [];
+  const same = items;
+  same.sort();
+  return same;
+}
+
+export function mutableAliasThenSort(items: number[], replacement: number[], useReplacement: boolean) {
+  let same = items;
+  if (useReplacement) same = replacement;
+  same.sort();
+  return same;
+}
+
+// A fresh wrapper does not make an input stored inside it fresh.
+export function wrappedInputThenSort(items: number[]) {
+  const box = { items };
+  box.items.sort();
+  return box;
+}

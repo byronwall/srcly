@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { freshSliceThenSort, inputAliasThenSort } from "../../examples/effects-basics/src/cases";
 import type { FunctionEffectsResult } from "../../src/srcly/contracts/function-effects";
 import { functionEffectsOp } from "../../src/srcly/ops/function-effects";
 import { createEngineSession } from "../../src/srcly/session";
@@ -28,7 +29,7 @@ const summary = (r: FunctionEffectsResult) => ({
   handling: r.resultHandling.map((h) => `${h.callee} ${h.handling}`),
 });
 
-describe("functionEffects on effects-basics (the 21 cases)", () => {
+describe("functionEffects on effects-basics", () => {
   const session = sessionFor(basics);
   const effects = (marker: string) => functionEffectsOp(session, { file: "src/cases.ts", line: lineOf(basics, "src/cases.ts", marker) });
 
@@ -52,8 +53,30 @@ describe("functionEffects on effects-basics (the 21 cases)", () => {
   });
 
   it("5 and 6 sort writes a parameter, not a fresh slice", () => {
-    expect(summary(effects("export function freshSliceThenSort")).facts).toEqual([]);
-    expect(summary(effects("export function inputAliasThenSort")).facts).toEqual([]);
+    const original = [3, 1, 2];
+    expect(freshSliceThenSort(original)).not.toBe(original);
+    expect(original).toEqual([3, 1, 2]);
+    expect(inputAliasThenSort(original)).toBe(original);
+    expect(original).toEqual([1, 2, 3]);
+
+    const fresh = effects("export function freshSliceThenSort");
+    expect(fresh).toMatchObject({ outcome: "ok", facts: [], frontiers: [] });
+    const aliased = effects("export function inputAliasThenSort");
+    expect(aliased.frontiers).toEqual([]);
+    expect(aliased.facts).toHaveLength(1);
+    expect(aliased.facts[0]).toMatchObject({
+      kind: "parameter-write", status: "proven", activation: "direct", witness: { text: "same.sort()" },
+    });
+  });
+
+  it("preserves the parameter origin through const alias chains", () => {
+    const result = effects("export function constChainThenReverse");
+    expect(summary(result)).toEqual({ facts: ["parameter-write direct"], frontiers: [], handling: [] });
+  });
+
+  it.each(["reassignedParameterThenSort", "mutableAliasThenSort", "wrappedInputThenSort"])("reports unknown receiver ownership as partial for %s", (name) => {
+    const result = effects(`export function ${name}`);
+    expect(result).toMatchObject({ outcome: "partial", coverage: "partial", facts: [], frontiers: [{ reason: "receiver-ownership", witness: { text: expect.stringMatching(/\.sort\(\)$/) } }] });
   });
 
   it("7 and 8 a transitive parameter write is the caller's; a write to a fresh object is partial", () => {
