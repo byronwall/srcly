@@ -55,7 +55,7 @@ Browser
 | Feature | Where |
 | --- | --- |
 | Scan orchestration (walk, filter, analyze, build tree) | `server/app/services/analysis.py` (`scan_codebase`) |
-| File discovery (scan + landing-page estimate): `git ls-files` in repos, walk fallback | `server/app/services/analysis.py` (`discover_files`); estimate in `server/app/routers/analysis.py` (`_estimate_counts`) |
+| File discovery: Tree and the landing-page estimate share `discover_files`; Imports and Symbols share its Git candidates, then apply their structural source filters | `server/app/services/analysis.py` (`discover_files`, `git_inventory_files`); `server/app/services/deps/common.py` (`walk_source_files`); estimate in `server/app/routers/analysis.py` (`_estimate_counts`) |
 | Ignore rules: built-in dirs/files/extensions, binary + minified skips | `server/app/config.py`; `analysis.py` (`classify_candidate`) |
 | Ignore rules: nested `.gitignore` translation (walk fallback only) | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
 | Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |

@@ -84,6 +84,15 @@ test.describe("Symbols mode on solid-route", () => {
     await page.goto(url({ view: "graph", symbols: "src/components/RecordTable.tsx#Nope" }));
     await expect(page.getByText("Not in the index")).toBeVisible({ timeout: 90_000 });
   });
+
+  test("explain when a tree file isn't eligible for structural views", async ({ page }) => {
+    await page.goto(url({ view: "graph", at: "README.md" }));
+    const notice = page.locator("[data-imports-excluded]");
+    await expect(notice).toContainText("README.md is in the tree but not in Imports", { timeout: 90_000 });
+    await page.goto(url({ view: "graph", symbols: "README.md" }));
+    await expect(page.getByText("Not in the index")).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText(/Symbols indexes JavaScript, TypeScript and Python source/)).toBeVisible();
+  });
 });
 
 test.describe("Symbols mode paths on solid-route", () => {

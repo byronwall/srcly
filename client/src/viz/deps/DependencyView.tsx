@@ -24,7 +24,7 @@ import { layoutWithHubs } from "./hubs";
 import type { ViewLayout } from "./layout";
 import { viewContents, viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
-import { folderOf, graphIdFor, isDataFlow, isSymbols } from "../../navigation/location";
+import { folderOf, graphIdFor, isDataFlow, isSymbols, splitAt } from "../../navigation/location";
 import { addAnchorPatch, refsPatch, tracePatch } from "../../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
 import { go, graphFilters as filters, location, replace, setGraphFilters as setFilters } from "../../navigation/store";
@@ -86,6 +86,15 @@ function ImportView(props: {
   const index = createMemo(() => {
     const g = graph();
     return g ? buildIndex(applyFilters(g, filters())) : null;
+  });
+
+  const unindexedFile = createMemo(() => {
+    const nodes = graph()?.nodes;
+    const { file } = splitAt(location().at);
+    if (!nodes || !file || !props.metricsIndex) return null;
+    const separator = props.rootPath.includes("\\") ? "\\" : "/";
+    const full = `${props.rootPath.replace(/[\\/]$/, "")}${separator}${file.replaceAll("/", separator)}`;
+    return props.metricsIndex.get(full)?.type === "file" && !nodes.some((n) => n.id === file) ? file : null;
   });
 
   const effectiveFocus = createMemo(() => {
@@ -420,6 +429,13 @@ function ImportView(props: {
         </IconButton>
       </ViewTools>
 
+      <Show when={unindexedFile()}>
+        {(file) => (
+          <p data-imports-excluded role="status" class="border-b border-[var(--plc-border)] px-3 py-2 text-xs text-[var(--plc-on-muted)]">
+            <code>{file()}</code> is in the tree but not in Imports. Imports covers JavaScript, TypeScript and Python source up to 1 MB, excluding <code>.d.ts</code> files and hidden or pruned folders.
+          </p>
+        )}
+      </Show>
       <div ref={host} class="relative min-h-0 flex-1">
         <Show when={graph.loading}>
           <LoadingState label="Loading dependencies…" class="absolute inset-0" />

@@ -34,12 +34,11 @@ def _signature(files: List[Path]) -> Tuple[int, int]:
     return len(files), total
 
 
-def collect_edges(root: Path) -> Tuple[List[Path], List[DepEdge], Dict[str, list]]:
-    """Run every language extractor. Returns files, edges and per-file symbol defs."""
-    ts_files = walk_source_files(root, TS_EXTENSIONS)
+def collect_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[str, list]]:
+    """Run every language extractor against one inventory snapshot."""
+    ts_files = [f for f in files if f.suffix in TS_EXTENSIONS]
     edges: List[DepEdge] = []
     symbols: Dict[str, list] = {}
-    files: List[Path] = list(ts_files)
 
     if ts_files:
         ts_edges, ts_infos = build_ts_edges(root, ts_files)
@@ -53,26 +52,26 @@ def collect_edges(root: Path) -> Tuple[List[Path], List[DepEdge], Dict[str, list
         build_py_edges = None
         PY_EXTENSIONS = set()
     if build_py_edges is not None:
-        py_files = walk_source_files(root, PY_EXTENSIONS)
+        py_files = [f for f in files if f.suffix in PY_EXTENSIONS]
         if py_files:
             py_edges, py_symbols, _infos, _index = build_py_edges(root, py_files)
             edges.extend(py_edges)
             symbols.update(py_symbols)
-            files.extend(py_files)
-    return files, edges, symbols
+    return edges, symbols
 
 
 def build_dependency_graph(root: Path, use_cache: bool = True) -> DepGraph:
     root = root.resolve()
+    files = walk_source_files(root, TS_EXTENSIONS | {".py"})
     if use_cache:
-        files_now = walk_source_files(root, TS_EXTENSIONS | {".py"})
-        sig = _signature(files_now)
+        sig = _signature(files)
         with _lock:
             hit = _cache.get(root)
         if hit is not None and hit[0] == sig:
             return hit[1]
-    files, edges, symbols = collect_edges(root)
-    graph = _assemble(root, files, edges, symbols)
+    edges, symbols = collect_edges(root, files)
+    # Keep the existing TS-first language order in the graph payload.
+    graph = _assemble(root, sorted(files, key=lambda f: f.suffix == ".py"), edges, symbols)
     if use_cache:
         with _lock:
             _cache[root] = (sig, graph)

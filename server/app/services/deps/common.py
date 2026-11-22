@@ -51,8 +51,35 @@ def _gitignore_spec(root: Path):
 
 
 def walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
-    """Source files under root, skipping ignored, hidden and gitignored paths."""
+    """Eligible Imports/Symbols source files, with the tree's Git visibility."""
+    from app.services.analysis import git_inventory_files
+
     root = root.resolve()
+    inventory = git_inventory_files(root)
+    if inventory is not None:
+        out: list[Path] = []
+        for name in inventory:
+            path = Path(name)
+            if any(part.startswith(".") for part in path.relative_to(root).parts[:-1]):
+                continue
+            source = _eligible_source(path, extensions)
+            if source is not None:
+                out.append(source)
+        return sorted(out)
+    return _walk_source_files(root, extensions)
+
+
+def _eligible_source(path: Path, extensions: Set[str]) -> Path | None:
+    if path.name.endswith(".d.ts") or path.suffix not in extensions:
+        return None
+    try:
+        return path.resolve() if path.stat().st_size <= MAX_SOURCE_BYTES else None
+    except OSError:
+        return None
+
+
+def _walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
+    """Keep the existing pathspec discovery for folders without a Git listing."""
     repo_root, spec = _gitignore_spec(root)
 
     def ignored(p: Path, is_dir: bool) -> bool:
@@ -73,18 +100,12 @@ def walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
             if d not in IGNORE_DIRS and not d.startswith(".") and not ignored(base / d, True)
         )
         for name in sorted(filenames):
-            if name.endswith(".d.ts"):
-                continue
             p = base / name
             if ignored(p, False):
                 continue
-            if p.suffix in extensions:
-                try:
-                    if p.stat().st_size > MAX_SOURCE_BYTES:
-                        continue
-                except OSError:
-                    continue
-                out.append(p.resolve())
+            source = _eligible_source(p, extensions)
+            if source is not None:
+                out.append(source)
     return out
 
 
