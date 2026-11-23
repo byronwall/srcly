@@ -101,7 +101,8 @@ function surveyDir(): string {
     const marker = path.join(folder, ".srcly-survey-source");
     let source = "";
     try {
-      source = fs.readFileSync(marker, "utf8").trim();
+      // Exactly what the writer stored: a checkout path may end in a space.
+      source = fs.readFileSync(marker, "utf8");
     } catch {
       // No marker (or another gate is rewriting it): never stale.
     }
@@ -154,11 +155,13 @@ function checkout(sha: string, dir: string, headPython: string): { root: string;
   };
   install();
   // An install whose files were deleted under it still looks current to pnpm: check that the survey's own loader starts, else install from scratch.
-  // Load a TypeScript module through tsx, with this Node, as the survey does: an empty script never asks tsx to compile.
-  const loads = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", "await import('./src/srcly/kinds.ts')"], { cwd: path.join(dir, "engine"), encoding: "utf8" });
-  if (loads.status !== 0) {
+  // Load the survey's own session module (TypeScript, zod and the rest) through tsx, with this Node, as the survey does.
+  const loads = () => spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", "await import('./src/srcly/session.ts')"], { cwd: path.join(dir, "engine"), encoding: "utf8" });
+  if (loads().status !== 0) {
     for (const sub of ["engine", "client"]) fs.rmSync(path.join(dir, sub, "node_modules"), { recursive: true, force: true });
     install();
+    const again = loads();
+    if (again.status !== 0) fail(`The survey worktree's engine does not load after a clean install:\n${again.stderr.slice(-1500)}`);
   }
   if (!fs.existsSync(path.join(dir, "engine/scripts/survey-blockers.ts"))) fail(`${sha} has no engine/scripts/survey-blockers.ts to survey with.`);
   const root = fs.realpathSync(dir);
