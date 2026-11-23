@@ -7,7 +7,7 @@
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
-import { anchorGraphToViewModel } from "./anchorAdapter";
+import { anchorGraphToViewModel, sameProof } from "./anchorAdapter";
 
 export interface MergedAnchors {
   model: FlowViewModel;
@@ -15,16 +15,20 @@ export interface MergedAnchors {
   shared: Map<string, string[]>;
 }
 
+const WALK_STRENGTH = { structural: 0, faint: 1, proven: 2 } as const;
 const STRENGTH: Record<NonNullable<ViewEdge["status"]>, number> = { structural: 0, unsupported: 1, partial: 2, proven: 3 };
 
 /** One edge, two traces' witnesses: every relation and proof stays, with the strongest status any of them has, as one trace's edges do. */
 function merge(known: ViewEdge, edge: ViewEdge) {
   for (const kind of (edge.relation ?? "").split(", ").filter(Boolean)) if (!(known.relation ?? "").split(", ").includes(kind)) known.relation = known.relation ? `${known.relation}, ${kind}` : kind;
   for (const field of (edge.label ?? "").split(", ").filter(Boolean)) if (!(known.label ?? "").split(", ").includes(field)) known.label = known.label ? `${known.label}, ${field}` : field;
-  for (const p of edge.proof ?? []) if (!known.proof?.some((item) => item.kind === p.kind && item.detail === p.detail)) known.proof = [...(known.proof ?? []), p];
+  for (const p of edge.proof ?? []) if (!known.proof?.some((item) => sameProof(item, p))) known.proof = [...(known.proof ?? []), p];
   if (edge.status && STRENGTH[edge.status] > STRENGTH[known.status ?? "structural"]) Object.assign(known, { status: edge.status, faint: edge.faint, style: edge.style });
   if (known.assumed && !edge.assumed) delete known.assumed;
 }
+
+/** How one trace's own witness lets reach walk an edge. */
+const walkOf = (edge: ViewEdge) => (edge.style === "structural" ? "structural" : edge.faint ? "faint" : "proven");
 
 export function anchorsToViewModel(graphs: readonly AnchorGraphResult[]): MergedAnchors {
   const models = graphs.map((graph) => ({ graph, model: anchorGraphToViewModel(graph) }));
@@ -48,12 +52,16 @@ export function anchorsToViewModel(graphs: readonly AnchorGraphResult[]): Merged
     for (const edge of model.vm.edges) {
       const key = `${edge.source}|${edge.target}`;
       const known = seenEdges.get(key);
+      // A trace that draws one pair twice (it cannot; the adapter merges pairs) keeps its stronger witness.
+      const walk = walkOf(edge);
       if (known) {
         merge(known, edge);
-        if (!known.traces!.includes(trace)) known.traces!.push(trace);
+        const had = known.traces![trace];
+        if (!had || WALK_STRENGTH[walk] > WALK_STRENGTH[had]) known.traces![trace] = walk;
         continue;
       }
-      const own = { ...edge, traces: [trace], ...(edge.proof ? { proof: [...edge.proof] } : {}) };
+      // One id per drawn pair: two traces can project different engine relations onto one pair, or one relation onto two.
+      const own: ViewEdge = { ...edge, id: `pair:${key}`, traces: { [trace]: walk }, ...(edge.proof ? { proof: [...edge.proof] } : {}) };
       seenEdges.set(key, own);
       edges.push(own);
     }

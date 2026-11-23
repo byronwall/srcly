@@ -44,6 +44,31 @@ describe("merged anchors keep each trace's own witnesses", () => {
   });
 });
 
+describe("merged anchors walk each trace on its own witness", () => {
+  const box = (id: string, kind = "value") =>
+    ({ id, label: id, kind, elementKind: kind === "terminal" ? "render-terminal" : "call", side: "down", parent: null, file: "src/f.tsx", absPath: "/f.tsx", line: 1, span: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 2 }, status: "proven", detail: null, note: null, reason: null }) as unknown as AnchorGraphResult["nodes"][number];
+  const edge = (id: string, source: string, target: string, status: "proven" | "partial") => ({ id, source, target, kind: "references", status, proof: [], label: null });
+  const trace = (text: string, nodes: AnchorGraphResult["nodes"], edges: ReturnType<typeof edge>[]) => ({ ...a, anchor: { ...a.anchor, text }, nodes, edges }) as unknown as AnchorGraphResult;
+  // A proves x → y only partly and goes on to t; B proves x → y outright.
+  const traceA = trace("a", [box("x", "anchor"), box("y"), box("t", "terminal")], [edge("e1", "x", "y", "partial"), edge("e2", "y", "t", "proven")]);
+  const traceB = trace("b", [box("x", "anchor"), box("y")], [edge("e3", "x", "y", "proven")]);
+
+  it("never lets one trace's proof carry another trace past its own stop", () => {
+    for (const pair of [[traceA, traceB], [traceB, traceA]]) {
+      const { model } = anchorsToViewModel(pair);
+      const reach = reachFrom(model.vm, "x", "down");
+      // B reaches y on its own proof; only A goes on to t, and A stops at y.
+      expect(reach.light.nodes.has("t") || reach.strong.nodes.has("t")).toBe(false);
+      expect([...reach.strong.nodes, ...reach.light.nodes]).toContain("y");
+    }
+  });
+
+  it("gives every drawn edge its own id", () => {
+    const { model } = anchorsToViewModel([traceA, traceB]);
+    expect(new Set(model.vm.edges.map((e) => e.id)).size).toBe(model.vm.edges.length);
+  });
+});
+
 describe("PW05: a folded reference still stands for its chain", () => {
   const box = (id: string, label: string, line: number, kind = "value", elementKind = "value") =>
     ({ id, label, kind, elementKind, side: "down", parent: null, file: "src/f.tsx", absPath: "/f.tsx", line, span: { startLine: line, startColumn: 1, endLine: line, endColumn: 2 }, status: "proven", detail: null, note: null, reason: null }) as unknown as AnchorGraphResult["nodes"][number];

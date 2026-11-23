@@ -1742,9 +1742,11 @@ function EdgeLabel(props: { edge: PositionedEdge; strong: boolean; at: LabelPlac
 }
 
 /** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof; structural links are found by syntax. */
-function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | "structural" | null {
+function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | "structural" | "traced" | null {
   if (e.style) return e.style;
-  return e.id.startsWith("contains:") ? "renders" : null;
+  if (e.id.startsWith("contains:")) return "renders";
+  // A plain anchor edge still comes from the engine: its relation and proof go on the card.
+  return e.relation || e.proof?.length ? "traced" : null;
 }
 
 function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNode> }) {
@@ -1785,7 +1787,7 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
               <span class="text-[var(--plc-on-subtle)]">
                 {e().relation
                   ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : kind() === "structural" ? ": found by structure, not traced" : ""}`
-                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : kind() === "structural" ? "structural: found by structure, not traced" : "field: the selected origin's path"}
+                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : kind() === "structural" ? "structural: found by structure, not traced" : kind() === "traced" ? "traced by the engine" : "field: the selected origin's path"}
               </span>
               <Show when={e().status}>
                 {(st) => (

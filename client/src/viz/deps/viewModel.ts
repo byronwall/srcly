@@ -75,8 +75,11 @@ export interface ViewEdge {
   proof?: { kind: string; detail: string; status: "proven" | "partial" | "unsupported"; at?: string }[];
   /** Anchor mode: a step the engine assumes, through code with no source (an `external-call` proof); drawn in the assumed color. */
   assumed?: boolean;
-  /** Several anchors: the anchors whose own trace has this edge. Reach walks one trace at a time, so a path never borrows another anchor's exit. */
-  traces?: string[];
+  /**
+   * Several anchors: each trace that has this edge, and how that trace's own witness lets reach walk it. Reach walks one
+   * trace at a time on its own witness, so a path never borrows another anchor's exit or another anchor's stronger proof.
+   */
+  traces?: Record<string, "proven" | "faint" | "structural">;
   /** Anchor mode: the engine's relation kind (`field-input`, `argument`, …), for its card. */
   relation?: string;
   /** Symbol view: a value-flow edge, the main line, drawn bold with its label always shown. */

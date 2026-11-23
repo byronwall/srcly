@@ -33,8 +33,8 @@ export interface Reach {
   counts: { up: number; down: number; frontier: number };
 }
 
-/** Walk one direction from `seed` over proven edges; `frontier` collects where a non-proven edge stopped it. */
-function walk(seed: string, edges: ViewEdge[], dir: "up" | "down", frontier: Set<string>, structural: Set<string>): { nodes: Set<string>; edges: Set<string> } {
+/** Walk one direction from `seed` over proven edges; `frontier` collects where a non-proven edge stopped it. On several anchors, `trace` reads each edge as that trace's own witness does. */
+function walk(seed: string, edges: ViewEdge[], dir: "up" | "down", frontier: Set<string>, structural: Set<string>, trace?: string): { nodes: Set<string>; edges: Set<string> } {
   const nodes = new Set<string>();
   const found = new Set<string>();
   const queue = [seed];
@@ -48,9 +48,10 @@ function walk(seed: string, edges: ViewEdge[], dir: "up" | "down", frontier: Set
     for (const e of byEnd.get(id) ?? []) {
       const next = dir === "up" ? e.source : e.target;
       if (next === seed) continue;
-      if (e.style === "structural") {
+      const how = trace !== undefined && e.traces ? e.traces[trace] : e.style === "structural" ? "structural" : e.faint ? "faint" : "proven";
+      if (how === "structural") {
         structural.add(e.id);
-      } else if (e.faint) {
+      } else if (how === "faint") {
         frontier.add(next);
         continue;
       } else found.add(e.id);
@@ -67,12 +68,12 @@ export function reachFrom(vm: Pick<ViewModel, "edges">, seed: string, mode: Reac
   const frontier = new Set<string>();
   const structural = new Set<string>();
   // The seed's traces; an edge no trace names (one anchor, a link) belongs to every one.
-  const traces = [...new Set(edges.filter((e) => e.source === seed || e.target === seed).flatMap((e) => e.traces ?? []))];
-  const runs = traces.length ? traces.map((trace) => edges.filter((e) => !e.traces || e.traces.includes(trace))) : [edges];
+  const traces = [...new Set(edges.filter((e) => e.source === seed || e.target === seed).flatMap((e) => Object.keys(e.traces ?? {})))];
+  const runs = traces.length ? traces.map((trace) => ({ trace, edges: edges.filter((e) => !e.traces || trace in e.traces) })) : [{ trace: undefined, edges }];
   const along = (dir: "up" | "down") => {
     const found = { nodes: new Set<string>(), edges: new Set<string>() };
     for (const run of runs) {
-      const one = walk(seed, run, dir, frontier, structural);
+      const one = walk(seed, run.edges, dir, frontier, structural, run.trace);
       for (const id of one.nodes) found.nodes.add(id);
       for (const id of one.edges) found.edges.add(id);
     }
