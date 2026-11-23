@@ -226,9 +226,6 @@ function judge(result: Result): never {
     else if (acknowledged(body)) notes.push(`${result.moves.length} moves, acknowledged by the PR body's \`${ACK_LINE}\` line.`);
     else failures.push(`${result.moves.length} unacknowledged moves: add a \`${ACK_LINE}\` line to the PR body that explains them (editing the body re-runs this check).`);
   }
-  // The corpus is this repo's own code: an edit to it moves its own traces with no change to the analysis.
-  const edited = result.corpusEdits ?? [];
-  if (edited.length && result.moves.length) notes.push(`This change edits ${edited.length} corpus file${edited.length === 1 ? "" : "s"}, whose own traces can move with no analysis change; name them in the \`${ACK_LINE}\` line when they explain the moves: ${edited.slice(0, 8).join(", ")}${edited.length > 8 ? ", …" : ""}.`);
   const text = report(result, failures, notes).join("\n");
   process.stdout.write(`\n${text}\n`);
   fs.mkdirSync(OUT, { recursive: true });
@@ -252,6 +249,9 @@ function report(result: Result, failures: string[], notes: string[]): string[] {
     "",
     ...head.timing.map((line) => `- ${line}`),
   ];
+  // The corpus is this repo's own code: an edit to it moves its own traces with no change to the analysis. Every report that lists moves says so.
+  const edited = result.corpusEdits ?? [];
+  if (edited.length && result.moves.length) lines.push("", `This change edits ${edited.length} corpus file${edited.length === 1 ? "" : "s"}, whose own traces can move with no analysis change; name them in the \`${ACK_LINE}\` line when they explain the moves: ${edited.slice(0, 8).join(", ")}${edited.length > 8 ? ", …" : ""}.`);
   if (result.moves.length) lines.push("", `<details><summary>${result.moves.length} moves</summary>`, "", "```", ...result.moves, "```", "", "</details>");
   else lines.push("", "No moves.");
   if (notes.length) lines.push("", ...notes);
