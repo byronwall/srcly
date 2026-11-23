@@ -364,7 +364,7 @@ class LedgerBuilder {
     private typeText(node: TypeScript.Node): string | null {
     try {
       const text = this.checker.typeToString(this.checker.getTypeAtLocation(node));
-      return text.length > 160 ? `${text.slice(0, 159)}…` : text;
+      return text.length > 160 ? `${sliceWhole(text, 159)}…` : text;
     } catch {
       return null;
     }

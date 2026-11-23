@@ -8,7 +8,7 @@ import { builtinTsModel } from "../analysis/library-models";
 import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { BindingState, HostCandidate, LanguageHost } from "./host";
-import { candidatesAt, sourceFileFor, spanOf, type Span } from "./selection";
+import { candidatesAt, sliceWhole, sourceFileFor, spanOf, type Span } from "./selection";
 import type { TsTier1 } from "./session";
 
 export function createTypescriptHost(tier1: TsTier1): LanguageHost {
@@ -53,7 +53,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (typeTexts.has(at.node)) return typeTexts.get(at.node)!;
       try {
         const text = checker.typeToString(checker.getTypeAtLocation(at.node));
-        const clipped = text.length > 160 ? `${text.slice(0, 159)}…` : text;
+        const clipped = text.length > 160 ? `${sliceWhole(text, 159)}…` : text;
         typeTexts.set(at.node, clipped);
         return clipped;
       } catch {

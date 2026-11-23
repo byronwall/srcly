@@ -137,6 +137,9 @@ for (const name of roots) {
               // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
+            // Exactly one input row, first, at the selection.
+            const input = result.rows[0];
+            if (!input || input.kind !== "input" || result.rows.filter((row) => row.kind === "input").length !== 1 || input.file !== result.selection.file || JSON.stringify(input.span) !== JSON.stringify(result.selection.span)) problems.push("the first row is not the one input row at the selection");
             // One step per box the graph drew: a repeated box would show the same step twice.
             const steps = result.rows.slice(1).filter((row) => row.relationId && row.kind !== "boundary" && row.kind !== "terminal").map((row) => row.elementId);
             if (new Set(steps).size !== steps.length) problems.push("a box has two step rows");
