@@ -1,0 +1,15 @@
+{
+  "id": "d802e12d-45b3-4e4d-9959-add7d660a4c7",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:8bb780",
+    "label": "Agent token ...8bb780"
+  },
+  "createdAt": "2026-11-23T03:59:57.592Z",
+  "summary": "Created \"React 19 action hooks as library rows\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-react-19-action-hooks-as-library-rows",
+    "area-data-flow-trace-coverage"
+  ]
+}

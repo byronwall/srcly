@@ -1,6 +1,6 @@
 # Research review and recommendation dispositions
 
-Reviewed on 2026-11-01 at `e07cc510087b5c028273cad785b97ee36c6c3b35`. The research branch changes documentation only. [Original assets](assets/pro-results/2026-11-01/README.md), [summary](../../research/dataflow-js-react-solid-2026-11-01/README.md), and [plan](implementation-plan.md).
+Reviewed on 2026-11-01 at `e07cc510087b5c028273cad785b97ee36c6c3b35`. The research branch changes documentation only. [Original assets](pro-results/README.md) and [summary](README.md). The reviewed plan was retired on 2026-11-23; the summary records what shipped.
 
 ## Decisive checks
 

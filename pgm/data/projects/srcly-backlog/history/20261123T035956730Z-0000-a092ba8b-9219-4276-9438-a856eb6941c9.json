@@ -1,0 +1,15 @@
+{
+  "id": "a092ba8b-9219-4276-9438-a856eb6941c9",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c5a635",
+    "label": "Agent token ...c5a635"
+  },
+  "createdAt": "2026-11-23T03:59:56.730Z",
+  "summary": "Created \"Field lineage from non-filesystem route origins\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-field-lineage-from-non-filesystem-route-origins",
+    "area-data-flow-trace-coverage"
+  ]
+}

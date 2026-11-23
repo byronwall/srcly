@@ -1,0 +1,15 @@
+{
+  "id": "b2267337-ec94-4a2d-bcc2-73d5c5d1bbf7",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:242c94",
+    "label": "Agent token ...242c94"
+  },
+  "createdAt": "2026-11-23T03:59:57.169Z",
+  "summary": "Created \"Per-instance state for class members\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-per-instance-state-for-class-members",
+    "area-data-flow-trace-coverage"
+  ]
+}
