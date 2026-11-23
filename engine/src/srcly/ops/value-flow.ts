@@ -131,6 +131,7 @@ class LedgerBuilder {
     this.add({ kind: "input", label: candidate.text, file, span, status: seed ? "proven" : "partial", elementId: seed, typeText: host.typeTextAt(file, span), note: null });
     // What the selection is made of, innermost first; a bare name is the value itself, not a step.
     for (const part of host.parts(file, span)) {
+      if (this.rows.length >= MAX_ROWS) break;
       if (part.kind === "Name") continue;
       const fact = elementsAt(this.tier1, file, part.span)[0];
       const kind: LedgerRow["kind"] = part.kind === "BoolOp" ? "fallback" : part.kind === "IfExp" ? "branch" : part.kind === "Call" ? "transform" : "transfer";
@@ -259,6 +260,8 @@ class LedgerBuilder {
       };
     };
     const visit = (n: TypeScript.Node) => {
+      // A selection with thousands of parts (a call with 4,600 arguments) still makes a small ledger.
+      if (this.rows.length >= MAX_ROWS) return;
       if (ts.isParenthesizedExpression(n) || ts.isJsxExpression(n)) {
         if (n.expression) visit(n.expression);
         return;

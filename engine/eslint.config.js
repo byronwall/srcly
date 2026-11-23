@@ -74,6 +74,21 @@ export default tseslint.config(
     },
   },
   {
+    // The ledger is the anchor graph laid out as rows (docs/dataflow-engine.md, "One answer per expression").
+    // Its own slice walk and its copies of the graph's stop rules drifted from the graph: keep both out.
+    files: ["src/srcly/ops/value-flow.ts"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{ group: ["**/analysis/evidence-slice", "**/anchor-slice"], message: "The ledger never walks a slice of its own: lay out anchorGraphOp's result." }],
+        paths: [{
+          name: "../facts",
+          importNames: ["naturalEnd", "endsInPlace", "externalCallee", "assumedCallee", "needsOneCallSite", "pairedInSlice", "isNaturalStart", "beginsHere"],
+          message: "Where a value ends or stops is decided in anchor-graph.ts only; the ledger reads it from the graph.",
+        }],
+      }],
+    },
+  },
+  {
     files: ["**/*.d.mts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
