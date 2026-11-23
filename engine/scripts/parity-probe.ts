@@ -59,7 +59,8 @@ for (const name of roots) {
   const root = path.resolve(ENGINE, name);
   // --language python for a Python folder with no pyproject.toml.
   const isPython = flag("--language") ? flag("--language") === "python" : fs.existsSync(path.join(root, "pyproject.toml")) && !fs.existsSync(path.join(root, "tsconfig.json"));
-  const source = isPython || !fs.existsSync(path.join(root, "src")) ? root : path.join(root, "src");
+  // The app's rule, for both languages: the sources are `src/` when there is one.
+  const source = fs.existsSync(path.join(root, "src")) ? path.join(root, "src") : root;
   if (isPython && !python()) {
     console.log(`${name}: skipped, no Python with mypy (set SRCLY_PYTHON or run \`uv sync\` in server/)`);
     // A root asked for by name must run.
@@ -109,7 +110,7 @@ for (const name of roots) {
             const anchor = result.nodes.find((node) => node.kind === "anchor");
             return {
               outcome: result.outcome,
-              stops: result.nodes.filter((node) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven")).map((node) => `${node.reason}@${node.file}:${node.line}`),
+              stops: result.nodes.filter((node) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven")).map((node) => `${node.reason}@${node.file}:${JSON.stringify(node.span)}`),
               // A value that ends where it is selected also lands at the anchor.
               ends: [...result.nodes.filter((node) => node.kind === "terminal").map((node) => node.id), ...(anchor?.note?.startsWith("ends here") ? [anchor.id] : [])],
             };
@@ -137,14 +138,15 @@ for (const name of roots) {
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
             const stopRows = new Set(result.rows.filter((row) => row.kind === "boundary").map((row) => row.id));
-            if (result.frontiers.length !== stopRows.size || result.frontiers.some((stop) => !stopRows.has(stop.rowId))) problems.push("the frontiers list is not the stop rows");
+            const named = new Set(result.frontiers.map((stop) => stop.rowId));
+            if (named.size !== result.frontiers.length || named.size !== stopRows.size || [...named].some((id) => !stopRows.has(id))) problems.push("the frontiers list is not the stop rows, one each");
             // The ends the client counts are the terminal rows.
             const terminalRows = new Set(result.rows.filter((row) => row.kind === "terminal").map((row) => row.id));
             if (result.terminals.length !== terminalRows.size || result.terminals.some((id) => !terminalRows.has(id))) problems.push("the terminals list is not the terminal rows");
             return {
               outcome: result.outcome,
               // Every stop row, one for one with the graph's stops; the frontiers list must name exactly those rows.
-              stops: result.rows.filter((row) => row.kind === "boundary").map((row) => `${row.reason}@${row.file}:${row.line}`),
+              stops: result.rows.filter((row) => row.kind === "boundary").map((row) => `${row.reason}@${row.file}:${JSON.stringify(row.span)}`),
               ends: result.rows.filter((row) => row.kind === "terminal").map((row) => row.elementId ?? "?"),
               problems,
             };
