@@ -20,11 +20,16 @@ fi
 # preview_start reads .claude/launch.json. Its ports differ per worktree, so it is
 # generated here rather than committed; delete it to regenerate. A new worktree
 # can start with a copy of another checkout's file (fixed ports, no data-flow
-# engine), so one that does not run scripts/dev-server.sh is replaced.
+# engine). That old srcly config, which names srcly-api but does not run
+# scripts/dev-server.sh, is replaced; any other file is yours and is kept.
 launch="$ROOT_DIR/.claude/launch.json"
 if [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
-  echo "==> .claude/launch.json does not use scripts/dev-server.sh: replacing it"
-  rm "$launch"
+  if grep -q '"srcly-api"' "$launch"; then
+    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it"
+    rm "$launch"
+  else
+    echo "==> .claude/launch.json does not run scripts/dev-server.sh; keeping it. Delete it to get this worktree's ports and the engine."
+  fi
 fi
 if [ ! -f "$launch" ]; then
   read -r api_port client_port < <("$ROOT_DIR/scripts/dev-ports.sh")

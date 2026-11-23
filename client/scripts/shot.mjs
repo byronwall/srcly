@@ -63,10 +63,27 @@ try {
   }
   // `force` hovers an SVG edge under another layer, as a pointer resting there would.
   // An edge's hit area has a transparent stroke, which Playwright counts as hidden: wait for it to exist, not to show.
+  // A bent edge's box centre can lie off its stroke, so rest on a point of the stroke itself, and check what is under it.
   if (values.hover) {
     const hovered = page.locator(values.hover).first();
     await hovered.waitFor({ state: "attached" });
-    await hovered.hover({ force: true });
+    const at = await hovered.evaluate((el) => {
+      if (el instanceof SVGGeometryElement && el.getTotalLength() > 0) {
+        const point = el.getPointAtLength(el.getTotalLength() / 2).matrixTransform(el.getScreenCTM());
+        return { x: point.x, y: point.y };
+      }
+      const box = el.getBoundingClientRect();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    });
+    await page.mouse.move(at.x, at.y);
+    const hit = await hovered.evaluate((el, point) => {
+      const under = document.elementFromPoint(point.x, point.y);
+      return !!under && (under === el || el.contains(under));
+    }, at);
+    if (!hit) {
+      console.error(`--hover: the point under the pointer is not ${values.hover}, so its hover state may be missing`);
+      process.exitCode = 1;
+    }
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   const target = values.selector ? page.locator(values.selector).first() : page;
