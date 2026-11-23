@@ -50,7 +50,7 @@ const CORPUS: Corpus[] = [
 ];
 
 type Side = { summaries: Summaries; failures: string[]; timing: string[]; ms: number; prepareMs: number };
-type Result = { base: { ref: string; sha: string }; head: { sha: string; dirty: boolean }; sides: { base: Side; head: Side }; moves: string[] };
+type Result = { base: { ref: string; sha: string }; head: { sha: string; dirty: boolean }; sides: { base: Side; head: Side }; moves: string[]; corpusEdits?: string[] };
 type Survey = { tier1: { ok: boolean; code?: string; message?: string }; traces?: Trace[] };
 
 const args = parseArgs(process.argv.slice(2));
@@ -81,7 +81,8 @@ function surveyBoth(): Result {
   // Base first: the head's time limits are then measured on a warm disk.
   const base = survey("base", baseSha, dir, python, false);
   const headSide = survey("head", headSha, dir, python, true);
-  return { base: { ref, sha: baseSha }, head, sides: { base, head: headSide }, moves: moves(base.summaries, headSide.summaries) };
+  // The corpus files the two surveyed commits differ in (the head snapshot includes untracked files), kept for `--reuse`.
+  return { base: { ref, sha: baseSha }, head, sides: { base, head: headSide }, moves: moves(base.summaries, headSide.summaries), corpusEdits: corpusEdits(baseSha, headSha) };
 }
 
 /**
@@ -89,21 +90,19 @@ function surveyBoth(): Result {
  * `~/.cache`, not the temp dir: macOS deletes old temp files, which left a
  * reused worktree with a gutted `node_modules` that `pnpm install
  * --frozen-lockfile` took for current. Each one records the checkout it
- * serves, and one whose checkout is gone is removed, with the old temp-dir ones.
+ * serves, and one whose checkout is gone is removed: no gate can be using it.
+ * Older temp-dir ones are left alone (an older gate may still use one, and
+ * takes no lock); `rm -rf "$TMPDIR"/srcly-survey-*` clears them by hand.
  */
 function surveyDir(): string {
   const cache = path.join(os.homedir(), ".cache", "srcly-survey");
   const dir = path.join(cache, createHash("sha1").update(REPO).digest("hex").slice(0, 8));
   const stale = (folder: string) => {
-    const source = path.join(folder, ".srcly-survey-source");
-    return folder !== dir && fs.existsSync(source) && !fs.existsSync(fs.readFileSync(source, "utf8").trim());
+    const marker = path.join(folder, ".srcly-survey-source");
+    const source = fs.existsSync(marker) ? fs.readFileSync(marker, "utf8").trim() : "";
+    return folder !== dir && source !== "" && !fs.existsSync(source);
   };
-  const days = (folder: string) => (Date.now() - fs.statSync(folder).mtimeMs) / 86_400_000;
-  const old = [
-    ...(fs.existsSync(cache) ? fs.readdirSync(cache).map((name) => path.join(cache, name)).filter(stale) : []),
-    // Before the cache: one per checkout in the temp dir, idle for days.
-    ...fs.readdirSync(os.tmpdir()).filter((name) => /^srcly-survey-[0-9a-f]{8}$/.test(name)).map((name) => path.join(os.tmpdir(), name)).filter((folder) => days(folder) > 2),
-  ];
+  const old = fs.existsSync(cache) ? fs.readdirSync(cache).map((name) => path.join(cache, name)).filter(stale) : [];
   for (const folder of old) fs.rmSync(folder, { recursive: true, force: true });
   if (old.length) run("git", ["worktree", "prune"], REPO);
   return dir;
@@ -141,7 +140,10 @@ function checkout(sha: string, dir: string, headPython: string): { root: string;
     run("git", ["worktree", "prune"], REPO);
     run("git", ["worktree", "add", "--quiet", "--detach", "--force", dir, sha], REPO);
   }
-  fs.writeFileSync(path.join(dir, ".srcly-survey-source"), REPO);
+  // Written whole, then renamed in, so a cleanup never reads it half-written.
+  const marker = path.join(dir, ".srcly-survey-source");
+  fs.writeFileSync(`${marker}.${process.pid}`, REPO);
+  fs.renameSync(`${marker}.${process.pid}`, marker);
   const install = () => {
     for (const sub of ["engine", "client"]) run("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent"], path.join(dir, sub));
   };
@@ -214,7 +216,7 @@ function judge(result: Result): never {
     else if (acknowledged(body)) notes.push(`${result.moves.length} moves, acknowledged by the PR body's \`${ACK_LINE}\` line.`);
     else failures.push(`${result.moves.length} unacknowledged moves: add a \`${ACK_LINE}\` line to the PR body that explains them (editing the body re-runs this check).`);
     // The corpus is this repo's own code: an edit to it moves its own traces with no change to the analysis.
-    const edited = corpusEdits(result.base.sha);
+    const edited = result.corpusEdits ?? [];
     if (edited.length) notes.push(`This change edits ${edited.length} corpus file${edited.length === 1 ? "" : "s"}, whose own traces can move with no analysis change; name them in the \`${ACK_LINE}\` line when they explain the moves: ${edited.slice(0, 8).join(", ")}${edited.length > 8 ? ", …" : ""}.`);
   }
   const text = report(result, failures, notes).join("\n");
@@ -225,9 +227,9 @@ function judge(result: Result): never {
   process.exit(failures.length ? 1 : 0);
 }
 
-/** Corpus files that differ between the base and the working tree. */
-function corpusEdits(baseSha: string): string[] {
-  const out = spawnSync("git", ["diff", "--name-only", baseSha, "--", ...CORPUS.map((item) => item.dir)], { cwd: REPO, encoding: "utf8" });
+/** Corpus files that differ between the two surveyed commits. */
+function corpusEdits(baseSha: string, headSha: string): string[] {
+  const out = spawnSync("git", ["diff", "--name-only", baseSha, headSha, "--", ...CORPUS.map((item) => item.dir)], { cwd: REPO, encoding: "utf8" });
   return out.status === 0 ? out.stdout.split("\n").filter(Boolean) : [];
 }
 
