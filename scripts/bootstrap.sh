@@ -20,16 +20,19 @@ fi
 # preview_start reads .claude/launch.json. Its ports differ per worktree, so it is
 # generated here rather than committed; delete it to regenerate. A new worktree
 # can start with a copy of another checkout's file (fixed ports, no data-flow
-# engine). Only that old srcly config is replaced: every entry is srcly-api
-# (uvicorn) or srcly-client (vite), and none runs scripts/dev-server.sh. Any
-# other file is yours and is kept.
+# engine). Only that exact old srcly config is replaced: its entries are the
+# old srcly-api (uv run … uvicorn on 8000) and srcly-client (vite on 5173),
+# key for key. Any other file is yours and is kept.
 launch="$ROOT_DIR/.claude/launch.json"
 if [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
   if python3 -c '
 import json, sys
 entries = json.load(open(sys.argv[1])).get("configurations", [])
-old = {"srcly-api": "uvicorn", "srcly-client": "vite"}
-sys.exit(0 if entries and all(e.get("name") in old and old[e["name"]] in json.dumps(e) for e in entries) else 1)
+old = [
+    {"name": "srcly-api", "runtimeExecutable": "uv", "runtimeArgs": ["run", "--directory", "server", "uvicorn", "app.main:app", "--reload", "--port", "8000"], "port": 8000},
+    {"name": "srcly-client", "runtimeExecutable": "./client/node_modules/.bin/vite", "runtimeArgs": ["client", "--port", "5173"], "port": 5173},
+]
+sys.exit(0 if entries and all(e in old for e in entries) else 1)
 ' "$launch" 2>/dev/null; then
     echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it"
     rm "$launch"

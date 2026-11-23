@@ -71,12 +71,17 @@ try {
     return !!under && (under === el || el.contains(under));
   }, point);
   if (hovered) await hovered.waitFor({ state: "attached" });
+  // Bring a --selector target into view now: scrolling during the capture would move the pointer off the hovered element.
+  const target = values.selector ? page.locator(values.selector).first() : null;
+  if (target) await target.scrollIntoViewIfNeeded();
   await page.waitForTimeout(Number(values.delay));
   if (hovered) {
     const points = await hovered.evaluate((el) => {
       if (el instanceof SVGGeometryElement && el.getTotalLength() > 0) {
         const length = el.getTotalLength();
-        return [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8].map((at) => el.getPointAtLength(length * at).matrixTransform(el.getScreenCTM())).map((p) => ({ x: p.x, y: p.y }));
+        // From the middle outward along the whole stroke, ends included.
+        const steps = Array.from({ length: 21 }, (_, index) => index / 20).sort((a, b) => Math.abs(a - 0.5) - Math.abs(b - 0.5));
+        return steps.map((at) => el.getPointAtLength(length * at).matrixTransform(el.getScreenCTM())).map((p) => ({ x: p.x, y: p.y }));
       }
       const box = el.getBoundingClientRect();
       return [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
@@ -96,8 +101,13 @@ try {
     }
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
-  const target = values.selector ? page.locator(values.selector).first() : page;
-  await target.screenshot({ path: out, ...(values.selector ? {} : { fullPage: values.full }) });
+  // A --selector capture is a clip of the page where the target already is, so nothing scrolls under the pointer.
+  const clip = target ? await target.boundingBox() : null;
+  if (target && !clip) {
+    console.error(`--selector: ${values.selector} has no box to capture`);
+    process.exit(1);
+  }
+  await page.screenshot({ path: out, ...(clip ? { clip } : { fullPage: values.full }) });
   console.log(path.resolve(out));
 } finally {
   await browser.close();
