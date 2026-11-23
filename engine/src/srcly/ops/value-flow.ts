@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { queryEvidenceSlice } from "../../analysis/evidence-slice";
-import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import type { AnalysisCancellationToken } from "../../analysis/cancellation";
+import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type EvidenceProof, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "../../analysis/cancellation";
+import { projectProofs } from "../../api/projections/route-totality-evidence-projection";
 import {
   selectExpressionResultSchema,
   valueFlowResultSchema,
@@ -89,8 +90,10 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
   return result;
 }
 
+type LedgerDraft = Omit<LedgerRow, "proof"> & { proof: EvidenceProof[] };
+
 class LedgerBuilder {
-  private rows: LedgerRow[] = [];
+  private rows: LedgerDraft[] = [];
   /** Some step the ledger walked assumes what code with no source does (`assumedCallee`), or rests on an assumed proof (`shared-instance`). */
   private assumed = false;
   /** Elements the forward walk visited: a dead end counts only where the walk went. */
@@ -416,7 +419,7 @@ class LedgerBuilder {
     }
   }
 
-  private add(row: Omit<LedgerRow, "id" | "absPath" | "line" | "elementId" | "relationId" | "proof" | "typeText" | "note" | "reason"> & Partial<LedgerRow>) {
+  private add(row: Omit<LedgerDraft, "id" | "absPath" | "line" | "elementId" | "relationId" | "proof" | "typeText" | "note" | "reason"> & Partial<LedgerDraft>) {
     this.rows.push({
       elementId: null,
       relationId: null,
@@ -438,12 +441,14 @@ class LedgerBuilder {
     coverage: { elements: number; relations: number; limit: number; used: number; exhausted: boolean },
   ): ValueFlowResult {
     const files = [...new Set([selection.file, ...this.rows.map((row) => row.file)])];
+    const cancellation = this.cancellation ?? NO_ANALYSIS_CANCELLATION;
     return valueFlowResultSchema.parse({
       outcome,
       ...base(this.tier1),
       reason,
       selection,
-      rows: this.rows,
+      // Internal invocation tags disambiguate the walk but are not public evidence.
+      rows: this.rows.map((row) => ({ ...row, proof: projectProofs(row.proof, cancellation) })),
       frontiers: this.rows.filter((row) => row.kind === "boundary").map((row) => ({ rowId: row.id, reason: row.reason ?? "partial-proof", label: row.label })),
       terminals: this.rows.filter((row) => row.kind === "terminal").map((row) => row.id),
       coverage: { elements: coverage.elements, relations: coverage.relations, budget: { limit: coverage.limit, used: coverage.used, exhausted: coverage.exhausted } },
