@@ -167,6 +167,7 @@ class LensChangedPath(LensModel):
 
 
 class LensChangedPaths(LensModel):
+    requires_committed_range: bool = False
     rows: list[LensChangedPath]
     base_revision: Optional[str]
     head_revision: Optional[str]

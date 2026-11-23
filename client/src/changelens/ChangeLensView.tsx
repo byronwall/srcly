@@ -350,7 +350,7 @@ export default function ChangeLensView(props: {
     <div ref={rootRef} class="flex h-full w-full flex-col bg-[var(--plc-surface)]" data-change-lens data-lens-state={state()}>
       <ViewTools>
         <WindowBar state={lens()} metricIds={payload()?.metricIds ?? []} onChange={(patch) => setLens(patch)} />
-        <Show when={lens().committedOnly || (lens().changedPaths && payload()?.selection.includesWorktree)}>
+        <Show when={lens().committedOnly || inventory()?.requiresCommittedRange}>
           <Button size="xs" data-lens-worktree aria-pressed={Boolean(lens().committedOnly)} onClick={() => setLens({ committedOnly: !lens().committedOnly, commit: null, pathSide: null, pathLine: null })}>
             {lens().committedOnly ? "Include working tree" : "Show committed range"}
           </Button>
@@ -408,7 +408,7 @@ export default function ChangeLensView(props: {
         <Message state="loading" title="Reading the history of this window…" />
       </Show>
       <Show when={state() === "empty"}>
-        <Message state="empty" title="No edits in this window">
+        <Message state="empty" title={inventory()?.requiresCommittedRange ? "Changed paths need a committed range" : "No edits in this window"}>
           <For each={payload()!.selection.notes}>{(note) => <p>{note}</p>}</For>
           <Show when={mainOffer()}>
             {(offer) => (

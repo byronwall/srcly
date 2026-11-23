@@ -205,6 +205,7 @@ export interface LensChangedPath {
 }
 
 export interface LensChangedPaths {
+  requiresCommittedRange: boolean;
   rows: LensChangedPath[];
   baseRevision: string | null;
   headRevision: string | null;

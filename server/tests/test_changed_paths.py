@@ -104,12 +104,14 @@ def test_unsupported_only_and_dirty_worktree_do_not_claim_empty_or_complete(tmp_
     payload = client.get("/api/change-lens", params=query).json()
     inv = payload["changedPaths"]
     assert not inv["rows"] and "committed ranges" in inv["unavailableReason"]
+    assert inv["requiresCommittedRange"] and not payload["selection"]["includesWorktree"]
     assert inv["headRevision"] is None and inv["baseRevision"] is None
     query["worktree"] = "false"
     pinned = client.get("/api/change-lens", params=query)
     assert pinned.status_code == 200
     payload = pinned.json()
     assert payload["chunks"] == [] and "Nothing changed" not in " ".join(payload["selection"]["notes"])
+    assert not payload["changedPaths"]["requiresCommittedRange"]
     row = rows(payload)["rules.json"]
     selected_path = client.get("/api/change-lens/path-diff", params={**query, "id": row["id"]})
     assert selected_path.status_code == 200
