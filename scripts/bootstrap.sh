@@ -20,11 +20,17 @@ fi
 # preview_start reads .claude/launch.json. Its ports differ per worktree, so it is
 # generated here rather than committed; delete it to regenerate. A new worktree
 # can start with a copy of another checkout's file (fixed ports, no data-flow
-# engine). That old srcly config, which names srcly-api but does not run
-# scripts/dev-server.sh, is replaced; any other file is yours and is kept.
+# engine). Only that old srcly config is replaced: every entry is srcly-api
+# (uvicorn) or srcly-client (vite), and none runs scripts/dev-server.sh. Any
+# other file is yours and is kept.
 launch="$ROOT_DIR/.claude/launch.json"
 if [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
-  if grep -q '"srcly-api"' "$launch"; then
+  if python3 -c '
+import json, sys
+entries = json.load(open(sys.argv[1])).get("configurations", [])
+old = {"srcly-api": "uvicorn", "srcly-client": "vite"}
+sys.exit(0 if entries and all(e.get("name") in old and old[e["name"]] in json.dumps(e) for e in entries) else 1)
+' "$launch" 2>/dev/null; then
     echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it"
     rm "$launch"
   else

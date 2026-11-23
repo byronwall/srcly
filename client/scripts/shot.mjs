@@ -64,30 +64,39 @@ try {
   // `force` hovers an SVG edge under another layer, as a pointer resting there would.
   // An edge's hit area has a transparent stroke, which Playwright counts as hidden: wait for it to exist, not to show.
   // A bent edge's box centre can lie off its stroke, so rest on a point of the stroke itself, and check what is under it.
-  if (values.hover) {
-    const hovered = page.locator(values.hover).first();
-    await hovered.waitFor({ state: "attached" });
-    const at = await hovered.evaluate((el) => {
+  // The canvas may still move, so wait out --delay first, then find a point of the stroke the element is on top at.
+  const hovered = values.hover ? page.locator(values.hover).first() : null;
+  const onTarget = (point) => hovered.evaluate((el, at) => {
+    const under = document.elementFromPoint(at.x, at.y);
+    return !!under && (under === el || el.contains(under));
+  }, point);
+  if (hovered) await hovered.waitFor({ state: "attached" });
+  await page.waitForTimeout(Number(values.delay));
+  if (hovered) {
+    const points = await hovered.evaluate((el) => {
       if (el instanceof SVGGeometryElement && el.getTotalLength() > 0) {
-        const point = el.getPointAtLength(el.getTotalLength() / 2).matrixTransform(el.getScreenCTM());
-        return { x: point.x, y: point.y };
+        const length = el.getTotalLength();
+        return [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8].map((at) => el.getPointAtLength(length * at).matrixTransform(el.getScreenCTM())).map((p) => ({ x: p.x, y: p.y }));
       }
       const box = el.getBoundingClientRect();
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      return [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
     });
+    let at = null;
+    for (const point of points) if (!at && (await onTarget(point))) at = point;
+    if (!at) {
+      console.error(`--hover: no point of ${values.hover} is on top, so its hover state cannot be captured`);
+      process.exit(1);
+    }
     await page.mouse.move(at.x, at.y);
-    const hit = await hovered.evaluate((el, point) => {
-      const under = document.elementFromPoint(point.x, point.y);
-      return !!under && (under === el || el.contains(under));
-    }, at);
-    if (!hit) {
-      console.error(`--hover: the point under the pointer is not ${values.hover}, so its hover state may be missing`);
-      process.exitCode = 1;
+    await page.waitForTimeout(300);
+    // Still under the pointer as the capture is taken.
+    if (!(await onTarget(at))) {
+      console.error(`--hover: ${values.hover} moved away from the pointer before the capture`);
+      process.exit(1);
     }
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   const target = values.selector ? page.locator(values.selector).first() : page;
-  await page.waitForTimeout(Number(values.delay));
   await target.screenshot({ path: out, ...(values.selector ? {} : { fullPage: values.full }) });
   console.log(path.resolve(out));
 } finally {
