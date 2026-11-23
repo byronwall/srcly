@@ -5,16 +5,16 @@
     "slug": "srcly-ux-review",
     "scale": "program",
     "current_phase": "shape",
-    "last_updated": "2026-11-22",
+    "last_updated": "2026-11-23",
     "summary": "Preserve source-backed investigation while fixing trust defects and separating analysis scope, revision identity, and provenance.",
     "status": "active",
-    "next_action": "Review the two independent proof-sized shapes. Start with complete Changes inventory and retain the separate trace explanation proof. No broader implementation approval is recorded."
+    "next_action": "Start localized repairs with the blocked source ledger; then test one bounded field-producer proof in #442. Shape scoped Compare state in #444 independently."
   },
   "artifacts": {
     "intent_brief": {
       "path": "intent-brief.md",
       "status": "current",
-      "updated_at": "2026-11-22"
+      "updated_at": "2026-11-23"
     },
     "brainstorm": {
       "path": "brainstorm.md",
@@ -24,7 +24,7 @@
     "shape_brief": {
       "path": "shape-brief.md",
       "status": "current",
-      "updated_at": "2026-11-22"
+      "updated_at": "2026-11-23"
     },
     "implementation_plan": {
       "path": "implementation-plan.md",
@@ -60,6 +60,20 @@
       "location": "https://github.com/byronwall/srcly/issues/442",
       "anchor": "Project scope and acceptance in #440–#446.",
       "authority": "repo"
+    },
+    {
+      "id": "retest-request",
+      "type": "conversation",
+      "location": "November 23 maintainer follow-up (private; not embedded)",
+      "anchor": "Consume the retest outputs, start direct fixes, and begin shaping product work.",
+      "authority": "user"
+    },
+    {
+      "id": "retest-qa",
+      "type": "qa",
+      "location": "November 23 pinned Srcly follow-up bundle (private; synthesis in shape-brief.md)",
+      "anchor": "S02/S09/S12/S15/S18, C01–C04, F01–F03; pinned clean source build at 2e0bce2.",
+      "authority": "research"
     }
   ],
   "intent": {
@@ -120,22 +134,22 @@
   },
   "shape": {
     "status": "current",
-    "appetite": "Two narrow first slices, each with an exact before/after proof.",
-    "problem": "Srcly can silently omit changed paths or make context look like exact field ancestry.",
+    "appetite": "Localized independent repairs, one bounded field-producer proof, and a separate Compare state experiment.",
+    "problem": "The source ledger can fail completely. A field question can still lose precision before its producer, and Compare can restore refs while losing the reviewer’s working filter.",
     "recommended_shape": {
-      "primary": "Complete the Git-backed Changes footprint and preserve exact revision identity through source and Back.",
-      "independent": "Project a compact field evidence summary in the existing trace inspector."
+      "primary": "Repair the ledger first; then use a bounded source-anchored producer proof within #442.",
+      "independent": "In #444 compare scoped snapshot and URL-backed review state before changing Back behavior."
     },
     "success_moves": [
-      "Show all 15 changed paths and honest metric gaps on the historical fixture.",
-      "Open the exact added model row at its head revision and return to the same selection.",
-      "Keep Touched and Net distinct for a metadata-only edit reverted within the range.",
-      "Distinguish actual title carriage from incidental tags and keep trace limits visible."
+      "Show a usable ledger or explicit semantic partial with instance-tagged internal proofs.",
+      "Find the proven earlier title producer or exact stop; incidental tags are context, not ancestry.",
+      "Explicit tags-derived draft initialization remains discoverable without claiming a live subscription.",
+      "Restore filter and selection in the original comparison without leaking to a different repository or refs."
     ],
     "first_proof": {
-      "question": "Can the tool expose the complete change footprint and explain a focused field trace without losing source identity or inventing evidence?",
-      "artifact": "Two tiny fixture walkthroughs with an expected/actual table and same-revision source witnesses.",
-      "decision_rule": "Proceed only when all paths, revision selection, Touched/Net and both title/tags positive and negative controls hold."
+      "question": "After source ledger recovery, what is the smallest evidence surface that reaches the earlier producer or names the exact first widening?",
+      "artifact": "Original Notes and tags-derived control browser replays with exact source walks, expected/actual and a named stop if necessary.",
+      "decision_rule": "Reuse current evidence if both controls hold; otherwise test one located producer/handoff seam before expanding analysis."
     },
     "rabbit_holes": [
       "Unify Changes and Compare into a new workspace",
@@ -168,6 +182,12 @@
       "event": "shape-drafted",
       "phase": "shape",
       "note": "Captured proposed first proofs for #444 and #442. The remaining product choices stay separate and this does not approve broad implementation."
+    },
+    {
+      "date": "2026-11-23",
+      "event": "retest-absorbed",
+      "phase": "shape",
+      "note": "First inventory and inspector slices #457 and #458 shipped and were exercised. Kept new narrow bugs independent and redirected remaining shape from generic coverage to a bounded producer proof and scoped Compare state."
     }
   ]
 }
