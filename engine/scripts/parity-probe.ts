@@ -9,6 +9,7 @@
 //
 //   pnpm parity-probe                          # value-flow-basics and python-anchors
 //   pnpm parity-probe --root examples/value-flow-js
+//   pnpm parity-probe --root ../server --language python
 //
 // Exits 1 when any selection differs, and lists the first 40.
 import fs from "node:fs";
@@ -22,8 +23,8 @@ import type { Span } from "../src/srcly/selection";
 import { EngineError } from "../src/srcly/protocol";
 
 const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const at = process.argv.indexOf("--root");
-const roots = at > 0 ? [process.argv[at + 1]] : ["examples/value-flow-basics", "examples/value-flow-js", "examples/python-anchors"];
+const flag = (name: string) => (process.argv.indexOf(name) > 0 ? process.argv[process.argv.indexOf(name) + 1] : undefined);
+const roots = flag("--root") ? [flag("--root")!] : ["examples/value-flow-basics", "examples/value-flow-js", "examples/python-anchors"];
 
 /** An interpreter with mypy for a Python root: SRCLY_PYTHON, else the server's venv. */
 function python(): string | null {
@@ -53,7 +54,8 @@ const inside = (inner: Span, outer: Span) =>
 let failed = false;
 for (const name of roots) {
   const root = path.resolve(ENGINE, name);
-  const isPython = fs.existsSync(path.join(root, "pyproject.toml")) && !fs.existsSync(path.join(root, "tsconfig.json"));
+  // --language python for a Python folder with no pyproject.toml.
+  const isPython = flag("--language") ? flag("--language") === "python" : fs.existsSync(path.join(root, "pyproject.toml")) && !fs.existsSync(path.join(root, "tsconfig.json"));
   const source = isPython || !fs.existsSync(path.join(root, "src")) ? root : path.join(root, "src");
   if (isPython && !python()) {
     console.log(`${name}: skipped, no Python with mypy (set SRCLY_PYTHON or run \`uv sync\` in server/)`);
@@ -92,7 +94,7 @@ for (const name of roots) {
           seen.add(key);
           count += 1;
           const selection = { file, span: candidate.span, text: candidate.text };
-          let edges = new Map<string, { source: string; target: string }>();
+          let edges = new Map<string, { source: string; target: string; status: string; proof: ({ kind: string } | null)[] }>();
           const graph = answer(() => {
             const result = anchorGraphOp(session, { file, span: candidate.span, direction: "forward" });
             edges = new Map(result.edges.map((edge) => [edge.id, edge]));
@@ -113,10 +115,13 @@ for (const name of roots) {
             for (const row of result.rows.slice(1)) {
               const edge = row.relationId ? edges.get(row.relationId) : undefined;
               // A part's proof is the syntax itself (or none, where an evidence element sits at its span); a step carries a relation's proof.
-              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span) && row.proof.every((proof) => proof.kind === "syntax");
+              // A part with no proof stands on an evidence element at its own span.
+              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span) && (row.proof.length ? row.proof.every((proof) => proof.kind === "syntax") : row.elementId !== null);
               if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);
+              // A step says what its edge proves: the same status (structural reads as partial) and the same proofs.
+              else if (edge && row.kind !== "boundary" && (row.status !== (edge.status === "proven" ? "proven" : edge.status === "unsupported" ? "unsupported" : "partial") || row.proof.map((proof) => proof.kind).join() !== edge.proof.filter(Boolean).map((proof) => proof!.kind).join())) problems.push(`row ${row.label} does not say what its edge proves`);
               // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }

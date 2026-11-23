@@ -159,7 +159,10 @@ class LedgerBuilder {
     });
     // What the selected expression is made of, in evaluation order.
     this.compose(sourceFile, file, ts.isPropertyAccessExpression(node) ? node.expression : node, node);
-    this.flushParts(span);
+    // The selection's own operation sits inside any parentheses or JSX braces around it.
+    let operation: TypeScript.Node = node;
+    while ((ts.isParenthesizedExpression(operation) || ts.isJsxExpression(operation)) && operation.expression) operation = operation.expression;
+    this.flushParts(spanOf(sourceFile, operation));
     if (!seed) {
       return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     }
