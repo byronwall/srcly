@@ -122,6 +122,38 @@ describe("value-flow basics", () => {
   });
 });
 
+describe("source ledger on the NoteView store seed", () => {
+  const root = fileURLToPath(new URL("../../examples/symbol-graph", import.meta.url));
+  const file = "src/components/NoteView.tsx";
+
+  it("keeps invocation tags inside the engine for both field and whole-object selections", () => {
+    const session = sessionFor(root);
+    const titleAt = find(root, file, "props.note.title", "createStore({");
+    const wholeAt = find(root, file, "props.note", "createStore({");
+    const title = valueFlowOp(session, titleAt);
+    const whole = valueFlowOp(session, wholeAt);
+    const provider = session.tier1().provider();
+
+    for (const [ledger, at] of [[title, titleAt], [whole, wholeAt]] as const) {
+      expect(["ok", "partial", "assumed"]).toContain(ledger.outcome);
+      expect(ledger.selection).toMatchObject(at);
+      expect(ledger.rows[0]).toMatchObject({ kind: "input", label: at.text, line: at.span.startLine });
+      let tagged = 0;
+      for (const row of ledger.rows) {
+        const proof = row.elementId ? provider.getRelations(row.elementId, "backward")
+          .find((relation) => relation.id === row.relationId)?.proof : undefined;
+        if (!proof?.instance) continue;
+        tagged++;
+        const { kind, detail, locations } = proof;
+        expect(row.proof).toContainEqual(expect.objectContaining({ kind, detail, locations }));
+      }
+      expect(tagged).toBeGreaterThan(0);
+      expect(ledger.rows.flatMap((row) => row.proof).every((proof) => !("instance" in proof))).toBe(true);
+    }
+    expect(title.selection.span).not.toEqual(whole.selection.span);
+  }, 60_000);
+});
+
 describe.skipIf(!fs.existsSync(path.join(srclyClient, "src/components/HotSpotItem.tsx")))("value flow on srcly's own client (M3 acceptance)", () => {
   let session: EngineSession;
   const ledger = (file: string, text: string, marker?: string) => {

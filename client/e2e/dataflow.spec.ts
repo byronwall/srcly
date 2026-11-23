@@ -21,6 +21,42 @@ const box = (page: Page, label: string) => page.locator("[data-box]").filter({ h
 /** A drawn box by the start of its full label: the drawn text truncates to the font's width, which differs by platform. */
 const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data-label^="${label}"]`).first();
 
+test("Inspect value flow opens the NoteView title ledger from the source menu", async ({ page }) => {
+  const repo = path.resolve(here, "../../engine/examples/symbol-graph");
+  await page.goto(url({ repo, view: "treemap", at: "src/components" }));
+  await page.getByRole("treeitem", { name: /NoteView\.tsx/ }).click();
+  const dialog = page.getByRole("dialog");
+  const line = dialog.locator("span.line").filter({ hasText: "props.note.title" });
+  await line.scrollIntoViewIfNeeded();
+  // A caret inside `note` offers both the whole-object and title expressions.
+  // A DOM range makes this independent of syntax token and font boundaries.
+  const point = await line.evaluate((el) => {
+    let offset = el.textContent!.indexOf("props.note.title") + "props.no".length;
+    const text = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = text.nextNode(); node; node = text.nextNode()) {
+      if (offset < node.textContent!.length) {
+        const range = document.createRange();
+        range.setStart(node, offset);
+        range.setEnd(node, offset + 1);
+        const { x, y, width, height } = range.getBoundingClientRect();
+        return { x: x + width / 2, y: y + height / 2 };
+      }
+      offset -= node.textContent!.length;
+    }
+    throw new Error("NoteView title expression is not rendered");
+  });
+  await page.mouse.click(point.x, point.y, { button: "right" });
+  await page.locator("[data-inspect-menu][role=menu]").getByRole("menuitem", { name: /Inspect value flow/ }).click();
+  const response = page.waitForResponse((res) => res.url().endsWith("/api/dataflow/value-flow") && res.request().method() === "POST");
+  await page.getByRole("listbox", { name: "Pick an expression" }).getByText("props.note.title", { exact: true }).click();
+  const result = await response;
+  expect(result.status()).toBe(200);
+  expect((await result.json()).ledger.selection.text).toBe("props.note.title");
+  const ledger = dialog.getByRole("region", { name: "Value flow" });
+  await expect(ledger).toContainText("props.note.title");
+  await expect(ledger.getByRole("listitem").first()).toContainText("Input");
+});
+
 test.describe("Flow across folders", () => {
   const otherRepo = path.resolve(here, "../../engine/examples/bad-ish-solid");
   const originalAnchor = "src/components/ViewerCard.tsx@ViewerCard:3";
