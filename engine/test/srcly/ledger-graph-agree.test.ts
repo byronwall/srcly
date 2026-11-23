@@ -53,10 +53,10 @@ describe.each(ROOTS)("the ledger and the graph in %s", (name) => {
         const edges = new Set(graph.edges.map((edge) => edge.id));
         const strays = result.rows.filter((row) => row.relationId && !edges.has(row.relationId)).map((row) => row.label);
         const ends = result.rows.filter((row) => row.kind === "terminal").map((row) => row.elementId).sort();
-        const graphEnds = graph.nodes.filter((node) => node.kind === "terminal").map((node) => node.id).sort();
-        // A value that ends where it is selected (never read, a branch test) lands at the input: one end, the graph's anchor note.
-        const inPlace = graphEnds.length === 0 && graph.nodes.find((node) => node.kind === "anchor")?.note?.startsWith("ends here");
-        const landed = inPlace ? ends.length === 1 : JSON.stringify(ends) === JSON.stringify(graphEnds);
+        const anchor = graph.nodes.find((node) => node.kind === "anchor")!;
+        // A value that ends where it is selected (never read, a branch test) also lands at the input: the graph notes it on its anchor.
+        const graphEnds = [...graph.nodes.filter((node) => node.kind === "terminal").map((node) => node.id), ...(anchor.note?.startsWith("ends here") ? [anchor.id] : [])].sort();
+        const landed = JSON.stringify(ends) === JSON.stringify(graphEnds);
         if (strays.length || !landed) differ.push(`${item.file}:${item.line} ${item.id}: steps the graph lacks ${strays.join(", ") || "none"}; ends ${JSON.stringify(ends)} vs ${JSON.stringify(graphEnds)}`);
       } catch (error) {
         ledger = `error ${(error as Error).message.slice(0, 40)}`;

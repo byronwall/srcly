@@ -215,24 +215,27 @@ class LedgerBuilder {
       }
       return paths;
     };
+    // Steps and ends in path order; stops go last, so no stop reads as if a later step went on from it.
+    let omitted = 0;
     for (const path of anchor ? descend(anchor.id) : []) {
       for (const [node, edge] of path) {
-        if (written.has(node.id)) continue;
-        const end = node.kind === "terminal" ? "terminal" : isStop(node) ? "boundary" : null;
-        if (!end && this.rows.length >= MAX_ROWS) continue;
-        row(node, edge, end ?? (node.kind === "transform" ? "transform" : edge.kind === "show-when" || node.elementKind === "type-narrow" ? "branch" : "transfer"));
+        if (written.has(node.id) || isStop(node)) continue;
+        if (node.kind !== "terminal" && this.rows.length >= MAX_ROWS) {
+          omitted += 1;
+          continue;
+        }
+        row(node, edge, node.kind === "terminal" ? "terminal" : node.kind === "transform" ? "transform" : edge.kind === "show-when" || node.elementKind === "type-narrow" ? "branch" : "transfer");
       }
     }
-    // Every end and stop the graph names, reached above or not.
-    for (const node of graph.nodes) {
-      if (written.has(node.id)) continue;
-      if (node.kind === "terminal") row(node, into.get(node.id), "terminal");
-      else if (isStop(node)) row(node, into.get(node.id), "boundary");
+    if (omitted) this.rows[0].note = [this.rows[0].note, `${omitted} more step${omitted === 1 ? "" : "s"} not listed (the ledger lists ${MAX_ROWS} rows); every end and stop is`].filter(Boolean).join(" · ");
+    // Every end the graph names, reached above or not.
+    for (const node of graph.nodes) if (node.kind === "terminal" && !written.has(node.id)) row(node, into.get(node.id), "terminal");
+    // A value the code ends where it is selected (never read, a branch test, thrown) lands at the input itself, as the graph notes on its anchor.
+    if (anchor?.note && Object.values(IN_PLACE_NOTES).includes(anchor.note as never)) {
+      this.add({ kind: "terminal", label: this.rows[0].label, file: this.rows[0].file, span: this.rows[0].span, status: "proven", elementId: seed, proof: this.rows[0].proof, note: anchor.note });
     }
-    // A value the code ends where it is selected (never read, a branch test) lands at the input itself.
-    if (anchor?.note && !this.rows.some((item) => item.kind === "terminal") && Object.values(IN_PLACE_NOTES).includes(anchor.note as never)) {
-      this.add({ kind: "terminal", label: this.rows[0].label, file: this.rows[0].file, span: this.rows[0].span, status: "proven", elementId: seed, note: anchor.note });
-    }
+    // Every stop the graph names.
+    for (const node of graph.nodes) if (isStop(node) && !written.has(node.id)) row(node, into.get(node.id), "boundary");
     const { coverage } = graph;
     return this.finish(selection, graph.outcome, graph.reason, { elements: coverage.elements, relations: coverage.relations, limit: coverage.budget.limit, used: coverage.budget.used, exhausted: coverage.budget.exhausted });
   }
