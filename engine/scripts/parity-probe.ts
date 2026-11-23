@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { anchorGraphOp } from "../src/srcly/ops/anchor-graph";
 import { selectExpressionOp, valueFlowOp } from "../src/srcly/ops/value-flow";
-import { createEngineSession } from "../src/srcly/session";
+import { createEngineSession, requireTypescript } from "../src/srcly/session";
 import { chooseTypescript } from "../src/srcly/typescript-choice";
 import type { Span } from "../src/srcly/selection";
 import { EngineError } from "../src/srcly/protocol";
@@ -62,9 +62,13 @@ for (const name of roots) {
   const session = isPython
     ? createEngineSession({ root, source, tsconfig: null, typescriptFrom: ENGINE, language: "python", python: python()! })
     : createEngineSession({ root, source, tsconfig: null, typescriptFrom: chooseTypescript(root, source).from });
-  const files = fs.readdirSync(source, { recursive: true }).map(String)
-    .filter((file) => (isPython ? file.endsWith(".py") : /\.[cm]?[jt]sx?$/.test(file)) && !file.includes("node_modules"))
-    .map((file) => path.relative(root, path.join(source, file)).split(path.sep).join("/"));
+  // Every file a selection can land in: the Program's own files under the root (declarations outside `src` included), or the Python sources.
+  const tier1 = session.tier1();
+  const inRoot = (absolute: string) => !path.relative(root, absolute).startsWith("..") && !absolute.includes(`${path.sep}node_modules${path.sep}`);
+  const files = (tier1.language === "typescript"
+    ? requireTypescript(tier1, "the parity probe").program.getSourceFiles().map((sourceFile) => path.resolve(sourceFile.fileName)).filter(inRoot)
+    : fs.readdirSync(source, { recursive: true }).map(String).filter((file) => file.endsWith(".py")).map((file) => path.join(source, file)).filter(inRoot)
+  ).map((absolute) => path.relative(root, absolute).split(path.sep).join("/"));
   let count = 0;
   const differ: string[] = [];
   for (const file of files) {
@@ -108,7 +112,8 @@ for (const name of roots) {
             let parts = true;
             for (const row of result.rows.slice(1)) {
               const edge = row.relationId ? edges.get(row.relationId) : undefined;
-              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span);
+              // A part's proof is the syntax itself (or none, where an evidence element sits at its span); a step carries a relation's proof.
+              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span) && row.proof.every((proof) => proof.kind === "syntax");
               if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);

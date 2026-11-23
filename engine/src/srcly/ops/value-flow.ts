@@ -137,7 +137,7 @@ class LedgerBuilder {
       const kind: LedgerRow["kind"] = part.kind === "BoolOp" ? "fallback" : part.kind === "IfExp" ? "branch" : part.kind === "Call" ? "transform" : "transfer";
       this.part({ kind, label: part.text, file, span: part.span, status: "proven", elementId: fact?.id ?? null, typeText: host.typeTextAt(file, part.span), note: null });
     }
-    this.flushParts();
+    this.flushParts(span);
     if (!seed) return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     return this.forward(selection, seed, span);
   }
@@ -159,7 +159,7 @@ class LedgerBuilder {
     });
     // What the selected expression is made of, in evaluation order.
     this.compose(sourceFile, file, ts.isPropertyAccessExpression(node) ? node.expression : node, node);
-    this.flushParts();
+    this.flushParts(span);
     if (!seed) {
       return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     }
@@ -374,14 +374,17 @@ class LedgerBuilder {
 
   /**
    * The selection's parts, in evaluation order, within the row limit. When
-   * they do not fit, the selection's own operation (the last part) comes
-   * first, then its fallbacks and branches, then plain reads; the input row
-   * says how many it left out. A selection with thousands of parts still
+   * they do not fit, the selection's own operation (the part at its span)
+   * comes first, then its fallbacks and branches, then plain reads; the input
+   * row says how many it left out. A selection with thousands of parts still
    * makes a small ledger.
    */
-  private flushParts() {
+  private flushParts(selection: Span) {
     const room = Math.max(0, MAX_ROWS - this.rows.length);
-    const rank = (index: number) => (index === this.parts.length - 1 ? 0 : this.parts[index].kind === "fallback" || this.parts[index].kind === "branch" ? 1 : 2);
+    const rank = (index: number) => {
+      const row = this.parts[index];
+      return sameSpan(row.span, selection) ? 0 : row.kind === "fallback" || row.kind === "branch" ? 1 : 2;
+    };
     const kept = new Set(this.parts.map((_, index) => index).sort((a, b) => rank(a) - rank(b) || a - b).slice(0, room));
     this.parts.forEach((row, index) => kept.has(index) && this.add(row));
     const omitted = this.parts.length - kept.size;
