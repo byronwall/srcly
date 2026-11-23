@@ -99,7 +99,12 @@ function surveyDir(): string {
   const dir = path.join(cache, createHash("sha1").update(REPO).digest("hex").slice(0, 8));
   const stale = (folder: string) => {
     const marker = path.join(folder, ".srcly-survey-source");
-    const source = fs.existsSync(marker) ? fs.readFileSync(marker, "utf8").trim() : "";
+    let source = "";
+    try {
+      source = fs.readFileSync(marker, "utf8").trim();
+    } catch {
+      // No marker (or another gate is rewriting it): never stale.
+    }
     return folder !== dir && source !== "" && !fs.existsSync(source);
   };
   const old = fs.existsSync(cache) ? fs.readdirSync(cache).map((name) => path.join(cache, name)).filter(stale) : [];
@@ -149,7 +154,9 @@ function checkout(sha: string, dir: string, headPython: string): { root: string;
   };
   install();
   // An install whose files were deleted under it still looks current to pnpm: check that the survey's own loader starts, else install from scratch.
-  if (spawnSync("node", ["--import", "tsx", "-e", ""], { cwd: path.join(dir, "engine"), encoding: "utf8" }).status !== 0) {
+  // Load a TypeScript module through tsx, with this Node, as the survey does: an empty script never asks tsx to compile.
+  const loads = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", "await import('./src/srcly/kinds.ts')"], { cwd: path.join(dir, "engine"), encoding: "utf8" });
+  if (loads.status !== 0) {
     for (const sub of ["engine", "client"]) fs.rmSync(path.join(dir, sub, "node_modules"), { recursive: true, force: true });
     install();
   }
