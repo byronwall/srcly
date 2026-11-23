@@ -76,12 +76,37 @@ function surveyBoth(): Result {
   const head = { sha: git(["rev-parse", "HEAD"]), dirty };
   process.stdout.write(`Survey gate: base ${baseSha.slice(0, 10)} (${args.base ? ref : `merge base with ${ref}`}), head ${head.sha.slice(0, 10)}${dirty ? " + working tree" : ""}\n`);
   const headSha = dirty ? snapshot() : head.sha;
-  const dir = path.resolve(args.worktree ?? path.join(os.tmpdir(), `srcly-survey-${createHash("sha1").update(REPO).digest("hex").slice(0, 8)}`));
+  const dir = path.resolve(args.worktree ?? surveyDir());
 
   // Base first: the head's time limits are then measured on a warm disk.
   const base = survey("base", baseSha, dir, python, false);
   const headSide = survey("head", headSha, dir, python, true);
   return { base: { ref, sha: baseSha }, head, sides: { base, head: headSide }, moves: moves(base.summaries, headSide.summaries) };
+}
+
+/**
+ * This checkout's survey worktree, kept between runs. It lives under
+ * `~/.cache`, not the temp dir: macOS deletes old temp files, which left a
+ * reused worktree with a gutted `node_modules` that `pnpm install
+ * --frozen-lockfile` took for current. Each one records the checkout it
+ * serves, and one whose checkout is gone is removed, with the old temp-dir ones.
+ */
+function surveyDir(): string {
+  const cache = path.join(os.homedir(), ".cache", "srcly-survey");
+  const dir = path.join(cache, createHash("sha1").update(REPO).digest("hex").slice(0, 8));
+  const stale = (folder: string) => {
+    const source = path.join(folder, ".srcly-survey-source");
+    return folder !== dir && fs.existsSync(source) && !fs.existsSync(fs.readFileSync(source, "utf8").trim());
+  };
+  const days = (folder: string) => (Date.now() - fs.statSync(folder).mtimeMs) / 86_400_000;
+  const old = [
+    ...(fs.existsSync(cache) ? fs.readdirSync(cache).map((name) => path.join(cache, name)).filter(stale) : []),
+    // Before the cache: one per checkout in the temp dir, idle for days.
+    ...fs.readdirSync(os.tmpdir()).filter((name) => /^srcly-survey-[0-9a-f]{8}$/.test(name)).map((name) => path.join(os.tmpdir(), name)).filter((folder) => days(folder) > 2),
+  ];
+  for (const folder of old) fs.rmSync(folder, { recursive: true, force: true });
+  if (old.length) run("git", ["worktree", "prune"], REPO);
+  return dir;
 }
 
 /** A commit of the working tree, untracked files included, made through a scratch index: the checkout, its index and its refs are untouched. */
@@ -116,7 +141,16 @@ function checkout(sha: string, dir: string, headPython: string): { root: string;
     run("git", ["worktree", "prune"], REPO);
     run("git", ["worktree", "add", "--quiet", "--detach", "--force", dir, sha], REPO);
   }
-  for (const sub of ["engine", "client"]) run("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent"], path.join(dir, sub));
+  fs.writeFileSync(path.join(dir, ".srcly-survey-source"), REPO);
+  const install = () => {
+    for (const sub of ["engine", "client"]) run("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent"], path.join(dir, sub));
+  };
+  install();
+  // An install whose files were deleted under it still looks current to pnpm: check that the survey's own loader starts, else install from scratch.
+  if (spawnSync("node", ["--import", "tsx", "-e", ""], { cwd: path.join(dir, "engine"), encoding: "utf8" }).status !== 0) {
+    for (const sub of ["engine", "client"]) fs.rmSync(path.join(dir, sub, "node_modules"), { recursive: true, force: true });
+    install();
+  }
   if (!fs.existsSync(path.join(dir, "engine/scripts/survey-blockers.ts"))) fail(`${sha} has no engine/scripts/survey-blockers.ts to survey with.`);
   const root = fs.realpathSync(dir);
   // The server's interpreter only lends mypy and the server's dependencies; sync the worktree's own only when its lock differs.
@@ -179,6 +213,9 @@ function judge(result: Result): never {
     if (body === null) notes.push(`${result.moves.length} moves. CI fails them until the PR body has a \`${ACK_LINE}\` line that explains them.`);
     else if (acknowledged(body)) notes.push(`${result.moves.length} moves, acknowledged by the PR body's \`${ACK_LINE}\` line.`);
     else failures.push(`${result.moves.length} unacknowledged moves: add a \`${ACK_LINE}\` line to the PR body that explains them (editing the body re-runs this check).`);
+    // The corpus is this repo's own code: an edit to it moves its own traces with no change to the analysis.
+    const edited = corpusEdits(result.base.sha);
+    if (edited.length) notes.push(`This change edits ${edited.length} corpus file${edited.length === 1 ? "" : "s"}, whose own traces can move with no analysis change; name them in the \`${ACK_LINE}\` line when they explain the moves: ${edited.slice(0, 8).join(", ")}${edited.length > 8 ? ", …" : ""}.`);
   }
   const text = report(result, failures, notes).join("\n");
   process.stdout.write(`\n${text}\n`);
@@ -186,6 +223,12 @@ function judge(result: Result): never {
   fs.writeFileSync(path.join(OUT, "summary.md"), `${text}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Data-flow survey gate\n\n${text}\n`);
   process.exit(failures.length ? 1 : 0);
+}
+
+/** Corpus files that differ between the base and the working tree. */
+function corpusEdits(baseSha: string): string[] {
+  const out = spawnSync("git", ["diff", "--name-only", baseSha, "--", ...CORPUS.map((item) => item.dir)], { cwd: REPO, encoding: "utf8" });
+  return out.status === 0 ? out.stdout.split("\n").filter(Boolean) : [];
 }
 
 function report(result: Result, failures: string[], notes: string[]): string[] {
