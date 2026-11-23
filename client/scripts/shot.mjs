@@ -71,9 +71,9 @@ try {
     return !!under && (under === el || el.contains(under));
   }, point);
   if (hovered) await hovered.waitFor({ state: "attached" });
-  // With --hover, bring a --selector target that already exists into view now: scrolling during the capture would move the pointer off the hovered element.
+  // With --hover, bring a --selector target that is already visible into view now (one the hover reveals waits for it): scrolling during the capture would move the pointer off the hovered element.
   const target = values.selector ? page.locator(values.selector).first() : null;
-  if (target && hovered && (await target.count())) await target.scrollIntoViewIfNeeded();
+  if (target && hovered && (await target.isVisible())) await target.scrollIntoViewIfNeeded();
   await page.waitForTimeout(Number(values.delay));
   if (hovered) {
     const points = await hovered.evaluate((el) => {
