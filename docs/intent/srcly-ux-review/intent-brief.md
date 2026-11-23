@@ -3,7 +3,7 @@ title: "Srcly UX review follow-through"
 slug: "srcly-ux-review"
 phase: intent
 status: current
-last_updated: "2026-11-22"
+last_updated: "2026-11-23"
 ---
 
 # Srcly UX review follow-through
@@ -31,4 +31,6 @@ Preserve the notes input-to-render/save path (S05), generic HOC (S11), async eff
 
 ## Next step after confirmation
 
-Land the independently verified fixes when required checks pass. Shape one larger workflow at a time using a concrete before/after proof. The full private source package is intentionally not checked in. The [study crosswalk](study-crosswalk.md) records the finding IDs, public issues and regression witnesses. [Candidate shapes](candidate-shapes.md) outlines starting points, not chosen UI.
+The first inventory and field-inspector slices landed in [#457](https://github.com/byronwall/srcly/pull/457) and [#458](https://github.com/byronwall/srcly/pull/458). The focused browser retest confirmed both made several original objectives easier, but exposed a blocked source-to-ledger action and narrower navigation and Git-reporting defects. Repair those independently. Shape the next product work around one question: can someone follow the title back to its first demonstrated producer without confusing object context with value provenance? Review continuity is separate; decide what Compare owns before changing its history. Keep the search and agent-receipt proposals out of this wave.
+
+The public [study crosswalk](study-crosswalk.md) records the initial intake. The [current shape](shape-brief.md) records retest evidence and the cut lines. The full private evidence packages are not checked in.
