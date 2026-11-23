@@ -689,14 +689,11 @@ def build(window: Window, mode: str) -> Built:
     per_commit = commit_diffs(repo, [c.sha for c in read], scope)
     path_steps = [(c.sha, per_commit.get(c.sha, [])) for c in read]
     steps = [(sha, keep(diffs)) for sha, diffs in path_steps]
-    dirty: set[str] = set()
-    has_worktree = False
-    if window.wants_worktree:
-        diffs = keep(tree_diff(repo, window.tip.sha, None, scope))
-        if diffs:
-            has_worktree = True
-            steps.append((WORKTREE, diffs))
-            dirty = {p for d in diffs for p in (d.old_path, d.new_path) if p}
+    worktree = keep(tree_diff(repo, window.tip.sha, None, scope)) if window.wants_worktree else []
+    has_worktree = bool(worktree)
+    dirty = {p for d in worktree for p in (d.old_path, d.new_path) if p}
+    if worktree:
+        steps.append((WORKTREE, worktree))
     net: list[FileDiff] = []
     path_net: list[FileDiff] = []
     if has_worktree or window.base_tree != window.tip.sha:
@@ -761,7 +758,7 @@ def build(window: Window, mode: str) -> Built:
         by_id[chunk_id] = draft
 
     files = _files(store, lineages, finished, mode)
-    commits = _commits(window, steps, finished, has_worktree)
+    commits = _commits(window, path_steps, finished, worktree)
     notes = []
     for end in ("head", "base"):
         broken = sorted({d.lineage.shown_path for d in finished if d.lineage.broken == end})
@@ -830,15 +827,22 @@ def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode:
     return files
 
 
-def _commits(window: Window, steps: list[tuple[str, list[FileDiff]]], drafts: list[Draft], has_worktree: bool) -> list[LensCommit]:
+def _commits(
+    window: Window,
+    path_steps: list[tuple[str, list[FileDiff]]],
+    drafts: list[Draft],
+    worktree: list[FileDiff],
+) -> list[LensCommit]:
+    """Commit totals use the scoped Git paths; chunk membership still uses structural analysis."""
     touched: dict[str, list[str]] = defaultdict(list)
     for draft in drafts:
         for sha in draft.touches:
             touched[sha].append(draft.chunk.id)
-    diffs = dict(steps)
+    diffs = dict(path_steps)
     out = []
     for commit in window.commits:
-        own = diffs.get(commit.sha, [])
+        own = [d for d in diffs.get(commit.sha, []) if d.path]
+        text = [d for d in own if d.regular and not d.binary]
         out.append(
             LensCommit(
                 sha=commit.sha,
@@ -847,13 +851,13 @@ def _commits(window: Window, steps: list[tuple[str, list[FileDiff]]], drafts: li
                 author=commit.author,
                 date=iso(commit.ts),
                 files=len(own),
-                added=sum(d.added for d in own),
-                deleted=sum(d.deleted for d in own),
+                added=sum(d.added for d in text),
+                deleted=sum(d.deleted for d in text),
+                stats_source="excluded-upstream" if commit.upstream_merge else "git-commit",
                 chunk_ids=touched.get(commit.sha, []),
             )
         )
-    if has_worktree:
-        own = diffs.get(WORKTREE, [])
+    if worktree:
         out.append(
             LensCommit(
                 sha=WORKTREE,
@@ -861,9 +865,10 @@ def _commits(window: Window, steps: list[tuple[str, list[FileDiff]]], drafts: li
                 subject="Uncommitted changes",
                 author="",
                 date=None,
-                files=len(own),
-                added=sum(d.added for d in own),
-                deleted=sum(d.deleted for d in own),
+                files=len(worktree),
+                added=sum(d.added for d in worktree),
+                deleted=sum(d.deleted for d in worktree),
+                stats_source="structural-worktree",
                 chunk_ids=touched.get(WORKTREE, []),
             )
         )

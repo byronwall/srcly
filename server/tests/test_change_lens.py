@@ -269,7 +269,10 @@ def test_time_window_leaves_out_what_an_upstream_merge_brought_in(tmp_path):
     repo.git("merge", "--quiet", "--no-ff", "-m", "Merge main", "main")
     repo.commit("edit c", {"c.ts": fn("c", 51)})
     for mode in ("touched", "net"):
-        chunks = by_id(repo.lens(mode=mode, **AFTER_BASE))
+        payload = repo.lens(mode=mode, **AFTER_BASE)
+        chunks = by_id(payload)
+        merge = next(c for c in payload["commits"] if c["subject"] == "Merge main")
+        assert merge["statsSource"] == "excluded-upstream"
         assert set(chunks) == {"a.ts::a", "c.ts::c"}, mode
         assert (chunks["c.ts::c"]["netAdded"], chunks["c.ts::c"]["netDeleted"]) == (1, 1)
     diff = service.hunk_diff(repo.path, Params(**AFTER_BASE), "c.ts::c")["diff"]

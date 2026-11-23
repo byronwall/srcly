@@ -77,6 +77,8 @@ export interface LensCommit {
   files: number;
   added: number;
   deleted: number;
+  /** Counts are scoped Git paths/text lines, except for the structural working-tree snapshot or a deliberately excluded upstream merge. */
+  statsSource?: "git-commit" | "structural-worktree" | "excluded-upstream";
   /** Chunks this commit touched. */
   chunkIds: string[];
 }
