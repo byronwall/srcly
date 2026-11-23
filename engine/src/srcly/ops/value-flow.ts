@@ -98,6 +98,7 @@ type LedgerDraft = Omit<LedgerRow, "proof"> & { proof: EvidenceProof[] };
 
 class LedgerBuilder {
   private rows: LedgerDraft[] = [];
+  private omittedParts = 0;
   private readonly root: string;
 
   constructor(private readonly tier1: Tier1, private readonly graph: () => AnchorGraphResult, private readonly cancellation?: AnalysisCancellationToken) {
@@ -131,11 +132,10 @@ class LedgerBuilder {
     this.add({ kind: "input", label: candidate.text, file, span, status: seed ? "proven" : "partial", elementId: seed, typeText: host.typeTextAt(file, span), note: null });
     // What the selection is made of, innermost first; a bare name is the value itself, not a step.
     for (const part of host.parts(file, span)) {
-      if (this.rows.length >= MAX_ROWS) break;
       if (part.kind === "Name") continue;
       const fact = elementsAt(this.tier1, file, part.span)[0];
       const kind: LedgerRow["kind"] = part.kind === "BoolOp" ? "fallback" : part.kind === "IfExp" ? "branch" : part.kind === "Call" ? "transform" : "transfer";
-      this.add({ kind, label: part.text, file, span: part.span, status: "proven", elementId: fact?.id ?? null, typeText: host.typeTextAt(file, part.span), note: null });
+      this.part({ kind, label: part.text, file, span: part.span, status: "proven", elementId: fact?.id ?? null, typeText: host.typeTextAt(file, part.span), note: null });
     }
     if (!seed) return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     return this.forward(selection, seed, span);
@@ -260,8 +260,6 @@ class LedgerBuilder {
       };
     };
     const visit = (n: TypeScript.Node) => {
-      // A selection with thousands of parts (a call with 4,600 arguments) still makes a small ledger.
-      if (this.rows.length >= MAX_ROWS) return;
       if (ts.isParenthesizedExpression(n) || ts.isJsxExpression(n)) {
         if (n.expression) visit(n.expression);
         return;
@@ -270,7 +268,7 @@ class LedgerBuilder {
         visit(n.left);
         visit(n.right);
         const nullish = n.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken;
-        this.add({
+        this.part({
           kind: "fallback",
           label: `${text(n.left)} ${nullish ? "??" : "||"} ${text(n.right)}`,
           file,
@@ -284,14 +282,14 @@ class LedgerBuilder {
       }
       if (ts.isConditionalExpression(n)) {
         visit(n.condition);
-        this.add({ kind: "branch", label: text(n.condition), file, ...at(n), typeText: this.typeText(n), note: `${text(n.whenTrue)} when true, ${text(n.whenFalse)} otherwise` });
+        this.part({ kind: "branch", label: text(n.condition), file, ...at(n), typeText: this.typeText(n), note: `${text(n.whenTrue)} when true, ${text(n.whenFalse)} otherwise` });
         visit(n.whenTrue);
         visit(n.whenFalse);
         return;
       }
       if (ts.isNonNullExpression(n)) {
         visit(n.expression);
-        this.add({
+        this.part({
           kind: "branch",
           label: text(n),
           file,
@@ -309,7 +307,7 @@ class LedgerBuilder {
       if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) {
         visit(n.expression);
         if (n === selected) return;
-        this.add({ kind: "transfer", label: text(n), file, ...at(n), typeText: this.typeText(n), note: `field read of ${ts.isPropertyAccessExpression(n) ? `.${n.name.text}` : text(n.argumentExpression)} from ${text(n.expression)}` });
+        this.part({ kind: "transfer", label: text(n), file, ...at(n), typeText: this.typeText(n), note: `field read of ${ts.isPropertyAccessExpression(n) ? `.${n.name.text}` : text(n.argumentExpression)} from ${text(n.expression)}` });
         return;
       }
       if (ts.isBinaryExpression(n)) {
@@ -333,7 +331,7 @@ class LedgerBuilder {
     const callee = call.expression.getText(sourceFile);
     const typeText = this.typeText(call);
     if (call.arguments.length === 0) {
-      this.add({ kind: "transfer", label: call.getText(sourceFile), file, ...at, typeText, note: `reads the accessor ${callee}` });
+      this.part({ kind: "transfer", label: call.getText(sourceFile), file, ...at, typeText, note: `reads the accessor ${callee}` });
       return;
     }
     const declaration = this.checker.getSymbolAtLocation(ts.isPropertyAccessExpression(call.expression) ? call.expression.name : call.expression);
@@ -342,20 +340,20 @@ class LedgerBuilder {
     const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
     // As the graph's: the standard library is known, its value derives from what it is given (`standardLibraryCall`).
     if (!firstParty && standardLibraryCall(this.tier1, { kind: "call", location: { file, line: at.span.startLine, column: at.span.startColumn, span: at.span } })) {
-      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: `through ${callee}, from the standard library` });
+      this.part({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: `through ${callee}, from the standard library` });
       return;
     }
     if (!firstParty) {
-      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "external-code", note: `${callee} is outside the program's own source; its return is not traced` });
+      this.part({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "external-code", note: `${callee} is outside the program's own source; its return is not traced` });
       return;
     }
     const sites = this.sites.forCall(call);
     // Where the evidence pairs calls, this call's result is its own callee's return for this call alone (T13).
     if (this.tier1.host.evidence.pairsCalls || singleCall(sites)) {
-      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: singleCall(sites) ? `through ${callee}, which has one call site` : `through ${callee}, paired with this call` });
+      this.part({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: singleCall(sites) ? `through ${callee}, which has one call site` : `through ${callee}, paired with this call` });
       return;
     }
-    this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
+    this.part({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
   }
 
     private typeText(node: TypeScript.Node): string | null {
@@ -365,6 +363,13 @@ class LedgerBuilder {
     } catch {
       return null;
     }
+  }
+
+  /** A row for a part of the selection, while there is room; the input row says how many it left out. A selection with thousands of parts still makes a small ledger. */
+  private part(row: Parameters<LedgerBuilder["add"]>[0]) {
+    if (this.rows.length < MAX_ROWS) return this.add(row);
+    this.omittedParts += 1;
+    this.rows[0].note = [`${this.omittedParts} more part${this.omittedParts === 1 ? "" : "s"} of the selection not listed`, (this.rows[0].note ?? "").replace(/^\d+ more parts? of the selection not listed( · )?/, "")].filter(Boolean).join(" · ");
   }
 
   private add(row: Omit<LedgerDraft, "id" | "absPath" | "line" | "elementId" | "relationId" | "proof" | "typeText" | "note" | "reason"> & Partial<LedgerDraft>) {

@@ -90,6 +90,16 @@ export function candidatesAt(ts: typeof TypeScript, sourceFile: TypeScript.Sourc
     seen.add(key);
     out.push({ node, kind: ts.SyntaxKind[node.kind], text: nodeText, span: nodeSpan });
   }
-  const selected = text && text.trim() ? out.filter((candidate) => candidate.text === text.trim()) : out;
+  const selected = text && text.trim() ? out.filter((candidate) => sameText(candidate.text, text)) : out;
   return selected;
+}
+
+/**
+ * Whether a candidate's source text is the text a request names. `selectExpression`
+ * clips a long candidate's text (`…` at 240 characters), and a client sends that
+ * text back: a clipped text names the candidates it begins.
+ */
+export function sameText(source: string, text: string): boolean {
+  const named = text.trim();
+  return named.endsWith("…") ? source.startsWith(named.slice(0, -1)) : source === named;
 }
