@@ -2,7 +2,10 @@
 // The browser pane scales captures to ~800px; this takes them at 2x.
 //
 //   pnpm shot <url> <out.png> [--width 1440] [--height 900] [--scale 2] [--dark]
-//             [--wait-for <selector>] [--click <selector>]... [--full] [--selector <el>] [--delay <ms>]
+//             [--wait-for <selector>] [--click <selector>]... [--hover <selector>] [--full] [--selector <el>] [--delay <ms>]
+//
+// --hover rests the pointer on an element after the clicks, so a hover card or
+// an emphasis state is in the capture (a native `title` tooltip never is).
 //
 // It waits for the scan to finish painting (`data-scan-state="ready"` on the app
 // shell) before --wait-for, so a capture never catches the progress panel.
@@ -25,6 +28,7 @@ const { values, positionals } = parseArgs({
     dark: { type: "boolean", default: false },
     "wait-for": { type: "string" },
     click: { type: "string", multiple: true, default: [] },
+    hover: { type: "string" },
     full: { type: "boolean", default: false },
     selector: { type: "string" },
     timeout: { type: "string", default: "60000" },
@@ -35,7 +39,7 @@ const { values, positionals } = parseArgs({
 
 const [url, out] = positionals;
 if (!url || !out) {
-  console.error("usage: pnpm shot <url> <out.png> [--width] [--height] [--scale] [--dark] [--wait-for] [--click]... [--full] [--selector]");
+  console.error("usage: pnpm shot <url> <out.png> [--width] [--height] [--scale] [--dark] [--wait-for] [--click]... [--hover] [--full] [--selector]");
   process.exit(2);
 }
 
@@ -57,10 +61,66 @@ try {
     await page.locator(selector).first().click();
     await page.waitForLoadState("networkidle");
   }
-  fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
-  const target = values.selector ? page.locator(values.selector).first() : page;
+  // `force` hovers an SVG edge under another layer, as a pointer resting there would.
+  // An edge's hit area has a transparent stroke, which Playwright counts as hidden: wait for it to exist, not to show.
+  // A bent edge's box centre can lie off its stroke, so rest on a point of the stroke itself, and check what is under it.
+  // The canvas may still move, so wait out --delay first, then find a point of the stroke the element is on top at.
+  const hovered = values.hover ? page.locator(values.hover).first() : null;
+  const onTarget = (point) => hovered.evaluate((el, at) => {
+    const under = document.elementFromPoint(at.x, at.y);
+    return !!under && (under === el || el.contains(under));
+  }, point);
+  if (hovered) await hovered.waitFor({ state: "attached" });
+  // With --hover, bring a --selector target that is already visible into view now (one the hover reveals waits for it): scrolling during the capture would move the pointer off the hovered element.
+  const target = values.selector ? page.locator(values.selector).first() : null;
+  if (target && hovered && (await target.isVisible())) await target.scrollIntoViewIfNeeded();
   await page.waitForTimeout(Number(values.delay));
-  await target.screenshot({ path: out, ...(values.selector ? {} : { fullPage: values.full }) });
+  if (hovered) {
+    const points = await hovered.evaluate((el) => {
+      if (el instanceof SVGGeometryElement && el.getTotalLength() > 0) {
+        const length = el.getTotalLength();
+        // From the middle outward along the whole stroke, ends included.
+        const steps = Array.from({ length: 21 }, (_, index) => index / 20).sort((a, b) => Math.abs(a - 0.5) - Math.abs(b - 0.5));
+        return steps.map((at) => el.getPointAtLength(length * at).matrixTransform(el.getScreenCTM())).map((p) => ({ x: p.x, y: p.y }));
+      }
+      const box = el.getBoundingClientRect();
+      return [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
+    });
+    let at = null;
+    for (const point of points) if (!at && (await onTarget(point))) at = point;
+    if (!at) {
+      console.error(`--hover: no point of ${values.hover} is on top, so its hover state cannot be captured`);
+      process.exit(1);
+    }
+    await page.mouse.move(at.x, at.y);
+    await page.waitForTimeout(300);
+    // Still under the pointer as the capture is taken.
+    if (!(await onTarget(at))) {
+      console.error(`--hover: ${values.hover} moved away from the pointer before the capture`);
+      process.exit(1);
+    }
+  }
+  fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
+  if (target && !hovered) {
+    await target.screenshot({ path: out });
+  } else if (target) {
+    // With --hover, the target may be what the hover opens (its card): find it now, and capture it as a clip of the page where it is, so nothing scrolls under the pointer.
+    await target.waitFor();
+    const clip = await target.boundingBox();
+    if (!clip) {
+      console.error(`--selector: ${values.selector} has no box to capture`);
+      process.exit(1);
+    }
+    // The clip is of the viewport as it stands (scrolling would lose the hover): a target past its edge would be cut off.
+    const view = page.viewportSize();
+    if (clip.x < 0 || clip.y < 0 || clip.x + clip.width > view.width || clip.y + clip.height > view.height) {
+      console.error(`--selector: ${values.selector} (${Math.ceil(clip.width)}x${Math.ceil(clip.height)} at ${Math.round(clip.x)},${Math.round(clip.y)}) does not fit the ${view.width}x${view.height} viewport while hovered; raise --width or --height`);
+      process.exit(1);
+    }
+    await page.screenshot({ path: out, clip });
+  } else {
+    await page.screenshot({ path: out, fullPage: values.full });
+  }
   console.log(path.resolve(out));
 } finally {
   await browser.close();

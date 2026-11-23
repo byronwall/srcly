@@ -22,12 +22,12 @@
 
 ## Checks
 
-- First thing in a fresh worktree: `scripts/bootstrap.sh` (node_modules, server venv, git hooks, `.claude/launch.json`).
+- First thing in a fresh worktree: `scripts/bootstrap.sh` (node_modules, server venv, git hooks, `.claude/launch.json`). It replaces a `launch.json` copied from another checkout, which would start a server with no data-flow engine ("Data flow N/A").
 - Dev servers: `preview_start` `srcly-api` then `srcly-client`. Each worktree has its own port pair (`scripts/dev-ports.sh`) and its client proxies to its own API; don't hand-edit ports. Read the main checkout through `git show origin/main:<path>`: `~/Projects/srcly` may be on another branch.
 - `scripts/check.sh` runs what CI's `build` job runs (`client`, `engine`, `server`, or `--changed`); the pre-push hook runs `--changed`.
 - Client types: `cd client && pnpm typecheck` (`tsc -b`). `tsc -p .` checks nothing: `client/tsconfig.json` only holds references.
 - `browser` is `cd client && pnpm e2e` (Playwright, `client/e2e/`). Iterate on one test with `pnpm e2e -g "<name>"` (about 13s); run the whole suite once before the PR. Select by `data-*` attributes, never by drawn or truncated text or pixel positions: CI's Linux fonts are wider than macOS's.
-- Screenshots: `cd client && pnpm shot <url> ../tmp/shots/<name>.png` (2x, waits for `data-scan-state="ready"`; `--dark`, `--click`, `--selector`). App URLs: `?repo=<abs path>&view=treemap|graph&at=<file>`.
+- Screenshots: `cd client && pnpm shot <url> ../tmp/shots/<name>.png` (2x, waits for `data-scan-state="ready"`; `--dark`, `--click`, `--hover` for a hover card such as `--hover '[data-edge="<id>"]'`, `--selector`). A native `title` tooltip never shows in a capture. App URLs: `?repo=<abs path>&view=treemap|graph&at=<file>`.
 
 ## Finding code
 
@@ -37,6 +37,7 @@ Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, an
 
 Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`). Each area is a workstream; each task's context holds its evidence, files and done condition.
 
+- A task's evidence names the command that recomputes its numbers (a frozen "9 of 137" was 13 of 243 when the work started). Its done condition names the check that proves it at product scope, not only on fixtures.
 - Read it: `pgm --local pgm/data --project srcly-backlog node list --preset status --json`, then `node view <id> --with-context --json`. `pgm viewer` from the repo root opens it in a browser.
 - Change it with `pgm --local pgm/data --project srcly-backlog node create|update ...`, and commit `pgm/data` with the change it tracks.
 - The grid holds open work only. When a task lands, record it in the docs (for data flow, `docs/dataflow-coverage.md` or the initiative's plan), then delete the node. Do not keep `implemented` nodes.

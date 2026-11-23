@@ -18,8 +18,30 @@ if [ ! -d "$ROOT_DIR/server/.venv" ]; then
 fi
 
 # preview_start reads .claude/launch.json. Its ports differ per worktree, so it is
-# generated here rather than committed; delete it to regenerate.
+# generated here rather than committed; delete it to regenerate. A new worktree
+# can start with a copy of another checkout's file (fixed ports, no data-flow
+# engine). Only that exact old srcly config is replaced: its entries are the
+# old srcly-api (uv run … uvicorn on 8000) and srcly-client (vite on 5173),
+# key for key. Any other file is yours and is kept.
 launch="$ROOT_DIR/.claude/launch.json"
+# Only in a linked worktree: the main checkout's own file is where the copies come from, and stays as it is.
+linked=$([ "$(git -C "$ROOT_DIR" rev-parse --git-dir)" != "$(git -C "$ROOT_DIR" rev-parse --git-common-dir)" ] && echo 1 || true)
+if [ -n "$linked" ] && [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
+  if python3 -c '
+import json, sys
+old = {"version": "0.0.1", "configurations": [
+    {"name": "srcly-api", "runtimeExecutable": "uv", "runtimeArgs": ["run", "--directory", "server", "uvicorn", "app.main:app", "--reload", "--port", "8000"], "port": 8000},
+    {"name": "srcly-client", "runtimeExecutable": "./client/node_modules/.bin/vite", "runtimeArgs": ["client", "--port", "5173"], "port": 5173},
+]}
+sys.exit(0 if json.load(open(sys.argv[1])) == old else 1)
+' "$launch" 2>/dev/null; then
+    backup=$(mktemp "$launch.bak-XXXXXX")
+    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it (kept as $(basename "$backup"))"
+    mv "$launch" "$backup"
+  else
+    echo "==> .claude/launch.json does not run scripts/dev-server.sh; keeping it. Delete it to get this worktree's ports and the engine."
+  fi
+fi
 if [ ! -f "$launch" ]; then
   read -r api_port client_port < <("$ROOT_DIR/scripts/dev-ports.sh")
   mkdir -p "$ROOT_DIR/.claude"
