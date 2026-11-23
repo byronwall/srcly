@@ -127,7 +127,7 @@ def _window_compare_reason(built: Built) -> Optional[str]:
 def payload(built: Built) -> LensChangedPaths:
     if built.has_worktree or built.scoped_worktree_dirty:
         return LensChangedPaths(
-            rows=[], base_revision=None, head_revision=None,
+            rows=[], base_revision=None, head_revision=None, requires_committed_range=True,
             compare_unavailable_reason=_WORKTREE_REASON, unavailable_reason=_WORKTREE_REASON,
         )
     by_path = {f.path: f for f in built.files}

@@ -224,3 +224,36 @@ test("Dirty checkout can switch the path inventory to the committed range and ba
   await expect(inventory.getByRole("status")).toContainText("committed");
   await expect(page).toHaveURL((url) => !url.searchParams.has("cworktree"));
 });
+
+test("JSON-only working-tree dirt offers committed range without changing history", async ({ page }) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-e2e-json-worktree-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+  const snapshot = (name: string) => {
+    git("add", "-A");
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "commit", "-qm", name);
+    return git("rev-parse", "HEAD");
+  };
+  const pathJson = path.join(dir, "rules.json");
+  git("init", "-q", "-b", "main");
+  fs.writeFileSync(path.join(dir, "index.ts"), "export const version = 1;\n");
+  fs.writeFileSync(pathJson, '{"version":0}\n');
+  const base = snapshot("Baseline");
+  fs.writeFileSync(pathJson, '{"version":1}\n');
+  const head = snapshot("Committed data update");
+  fs.writeFileSync(pathJson, '{"version":2}\n');
+  await page.goto(`/?${new URLSearchParams({ repo: dir, view: "changes", cw: "custom", cbase: base, chead: head })}`);
+  const lens = page.locator("[data-change-lens]");
+  await expect(lens).toHaveAttribute("data-lens-state", "empty");
+  await expect(lens.locator("[data-lens-message=empty]")).toContainText("Choose Show committed range");
+  const toggle = page.locator("[data-lens-worktree]");
+  await expect(toggle).toHaveText("Show committed range");
+  await toggle.press("Enter");
+  await lensReady(page);
+  await expect(page).toHaveURL((url) => url.searchParams.get("cbase") === base && url.searchParams.get("chead") === head && url.searchParams.get("cworktree") === "off");
+  await page.locator("[data-lens-toggle-paths]").press("Enter");
+  await expect(page.locator('[data-changed-path="rules.json"]')).toBeVisible();
+  await expect(toggle).toHaveText("Include working tree");
+  await toggle.press("Enter");
+  await expect(lens).toHaveAttribute("data-lens-state", "empty");
+  await expect(toggle).toHaveText("Show committed range");
+});
