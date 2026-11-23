@@ -107,5 +107,11 @@ export function sameText(source: string, text: string): boolean {
 /** How `selectExpression` shows a long candidate. */
 export const CLIP = 240;
 export function clipText(text: string): string {
-  return text.length > CLIP ? `${text.slice(0, CLIP - 1)}…` : text;
+  return text.length > CLIP ? `${sliceWhole(text, CLIP - 1)}…` : text;
+}
+
+/** The first `end` UTF-16 units of a text, one fewer when the cut would split a surrogate pair (an emoji): half a pair is not valid UTF-8. */
+export function sliceWhole(text: string, end: number): string {
+  const code = text.charCodeAt(end - 1);
+  return text.slice(0, code >= 0xd800 && code <= 0xdbff ? end - 1 : end);
 }

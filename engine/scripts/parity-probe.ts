@@ -137,6 +137,9 @@ for (const name of roots) {
               // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
+            // One step per box the graph drew: a repeated box would show the same step twice.
+            const steps = result.rows.slice(1).filter((row) => row.relationId && row.kind !== "boundary" && row.kind !== "terminal").map((row) => row.elementId);
+            if (new Set(steps).size !== steps.length) problems.push("a box has two step rows");
             const stopRows = new Set(result.rows.filter((row) => row.kind === "boundary").map((row) => row.id));
             const named = new Set(result.frontiers.map((stop) => stop.rowId));
             if (named.size !== result.frontiers.length || named.size !== stopRows.size || [...named].some((id) => !stopRows.has(id))) problems.push("the frontiers list is not the stop rows, one each");

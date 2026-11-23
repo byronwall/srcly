@@ -1,10 +1,11 @@
 // How the anchor graph words a frontier: clipped labels, and one folded stop for an element limit.
 import type { EvidenceGap } from "../analysis/scope-seam";
+import { sliceWhole } from "./selection";
 
 /** One line, at most `max` characters. */
 export function clip(text: string, max = 120): string {
   const one = text.replace(/\s+/g, " ").trim();
-  return one.length > max ? `${one.slice(0, max - 1)}…` : one;
+  return one.length > max ? `${sliceWhole(one, max - 1)}…` : one;
 }
 
 /**

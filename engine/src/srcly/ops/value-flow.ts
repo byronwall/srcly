@@ -18,7 +18,7 @@ import { anchorGraphOp } from "./anchor-graph";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
 import { elementsAt, IN_PLACE_NOTES, seedFor, standardLibraryCall } from "../facts";
 import type { HostCandidate } from "../host";
-import { candidatesAt, clipText, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
+import { candidatesAt, clipText, parseSpan, sameSpan, sliceWhole, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
 
 /** Ledgers bigger than this are refused as `budget-exhausted`, never truncated. */
@@ -456,7 +456,7 @@ function terminalNote(kind: string | null, roles: readonly string[]): string {
 }
 
 function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  return text.length > max ? `${sliceWhole(text, max - 1)}…` : text;
 }
 
 function fingerprint(root: string, file: string) {
