@@ -111,6 +111,12 @@ try {
       console.error(`--selector: ${values.selector} has no box to capture`);
       process.exit(1);
     }
+    // The clip is of the viewport as it stands (scrolling would lose the hover): a target past its edge would be cut off.
+    const view = page.viewportSize();
+    if (clip.x < 0 || clip.y < 0 || clip.x + clip.width > view.width || clip.y + clip.height > view.height) {
+      console.error(`--selector: ${values.selector} (${Math.ceil(clip.width)}x${Math.ceil(clip.height)} at ${Math.round(clip.x)},${Math.round(clip.y)}) does not fit the ${view.width}x${view.height} viewport while hovered; raise --width or --height`);
+      process.exit(1);
+    }
     await page.screenshot({ path: out, clip });
   } else {
     await page.screenshot({ path: out, fullPage: values.full });

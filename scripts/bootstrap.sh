@@ -35,8 +35,9 @@ old = {"version": "0.0.1", "configurations": [
 ]}
 sys.exit(0 if json.load(open(sys.argv[1])) == old else 1)
 ' "$launch" 2>/dev/null; then
-    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it (kept as launch.json.bak)"
-    mv "$launch" "$launch.bak"
+    backup="$launch.bak-$(date +%Y%m%d-%H%M%S)"
+    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it (kept as $(basename "$backup"))"
+    mv "$launch" "$backup"
   else
     echo "==> .claude/launch.json does not run scripts/dev-server.sh; keeping it. Delete it to get this worktree's ports and the engine."
   fi

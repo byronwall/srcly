@@ -8,7 +8,7 @@ site/test-results/
 tmp/
 # Per-worktree ports, written by scripts/bootstrap.sh.
 .claude/launch.json
-.claude/launch.json.bak
+.claude/launch.json.bak*
 .claude/worktrees/
 
 
