@@ -77,7 +77,7 @@ export function ValueFlowLedger(props: {
                         type="button"
                         class="w-full rounded px-1.5 py-1 text-left hover:bg-[var(--plc-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)] disabled:cursor-default disabled:hover:bg-transparent"
                         disabled={!inThisFile(row)}
-                        title={[row.note, row.typeText ? `Type: ${row.typeText}` : null, row.reason ? `Stops: ${row.reason}` : null, ...row.proof.map((p) => p.detail)].filter(Boolean).join("\n")}
+                        title={[row.note, row.typeText ? `Type: ${row.typeText}` : null, row.reason ? (row.kind === "boundary" ? `Stops: ${row.reason}` : `Not traced: ${row.reason}`) : null, ...row.proof.map((p) => p.detail)].filter(Boolean).join("\n")}
                         onClick={() => props.onJump(row.line)}
                       >
                         <div class="flex items-baseline gap-2 text-[11px] text-[var(--plc-on-subtle)]">

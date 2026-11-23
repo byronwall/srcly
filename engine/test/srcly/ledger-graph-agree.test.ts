@@ -43,15 +43,24 @@ describe.each(ROOTS)("the ledger and the graph in %s", (name) => {
     for (const item of list) {
       const span = { startLine: item.line, startColumn: item.column, endLine: item.line, endColumn: item.column + item.text.length };
       const at = { file: item.file, text: item.text, span };
+      const graph = anchorGraphOp(session, { ...at, direction: "forward" });
       let ledger: string;
       try {
         const result = valueFlowOp(session, at);
         const rows = new Map(result.rows.map((row) => [row.id, row]));
         ledger = `${result.outcome} ${result.frontiers.map((f) => `${f.reason}@${rows.get(f.rowId)!.file}:${rows.get(f.rowId)!.line}`).sort().join(",")}`;
+        // Every step is an edge the graph drew, and the ends are the graph's ends (or the input, where the value ends as selected).
+        const edges = new Set(graph.edges.map((edge) => edge.id));
+        const strays = result.rows.filter((row) => row.relationId && !edges.has(row.relationId)).map((row) => row.label);
+        const ends = result.rows.filter((row) => row.kind === "terminal").map((row) => row.elementId).sort();
+        const graphEnds = graph.nodes.filter((node) => node.kind === "terminal").map((node) => node.id).sort();
+        // A value that ends where it is selected (never read, a branch test) lands at the input: one end, the graph's anchor note.
+        const inPlace = graphEnds.length === 0 && graph.nodes.find((node) => node.kind === "anchor")?.note?.startsWith("ends here");
+        const landed = inPlace ? ends.length === 1 : JSON.stringify(ends) === JSON.stringify(graphEnds);
+        if (strays.length || !landed) differ.push(`${item.file}:${item.line} ${item.id}: steps the graph lacks ${strays.join(", ") || "none"}; ends ${JSON.stringify(ends)} vs ${JSON.stringify(graphEnds)}`);
       } catch (error) {
         ledger = `error ${(error as Error).message.slice(0, 40)}`;
       }
-      const graph = anchorGraphOp(session, { ...at, direction: "forward" });
       const g = `${graph.outcome} ${graph.nodes.filter((n) => n.kind === "frontier" || (n.kind === "boundary" && n.status !== "proven")).map((n) => `${n.reason}@${n.file}:${n.line}`).sort().join(",")}`;
       const set = (text: string) => [...new Set(text.split(" ")[1].split(",").filter(Boolean))].join(",");
       if (ledger.split(" ")[0] !== g.split(" ")[0] || set(ledger) !== set(g)) differ.push(`${item.file}:${item.line} ${item.id} ${item.text}: ledger ${ledger} · graph ${g}`);

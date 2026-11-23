@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type * as TypeScript from "typescript";
-import { ANCHOR_LIMITS, anchorSlice, CARRIES_RETURN } from "../anchor-slice";
-import { type EvidenceProof, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { type EvidenceProof } from "../../analysis/scope-seam";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "../../analysis/cancellation";
 import { projectProofs } from "../../api/projections/route-totality-evidence-projection";
 import {
@@ -13,11 +12,11 @@ import {
   type ValueFlowResult,
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
-import type { AnchorGraphResult } from "../contracts/anchor-graph";
+import { toSliceElement } from "../../analysis/evidence-slice-normalization";
+import type { AnchorEdge, AnchorGraphResult, AnchorNode } from "../contracts/anchor-graph";
 import { anchorGraphOp } from "./anchor-graph";
-import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { elementsAt, endsInPlace, IN_PLACE_NOTES, needsOneCallSite, pairedInSlice, seedFor, standardLibraryCall } from "../facts";
-import { elementTraits, relationTraits } from "../kinds";
+import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
+import { elementsAt, IN_PLACE_NOTES, seedFor, standardLibraryCall } from "../facts";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
@@ -75,14 +74,8 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
   const text = typeof params.text === "string" ? params.text : null;
   const unsupported = () => new EngineError("unsupported-selection", "The selection is not exactly one supported expression; pick a candidate from selectExpression", { span });
   // The anchor graph for the same selection holds the answer: the ledger names its outcome, stops and ends, so the two never disagree.
-  const graph = (): AnchorGraphResult | null => {
-    try {
-      return anchorGraphOp(session, { file: params.file, span, text: text ?? undefined, direction: "forward" }, cancellation);
-    } catch (error) {
-      if (error instanceof EngineError && error.code === "budget-exhausted") return null;
-      throw error;
-    }
-  };
+  // Over its byte bound the graph throws `budget-exhausted`, and so does the ledger: the same answer.
+  const graph = () => anchorGraphOp(session, { file: params.file, span, text: text ?? undefined, direction: "forward" }, cancellation);
   const builder = new LedgerBuilder(tier1, graph, cancellation);
   let result: ValueFlowResult;
   if (tier1.language === "typescript") {
@@ -107,7 +100,7 @@ class LedgerBuilder {
   private rows: LedgerDraft[] = [];
   private readonly root: string;
 
-  constructor(private readonly tier1: Tier1, private readonly graph: () => AnchorGraphResult | null, private readonly cancellation?: AnalysisCancellationToken) {
+  constructor(private readonly tier1: Tier1, private readonly graph: () => AnchorGraphResult, private readonly cancellation?: AnalysisCancellationToken) {
     this.root = tier1.root;
   }
 
@@ -171,36 +164,74 @@ class LedgerBuilder {
   }
 
   /**
-   * Where the value goes. The rows between the input and its ends are the
-   * forward slice, walked in operation order. The answer is the anchor
-   * graph's for the same selection: its outcome, each stop it names (a
-   * frontier, a boundary it could not pass) and each end it lands at. One
-   * rule set decides both views, so they cannot disagree.
+   * Where the value goes: the anchor graph for the same selection, laid out
+   * as rows. Its steps depth first in FOLLOW order, each with its edge's
+   * relation, status and proof; then every end it lands at and every stop it
+   * names (a frontier, a boundary it could not pass). The ledger has no walk
+   * of its own, so its outcome, steps, ends and stops are the graph's.
    */
   private forward(selection: ValueFlowResult["selection"], seed: string, span: Span): ValueFlowResult {
-    const slice = anchorSlice(this.tier1.provider(), seed, true, selection.text, ANCHOR_LIMITS, this.cancellation);
-    this.rows[0].proof = slice.elements.find((element) => element.id === seed)?.proof ?? [];
-    this.walk(seed, slice.elements, slice.relations, span);
     const graph = this.graph();
-    if (!graph) {
-      // The graph passed its byte bound at both limits: the answer is that bound, named.
-      this.rows = this.rows.filter((row) => row.kind !== "terminal");
-      this.add({ kind: "boundary", label: selection.text, file: selection.file, span, status: "partial", elementId: seed, reason: "budget-exhausted", note: "the trace is too big to draw; the engine stopped at its bound" });
-      const used = slice.relations.length;
-      return this.finish(selection, "budget", null, { elements: slice.elements.length, relations: used, limit: ANCHOR_LIMITS.maxRelations, used, exhausted: true });
+    const indexed = this.tier1.provider().factIndex.getElement(seed);
+    this.rows[0].proof = indexed ? toSliceElement(indexed).proof : [];
+    const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
+    const anchor = graph.nodes.find((node) => node.kind === "anchor");
+    const into = new Map<string, AnchorEdge>();
+    const out = new Map<string, AnchorEdge[]>();
+    for (const edge of graph.edges) {
+      if (!into.has(edge.target)) into.set(edge.target, edge);
+      (out.get(edge.source) ?? out.set(edge.source, []).get(edge.source)!).push(edge);
     }
-    // Ends: only where the graph lands, and every one of them.
-    const ends = new Map(graph.nodes.filter((node) => node.kind === "terminal").map((node) => [node.id, node]));
-    this.rows = this.rows.filter((row) => row.kind !== "terminal" || (row.elementId !== null && ends.has(row.elementId)));
-    for (const node of ends.values()) {
-      if (this.rows.some((row) => row.kind === "terminal" && row.elementId === node.id)) continue;
-      this.add({ kind: "terminal", label: node.label, file: node.file, span: node.span, status: node.status === "proven" ? "proven" : "partial", elementId: node.id, note: node.note });
+    const roles = new Map(graph.terminals.map((end) => [end.nodeId, end.roles]));
+    const rank = (kind: string) => (FOLLOW.indexOf(kind) < 0 ? FOLLOW.length : FOLLOW.indexOf(kind));
+    const isStop = (node: AnchorNode) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven");
+    const written = new Set<string>();
+    const row = (node: AnchorNode, edge: AnchorEdge | undefined, kind: LedgerRow["kind"]) => {
+      written.add(node.id);
+      this.add({
+        kind,
+        label: node.label,
+        file: node.file,
+        span: node.span,
+        status: kind === "boundary" ? "partial" : edge?.status === "proven" ? "proven" : edge?.status === "unsupported" ? "unsupported" : "partial",
+        // A frontier is hung off the element it stopped at.
+        elementId: node.kind === "frontier" ? (edge?.source ?? null) : node.id,
+        relationId: edge && edge.kind !== "gap" ? edge.id : null,
+        proof: (edge?.proof ?? []).filter(Boolean) as EvidenceProof[],
+        reason: kind === "boundary" ? (node.reason ?? "partial-proof") : null,
+        note: kind === "terminal" ? (node.note ?? terminalNote(node.elementKind, roles.get(node.id) ?? [])) : kind === "boundary" ? node.note : null,
+      });
+    };
+    // The steps, depth first from the anchor: a path is written only when it reaches an end or a stop.
+    const seen = new Set(anchor ? [anchor.id] : []);
+    const descend = (from: string): [AnchorNode, AnchorEdge][][] => {
+      const paths: [AnchorNode, AnchorEdge][][] = [];
+      for (const edge of [...(out.get(from) ?? [])].sort((a, b) => rank(a.kind) - rank(b.kind))) {
+        const node = nodes.get(edge.target);
+        if (!node || node.kind === "scope" || seen.has(node.id)) continue;
+        seen.add(node.id);
+        if (node.kind === "terminal" || isStop(node)) paths.push([[node, edge]]);
+        else for (const rest of descend(node.id)) paths.push([[node, edge], ...rest]);
+      }
+      return paths;
+    };
+    for (const path of anchor ? descend(anchor.id) : []) {
+      for (const [node, edge] of path) {
+        if (written.has(node.id)) continue;
+        const end = node.kind === "terminal" ? "terminal" : isStop(node) ? "boundary" : null;
+        if (!end && this.rows.length >= MAX_ROWS) continue;
+        row(node, edge, end ?? (node.kind === "transform" ? "transform" : edge.kind === "show-when" || node.elementKind === "type-narrow" ? "branch" : "transfer"));
+      }
     }
-    // Stops: each one the graph names, where it names it.
+    // Every end and stop the graph names, reached above or not.
     for (const node of graph.nodes) {
-      if (node.kind !== "frontier" && !(node.kind === "boundary" && node.status !== "proven")) continue;
-      const at = node.kind === "boundary" ? node.id : graph.edges.find((edge) => edge.target === node.id)?.source ?? null;
-      this.add({ kind: "boundary", label: node.label, file: node.file, span: node.span, status: "partial", elementId: at, reason: node.reason ?? "partial-proof", note: node.note });
+      if (written.has(node.id)) continue;
+      if (node.kind === "terminal") row(node, into.get(node.id), "terminal");
+      else if (isStop(node)) row(node, into.get(node.id), "boundary");
+    }
+    // A value the code ends where it is selected (never read, a branch test) lands at the input itself.
+    if (anchor?.note && !this.rows.some((item) => item.kind === "terminal") && Object.values(IN_PLACE_NOTES).includes(anchor.note as never)) {
+      this.add({ kind: "terminal", label: this.rows[0].label, file: this.rows[0].file, span: this.rows[0].span, status: "proven", elementId: seed, note: anchor.note });
     }
     const { coverage } = graph;
     return this.finish(selection, graph.outcome, graph.reason, { elements: coverage.elements, relations: coverage.relations, limit: coverage.budget.limit, used: coverage.budget.used, exhausted: coverage.budget.exhausted });
@@ -320,87 +351,7 @@ class LedgerBuilder {
     this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
   }
 
-  /**
-   * The rows from the input to its ends: the forward slice, depth first, in
-   * FOLLOW order. Paths that end nowhere are dropped; a cross-call the graph
-   * cannot pair is not walked past. Where it ends and stops is the graph's (`forward`).
-   */
-  private walk(seed: string, elements: readonly ProgramElement[], relations: readonly ProgramRelation[], seedSpan: Span) {
-    const byId = new Map(elements.map((element) => [element.id, element]));
-    const out = new Map<string, ProgramRelation[]>();
-    for (const relation of relations) {
-      if (relation.kind === "contains" || relation.kind === "declares-parameter") continue;
-      (out.get(relation.from) ?? out.set(relation.from, []).get(relation.from)!).push(relation);
-    }
-    const rank = (kind: string) => (relationTraits(kind).crossCall ? FOLLOW.length : FOLLOW.indexOf(kind) < 0 ? FOLLOW.length + 1 : FOLLOW.indexOf(kind));
-    const visited = new Set([seed]);
-    type Step = { relation: ProgramRelation; element: ProgramElement; kind: LedgerRow["kind"]; note: string | null; reason: string | null };
-    // Returns the steps of one path that ends at a terminal or a boundary, or null for a dead end.
-    const descend = (from: string, depth: number): Step[][] => {
-      if (depth > ANCHOR_LIMITS.maxDepth) return [];
-      const paths: Step[][] = [];
-      // A cross-call's `argument` (to the call) sorts before its `argument-binding` (to the parameter), so the boundary sits at the call.
-      const order = (kind: string) => rank(kind) * 2 + (kind === "argument-binding" ? 1 : 0);
-      for (const relation of [...(out.get(from) ?? [])].sort((a, b) => order(a.kind) - order(b.kind))) {
-        if (visited.has(relation.to)) continue;
-        const element = byId.get(relation.to);
-        if (!element) continue;
-        visited.add(relation.to);
-        if (needsOneCallSite(relation.kind, this.tier1.host.evidence.pairsCalls)) {
-          const { sites } = this.sitesOfElement(element);
-          // The graph names this stop (unproven-handoff); the rows stop short of it.
-          if (!singleCall(sites) && !pairedInSlice(sites, elements)) continue;
-        }
-        // Bookkeeping elements at the seed's own span repeat the input.
-        const terminal = Boolean(elementTraits(element.kind).terminal) || element.terminalRoles.length > 0;
-        const repeatsInput = sameSpan(element.location.span, seedSpan) && !terminal;
-        // A return the slice carried on from (to its paired call, a framework, a hook's result field) is a transfer, not where the value leaves (T13), as in the graph.
-        const returnsToCaller = element.kind === "return" && (out.get(element.id) ?? []).some((item) => CARRIES_RETURN.has(item.kind));
-        // A value the code ends in place (a branch test, a value never read) ends the path that reaches it.
-        const onward = (out.get(element.id) ?? []).some((item) => byId.has(item.to) && item.to !== seed);
-        const consumed = onward || terminal ? null : endsInPlace(this.tier1, element);
-        if (consumed) {
-          paths.push([{ relation, element, kind: "terminal", reason: null, note: IN_PLACE_NOTES[consumed] }]);
-          continue;
-        }
-        if (terminal && !returnsToCaller) {
-          if (relation.status === "proven" || element.kind !== "jsx-occurrence") paths.push([{ relation, element, kind: "terminal", reason: null, note: terminalNote(element) }]);
-          continue;
-        }
-        for (const rest of descend(relation.to, depth + 1)) {
-          paths.push(repeatsInput ? rest : [{ relation, element, kind: classify(relation, element), reason: null, note: null }, ...rest]);
-        }
-      }
-      return paths;
-    };
-    const seen = new Set<string>();
-    for (const steps of descend(seed, 0)) {
-      for (const step of steps) {
-        if (this.rows.length >= MAX_ROWS) return;
-        const key = `${step.kind}|${step.element.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        this.add({
-          kind: step.kind,
-          label: step.element.label,
-          file: step.element.location.file,
-          span: step.element.location.span,
-          status: step.relation.status,
-          elementId: step.element.id,
-          relationId: step.relation.id,
-          proof: [step.relation.proof],
-          note: step.note,
-          reason: step.reason,
-        });
-      }
-    }
-  }
-
-  private sitesOfElement(element: ProgramElement): { sites: CallSites | null; name: string } {
-    return this.tier1.host.callSitesOf(element);
-  }
-
-  private typeText(node: TypeScript.Node): string | null {
+    private typeText(node: TypeScript.Node): string | null {
     try {
       const text = this.checker.typeToString(this.checker.getTypeAtLocation(node));
       return text.length > 160 ? `${text.slice(0, 159)}…` : text;
@@ -439,7 +390,8 @@ class LedgerBuilder {
       outcome,
       ...base(this.tier1),
       reason,
-      selection,
+      // Bounded words: a selection over a huge literal is still a small ledger.
+      selection: { ...selection, text: clip(selection.text, 240) },
       // Internal invocation tags disambiguate the walk but are not public evidence.
       rows: this.rows.map((row) => ({ ...row, proof: projectProofs(row.proof, cancellation) })),
       frontiers: this.rows.filter((row) => row.kind === "boundary").map((row) => ({ rowId: row.id, reason: row.reason ?? "partial-proof", label: row.label })),
@@ -454,23 +406,18 @@ class LedgerBuilder {
   }
 }
 
-function classify(relation: ProgramRelation, element: ProgramElement): LedgerRow["kind"] {
-  if (relation.kind === "show-when" || element.kind === "type-narrow") return "branch";
-  if (relationTraits(relation.kind).role === "transform" || element.kind === "selection" || element.kind === "object-pack") return "transform";
-  return "transfer";
-}
-
-function terminalNote(element: ProgramElement): string {
-  if (element.kind === "render-terminal") return "JSX render slot";
-  if (element.kind === "dom-terminal") return "DOM attribute or property";
-  if (element.kind === "branch-condition") return "decides which branch renders";
-  if (element.kind === "component-occurrence") return "handed to a component";
-  if (element.kind === "side-effect") return "side effect";
-  if (element.terminalRoles.includes("http-response")) return "HTTP response";
-  if (element.terminalRoles.includes("stdout")) return "printed";
-  if (element.terminalRoles.includes("file-write")) return "written to a file";
-  if (element.terminalRoles.includes("side-effect")) return "side effect";
-  return "returned";
+/** What an end the graph names is, by its element kind, when the graph gives it no note of its own. */
+function terminalNote(kind: string | null, roles: readonly string[]): string {
+  if (kind === "render-terminal") return "JSX render slot";
+  if (kind === "dom-terminal") return "DOM attribute or property";
+  if (kind === "branch-condition") return "decides which branch renders";
+  if (kind === "component-occurrence") return "handed to a component";
+  if (kind === "side-effect") return "side effect";
+  if (roles.includes("http-response")) return "HTTP response";
+  if (roles.includes("stdout")) return "printed";
+  if (roles.includes("file-write")) return "written to a file";
+  if (roles.includes("side-effect") || kind === "external-effect") return "side effect";
+  return kind === "return" ? "returned" : (kind ?? "end").replaceAll("-", " ");
 }
 
 function clip(text: string, max: number): string {

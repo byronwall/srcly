@@ -197,7 +197,7 @@ describe.skipIf(!fs.existsSync(path.join(srclyClient, "src/components/HotSpotIte
     const result = ledger("src/components/HotSpotList.tsx", "item.node", "row(item.node");
     // The graph's answer: the value goes on into HotSpotItem and stops there later, never at row's other call.
     expect(result.outcome).toBe("partial");
-    expect(result.rows.some((row) => row.kind === "boundary" && row.reason === "unproven-handoff")).toBe(false);
+    expect(result.rows.filter((row) => row.kind === "boundary").map((row) => row.reason).sort()).toEqual(["disconnected", "unresolved-symbol"]);
     expect(result.rows.find((row) => row.kind === "terminal" && row.label === "HotSpotItem")).toMatchObject({ note: "handed to a component" });
     // Line 109 is the other call of row: it is not this walk's.
     const lines = fs.readFileSync(path.join(srclyClient, "src/components/HotSpotList.tsx"), "utf8").split("\n");
