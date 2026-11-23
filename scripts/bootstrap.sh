@@ -35,7 +35,7 @@ old = {"version": "0.0.1", "configurations": [
 ]}
 sys.exit(0 if json.load(open(sys.argv[1])) == old else 1)
 ' "$launch" 2>/dev/null; then
-    backup="$launch.bak-$(date +%Y%m%d-%H%M%S)"
+    backup=$(mktemp "$launch.bak-XXXXXX")
     echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it (kept as $(basename "$backup"))"
     mv "$launch" "$backup"
   else
