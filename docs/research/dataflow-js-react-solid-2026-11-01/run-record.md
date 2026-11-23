@@ -20,9 +20,9 @@
 - Follow-ups used: 0.
 - Heartbeat: `collect-srcly-javascript-react-solid-research`, deleted after verified completion.
 - Approval: Byron explicitly approved hourly checks, result collection, findings review, research branch push, and opening a PR.
-- Collected assets: `docs/intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/` (seven original files; all ZIP entries compared byte for byte).
+- Collected assets: `pro-results/` (moved from `docs/intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/` on 2026-11-23; seven original files; all ZIP entries compared byte for byte).
 - Archive: `tmp/pro/dataflow-js-react-solid/results/srcly-js-react-solid-research.zip` (ignored). Archive paths and sizes were checked before extraction. No downloaded program was executed.
-- Integration: [summary](README.md), [review dispositions](../../intent/dataflow-js-react-solid/review.md), [implementation plan](../../intent/dataflow-js-react-solid/implementation-plan.md), and [asset index](../../intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/README.md).
+- Integration: [summary](README.md), [review dispositions](review.md), and [asset index](pro-results/README.md). The implementation plan was retired on 2026-11-23.
 - Review: decisive source mechanisms checked; React/Solid/TanStack/TASER primary sources spot-checked. Framework graph failures remain predictions. Pro native observations are attributed, not locally rerun.
 - Dispositions: 20 Build, four Explore, two Defer, two Avoid. Broad identity and modern React inventory moved to Explore; old-row coexistence is not adopted.
 - PR: https://github.com/byronwall/srcly/pull/315 (open; base `main`; head `codex/dataflow-js-react-solid-research`). Saved body and 16-file inventory verified, including all seven original assets. No merge or implementation started.

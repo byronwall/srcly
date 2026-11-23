@@ -86,9 +86,18 @@ To support a library, add rows. If a library needs a new shape, add the shape to
 | Process | Resident child, closed after 15 idle minutes, at most two alive | Tier 1 under 2 s (per-query spawn), or RSS above 3 GB (a cap of one) |
 | Back and Return | A view-state registry (`client/src/navigation/viewState.ts`): snapshots in `sessionStorage` under a token in `history.state`, so a copied URL opens plain | Nothing expected |
 | Progress | The client polls `status` every 250 ms | Polling that shows up in profiles (then an SSE endpoint) |
+| Priority | Never wrong, then never broken, then fast. Fewer proven paths is acceptable; a wrong proven path is not | — |
+| Primary surface | The graph. The ledger is detail opened from a box or an edge | Reviews where a path cannot be read from the graph and its edge card |
+| Box status | Each box takes its own status from the gaps located inside it; unlocated gaps go to the route box. A render edge takes its target's status. No box inherits the route's status | — |
+| Links found by syntax | A declaration's parameter, prop-read and return links are `structural`: their own stroke, walked by reach, never counted as proven | — |
+| Path ends | A path with no continuing relation starts naturally only at a literal, a literal `const` or an external import. Anything else is a dead-end frontier, and the outcome is `partial` | A fixture where a common, correct pattern reads as a dead end |
+| File and folder anchors | One box per export, each traced on demand; a folder over 50 exports shows its files first. Never the union of every export's walk | A reader who needs "everything this folder reaches" as one picture: then a union over the opened exports only |
+| Speed levers | Backbone first, profile-led analysis edits, and a result cache keyed by `programHash`. A Program scoped to the route's imports was measured and left off: tier 1 gained nothing and one anchor differed | A profile where Program build dominates after call identity |
 
 These were dropped from the plan:
 
+- Warming the engine at scan time: memory and CPU on every scan. The engine starts only when someone opens a data-flow surface.
+- A full-page investigation workspace and a pinned preview. Back and Return use the view-state registry instead.
 - `dataflow_defensive_ops`: the legacy count is per sink, and one guard feeds many sinks, so a sum per file counts a guard many times. `dataflow.md`'s defensive ledger lists the guards.
 - A `findings/dataflow.py` tool: data-flow findings go to `report.md` and code-viewer marks from the saved `fileSignals` result. They are not in the file-findings panel.
 

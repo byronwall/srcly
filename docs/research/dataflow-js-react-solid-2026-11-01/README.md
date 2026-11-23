@@ -2,7 +2,7 @@
 
 Fix incorrect value paths and project access before expanding library name lists. Strengthen existing fixture assertions first. Keep offline observation packets optional until they add a justified finding beyond direct assertions.
 
-This research expands [PR #308](https://github.com/byronwall/srcly/pull/308) beyond its Solid pilot. Pro reviewed 19 vanilla runtime families, 22 React families, and 20 Solid families. JavaScript project admission has an additional matrix. See the [complete report](../../intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/research-report.md).
+This research expands [PR #308](https://github.com/byronwall/srcly/pull/308) beyond its Solid pilot. Pro reviewed 19 vanilla runtime families, 22 React families, and 20 Solid families. JavaScript project admission has an additional matrix. See the [complete report](pro-results/research-report.md).
 
 ## Findings that decide the next work
 
@@ -13,7 +13,7 @@ This research expands [PR #308](https://github.com/byronwall/srcly/pull/308) bey
 | SolidJS | Selectors are described like memo accessors; `on`, cleanup registration, and void effects share callback-result summaries. Resources assume fetcher argument 1. A carrier treats a sole loader `.json()` call as returned payload. Props views ignore split keys and merge priority. | Separate selector, accessor, wrapper, callback identity, and void results. Then test resource and props false paths. |
 | Shared | A matching terminal can hide wrong paths. Standard-library identity can upgrade generic behavior guesses. Projection keeps one edge per pair of boxes. Model JSON is absent from the engine cache fingerprint. | Add precise positive/negative assertions, preserve evidence, and include effective models in cache identity. |
 
-The [review ledger](../../intent/dataflow-js-react-solid/review.md) links these findings to inspected source. It distinguishes code mechanisms from predicted graph results.
+The [review ledger](review.md) links these findings to inspected source. It distinguishes code mechanisms from predicted graph results.
 
 ## What was checked
 
@@ -25,18 +25,22 @@ Pro reports six native controls and 21 passing assertions. Those results are pre
 
 The historical 105 expected catalog landings do not establish complete support. The grader accepts any matching allowed end. It does not prove the intended field, callback channel, invocation, or absence of wrong paths.
 
-## Decision and remaining questions
+## What shipped
 
-Follow the [staged plan](../../intent/dataflow-js-react-solid/implementation-plan.md). Start with small assertion extensions and concrete corrections for all three environments. Add model fields only when a collector and fixture need them. Explore broader heap/owner identity before committing to its architecture.
+The reviewed six-stage plan was retired on 2026-11-23. `docs/dataflow-coverage.md` records each rule that landed.
 
-Compare packets against the same direct assertions. [TASER](https://cs.au.dk/~amoeller/papers/taser/) extracts taint specifications from executed behavior. Its results do not establish browser lifecycle or reference identity completeness. Stop packet work if it adds no justified review value.
-
-The main unknowns are which candidate bad relations survive graph slicing, loose-JS precision, and the cost of bounded identity. Framework version and entry checks remain prerequisites for runtime trials. Complete scheduler reasoning and live project capture remain deferred.
+| Stage | Result |
+| --- | --- |
+| 1. Precise failures (SH-01) | Shipped in #316: `@path` and `@no-path` claims, actual `.js` fixtures with a Program-membership check, and catalog counts of skipped cases. |
+| 2. One correction per environment (SH-02, JS-01, RE-01, SO-01) | Shipped in #317–#319 and #321: jsconfig and `.mjs` roots, React effect and mutation results, Solid result kinds, native writes from the method. |
+| 3. Ordinary language and framework paths | Shipped in #322, #324 and #326–#336: reducers through props and context, DOM reads, resources, props views, promises, loose projects, callback roles, store paths, nearest context provider, setters and call adapters, `For` and `Index`, query fields. |
+| 4. Evidence and model invalidation (SH-03, SH-04) | Shipped in #320, #325 and #337: per-side gaps, model rows in the cache fingerprint, every relation between two boxes kept. One gap is open: the ledger and the graph disagree on some shared expressions (pgm `task-ledger-and-graph-agree-on-every-shared-expression`). |
+| 5. Bounded identity and wider framework APIs | Partly shipped through the library-model work (#429–#437): per-call contexts, nearest-provider ancestry, `useRef`, `useTransition`, Solid Query rows. Open: per-instance class state (pgm `task-per-instance-state-for-class-members`) and React 19 action hooks (pgm `task-react-19-action-hooks-as-library-rows`). React handles, external stores and class `setState` are the redo of #425. |
+| 6. Observation packets (EX-01, EX-02) | Not started, and not carried to the backlog. Direct fixture assertions answered every review question so far. Reopen only for a concrete miss that a fixture cannot settle. |
 
 ## Research materials
 
-- [Original assets and collection index](../../intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/README.md)
-- [Reviewed recommendation dispositions](../../intent/dataflow-js-react-solid/review.md)
-- [Implementation plan](../../intent/dataflow-js-react-solid/implementation-plan.md)
+- [Original assets and collection index](pro-results/README.md)
+- [Reviewed recommendation dispositions](review.md)
 - [Submitted prompt](pro-prompt.md) and [run record](run-record.md)
 - [Pro conversation](https://chatgpt.com/c/6ae6bd64-1340-83e8-8609-abad82c3a205)

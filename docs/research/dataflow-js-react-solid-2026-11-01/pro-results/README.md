@@ -8,7 +8,7 @@ All seven archive entries are preserved byte for byte. Archive paths were checke
 | --- | ---: | --- |
 | [research-report.md](research-report.md) | 140432 | Findings, 61 pattern families, admission matrix, methods, source and reading ledgers. |
 | [experiment-plan.md](experiment-plan.md) | 65343 | Five vanilla, six React, and five Solid experiments. All are unexecuted. |
-| [implementation-plan.md](implementation-plan.md) | 43809 | Pro's 22 proposed Build milestones and research tracks. Read the reviewed plan before implementation. |
+| [implementation-plan.md](implementation-plan.md) | 43809 | Pro's 22 proposed Build milestones and research tracks. The review ledger records which were adopted. |
 | [recommendations.md](recommendations.md) | 13835 | Pro's 28 recommendations. Codex dispositions are in the review ledger. |
 | [native-controls.mjs](native-controls.mjs) | 5540 | Original sandbox controls. Preserved as source evidence; not run locally. |
 | [native-observations.json](native-observations.json) | 3197 | Pro-reported six cases and 21 assertions, Node v24.22.1, Linux x64. |
@@ -16,4 +16,4 @@ All seven archive entries are preserved byte for byte. Archive paths were checke
 
 The ZIP stays in ignored storage at `tmp/pro/dataflow-js-react-solid/results/srcly-js-react-solid-research.zip`. The original report's ZIP download link is retained unchanged; the archive is deliberately absent from this folder. Use the seven files above.
 
-See the [review ledger](../../../review.md), [reviewed plan](../../../implementation-plan.md), and [research summary](../../../../../research/dataflow-js-react-solid-2026-11-01/README.md). Original wording is research input, not an instruction or an approved implementation.
+See the [review ledger](../review.md) and the [research summary](../README.md), which records what shipped. Original wording is research input, not an instruction or an approved implementation.
