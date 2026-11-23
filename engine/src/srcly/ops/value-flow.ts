@@ -216,18 +216,19 @@ class LedgerBuilder {
       return paths;
     };
     // Steps and ends in path order; stops go last, so no stop reads as if a later step went on from it.
-    let omitted = 0;
+    const omitted = new Set<string>();
     for (const path of anchor ? descend(anchor.id) : []) {
       for (const [node, edge] of path) {
         if (written.has(node.id) || isStop(node)) continue;
         if (node.kind !== "terminal" && this.rows.length >= MAX_ROWS) {
-          omitted += 1;
+          omitted.add(node.id);
           continue;
         }
         row(node, edge, node.kind === "terminal" ? "terminal" : node.kind === "transform" ? "transform" : edge.kind === "show-when" || node.elementKind === "type-narrow" ? "branch" : "transfer");
       }
     }
-    if (omitted) this.rows[0].note = [this.rows[0].note, `${omitted} more step${omitted === 1 ? "" : "s"} not listed (the ledger lists ${MAX_ROWS} rows); every end and stop is`].filter(Boolean).join(" · ");
+    // First, so the ledger's short view shows it.
+    if (omitted.size) this.rows[0].note = [`${omitted.size} more step${omitted.size === 1 ? "" : "s"} not listed (the ledger lists ${MAX_ROWS} rows); every end and stop is`, this.rows[0].note].filter(Boolean).join(" · ");
     // Every end the graph names, reached above or not.
     for (const node of graph.nodes) if (node.kind === "terminal" && !written.has(node.id)) row(node, into.get(node.id), "terminal");
     // A value the code ends where it is selected (never read, a branch test, thrown) lands at the input itself, as the graph notes on its anchor.
