@@ -62,6 +62,8 @@ for (const name of roots) {
   const source = isPython || !fs.existsSync(path.join(root, "src")) ? root : path.join(root, "src");
   if (isPython && !python()) {
     console.log(`${name}: skipped, no Python with mypy (set SRCLY_PYTHON or run \`uv sync\` in server/)`);
+    // A root asked for by name must run.
+    failed ||= Boolean(flag("--root"));
     continue;
   }
   const session = isPython
@@ -98,10 +100,12 @@ for (const name of roots) {
           seen.add(key);
           count += 1;
           const selection = { file, span: candidate.span, text: candidate.text };
+          let boxes = new Map<string, { file: string; span: Span }>();
           let edges = new Map<string, { source: string; target: string; status: string; proof: ({ kind: string; detail?: string; status?: string } | null)[] }>();
           const graph = answer(() => {
             const result = anchorGraphOp(session, { file, span: candidate.span, direction: "forward" });
             edges = new Map(result.edges.map((edge) => [edge.id, edge]));
+            boxes = new Map(result.nodes.map((node) => [node.id, node]));
             const anchor = result.nodes.find((node) => node.kind === "anchor");
             return {
               outcome: result.outcome,
@@ -126,17 +130,21 @@ for (const name of roots) {
               if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);
+              else if (edge && row.kind !== "boundary" && (boxes.get(edge.target)?.file !== row.file || JSON.stringify(boxes.get(edge.target)?.span) !== JSON.stringify(row.span))) problems.push(`row ${row.label} is not where its box is`);
               // A step says what its edge proves: the same status (structural reads as partial) and the same proofs.
               else if (edge && row.kind !== "boundary" && (row.status !== (edge.status === "proven" ? "proven" : edge.status === "unsupported" ? "unsupported" : "partial") || witness(row.proof) !== witness(edge.proof))) problems.push(`row ${row.label} does not say what its edge proves`);
               // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
+            const stopRows = new Set(result.rows.filter((row) => row.kind === "boundary").map((row) => row.id));
+            if (result.frontiers.length !== stopRows.size || result.frontiers.some((stop) => !stopRows.has(stop.rowId))) problems.push("the frontiers list is not the stop rows");
             // The ends the client counts are the terminal rows.
             const terminalRows = new Set(result.rows.filter((row) => row.kind === "terminal").map((row) => row.id));
             if (result.terminals.length !== terminalRows.size || result.terminals.some((id) => !terminalRows.has(id))) problems.push("the terminals list is not the terminal rows");
             return {
               outcome: result.outcome,
-              stops: result.frontiers.map((stop) => `${stop.reason}@${rows.get(stop.rowId)!.file}:${rows.get(stop.rowId)!.line}`),
+              // Every stop row, one for one with the graph's stops; the frontiers list must name exactly those rows.
+              stops: result.rows.filter((row) => row.kind === "boundary").map((row) => `${row.reason}@${row.file}:${row.line}`),
               ends: result.rows.filter((row) => row.kind === "terminal").map((row) => row.elementId ?? "?"),
               problems,
             };
