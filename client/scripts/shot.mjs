@@ -71,9 +71,9 @@ try {
     return !!under && (under === el || el.contains(under));
   }, point);
   if (hovered) await hovered.waitFor({ state: "attached" });
-  // Bring a --selector target into view now: scrolling during the capture would move the pointer off the hovered element.
+  // With --hover, bring a --selector target that already exists into view now: scrolling during the capture would move the pointer off the hovered element.
   const target = values.selector ? page.locator(values.selector).first() : null;
-  if (target) await target.scrollIntoViewIfNeeded();
+  if (target && hovered && (await target.count())) await target.scrollIntoViewIfNeeded();
   await page.waitForTimeout(Number(values.delay));
   if (hovered) {
     const points = await hovered.evaluate((el) => {
@@ -101,13 +101,20 @@ try {
     }
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
-  // A --selector capture is a clip of the page where the target already is, so nothing scrolls under the pointer.
-  const clip = target ? await target.boundingBox() : null;
-  if (target && !clip) {
-    console.error(`--selector: ${values.selector} has no box to capture`);
-    process.exit(1);
+  if (target && !hovered) {
+    await target.screenshot({ path: out });
+  } else if (target) {
+    // With --hover, the target may be what the hover opens (its card): find it now, and capture it as a clip of the page where it is, so nothing scrolls under the pointer.
+    await target.waitFor();
+    const clip = await target.boundingBox();
+    if (!clip) {
+      console.error(`--selector: ${values.selector} has no box to capture`);
+      process.exit(1);
+    }
+    await page.screenshot({ path: out, clip });
+  } else {
+    await page.screenshot({ path: out, fullPage: values.full });
   }
-  await page.screenshot({ path: out, ...(clip ? { clip } : { fullPage: values.full }) });
   console.log(path.resolve(out));
 } finally {
   await browser.close();

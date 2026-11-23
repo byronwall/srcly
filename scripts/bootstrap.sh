@@ -27,12 +27,11 @@ launch="$ROOT_DIR/.claude/launch.json"
 if [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
   if python3 -c '
 import json, sys
-entries = json.load(open(sys.argv[1])).get("configurations", [])
-old = [
+old = {"version": "0.0.1", "configurations": [
     {"name": "srcly-api", "runtimeExecutable": "uv", "runtimeArgs": ["run", "--directory", "server", "uvicorn", "app.main:app", "--reload", "--port", "8000"], "port": 8000},
     {"name": "srcly-client", "runtimeExecutable": "./client/node_modules/.bin/vite", "runtimeArgs": ["client", "--port", "5173"], "port": 5173},
-]
-sys.exit(0 if entries and all(e in old for e in entries) else 1)
+]}
+sys.exit(0 if json.load(open(sys.argv[1])) == old else 1)
 ' "$launch" 2>/dev/null; then
     echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it"
     rm "$launch"
