@@ -15,11 +15,11 @@ import { MetricsSidebar } from "./MetricsSidebar";
 import { InspectMenu } from "./InspectMenu";
 import { searchSymbols } from "../../symbols/api";
 import { identifierAt } from "../../symbols/identifier";
-import { refsPatch } from "../../navigation/nodeActions";
+import { refsPatch, traceAnchorPatch } from "../../navigation/nodeActions";
 import { ValueFlowLedger } from "./ValueFlowLedger";
 import { createEffectsQuery, EffectsPanel } from "../../dataflow/EffectsPanel";
 import { createValueFlowInspector } from "../../investigation/valueFlowInspector";
-import { atFromTreePath, encodeAnchor } from "../../navigation/location";
+import { atFromTreePath } from "../../navigation/location";
 import { go } from "../../navigation/store";
 import { caretColumn, caretOffsetIn } from "../../investigation/selectionSpan";
 
@@ -209,7 +209,7 @@ export default function CodeModal(props: CodeModalProps) {
       const at = props.rootPath && props.filePath ? atFromTreePath(props.filePath, props.rootPath) : null;
       if (at === null) return;
       props.onClose();
-      go({ view: "graph", flow: undefined, field: undefined, dest: undefined, open: undefined, anchor: encodeAnchor({ file: at, span: candidate.span }), dir: direction });
+      go(traceAnchorPatch({ file: at, span: candidate.span }, direction));
     },
     // Show references: the identifier under the caret, looked up in the symbol index (this file's symbol first).
     onReferences: ({ line, column }) => {

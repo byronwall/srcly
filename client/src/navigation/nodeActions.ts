@@ -1,4 +1,4 @@
-import { encodeAnchor, encodeAnchors, folderOf, MAX_ANCHORS, normalizeScopeName, parseAnchors, splitAt, symbolIdOf, type Direction, type Location } from "./location";
+import { encodeAnchor, encodeAnchors, folderOf, MAX_ANCHORS, normalizeScopeName, parseAnchors, splitAt, symbolIdOf, type Anchor, type Direction, type Location } from "./location";
 
 // The actions every node offers in both views, whatever opened the menu.
 
@@ -24,15 +24,23 @@ export function symbolNameOf(at: string): string | null {
 export function tracePatch(target: { at: string; line?: number }, id: "traceTo" | "traceFrom"): Partial<Location> {
   const { file, scopes } = splitAt(target.at);
   const name = symbolNameOf(target.at) ?? "";
-  const anchor = scopes.length && target.line ? encodeAnchor({ file, name, line: target.line }) : encodeAnchor({ file, exports: true });
+  const anchor: Anchor = scopes.length && target.line ? { file, name, line: target.line } : { file, exports: true };
+  return traceAnchorPatch(anchor, TRACE_DIRECTION[id]);
+}
+
+/** Enter an exact trace from a node or source selection, leaving the other graph modes. */
+export function traceAnchorPatch(anchor: Anchor, direction: Direction): Partial<Location> {
   return {
     view: "graph",
+    symbols: undefined,
+    to: undefined,
     flow: undefined,
+    lens: undefined,
     field: undefined,
     dest: undefined,
     open: undefined,
-    anchor,
-    dir: TRACE_DIRECTION[id],
+    anchor: encodeAnchor(anchor),
+    dir: direction,
   };
 }
 

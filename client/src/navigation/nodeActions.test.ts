@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { folderOf } from "./location";
-import { addAnchorPatch, nodeActions, refsPatch, tracePatch } from "./nodeActions";
+import { folderOf, isDataFlow, isSymbols, parseLocation, sameLocation, toSearch } from "./location";
+import { addAnchorPatch, nodeActions, refsPatch, traceAnchorPatch, tracePatch } from "./nodeActions";
 
 const enabled = (t: Parameters<typeof nodeActions>[0]) =>
   nodeActions(t).filter((a) => !a.disabledReason).map((a) => a.id);
@@ -74,7 +74,10 @@ describe("trace actions", () => {
   it("anchors the graph at the symbol by its bare name on its line, in the chosen direction", () => {
     expect(tracePatch({ at: "src/a.tsx#Foo (class)::run", line: 12 }, "traceTo")).toEqual({
       view: "graph",
+      symbols: undefined,
+      to: undefined,
       flow: undefined,
+      lens: undefined,
       field: undefined,
       dest: undefined,
       open: undefined,
@@ -85,6 +88,22 @@ describe("trace actions", () => {
     // A JSX scope anchors at its tag's component; an anonymous scope has nothing to anchor at.
     expect(tracePatch({ at: "src/a.tsx#Page::<RouteFrame>", line: 29 }, "traceTo")).toMatchObject({ anchor: "src/a.tsx@RouteFrame:29" });
     expect(nodeActions({ at: "src/a.tsx#Page::(anonymous)", kind: "symbol", currentAt: "", line: 4 }).find((a) => a.id === "traceTo")?.disabledReason).toBe("No name to anchor at");
+  });
+  it("leaves Symbols for a source or node trace immediately, not only when reparsing the URL", () => {
+    const before = parseLocation("?repo=/r&view=graph&symbols=src/a.tsx%23Foo&to=src/b.ts%23Bar");
+    const span = { startLine: 12, startColumn: 7, endLine: 12, endColumn: 17 };
+    const sourcePatch = traceAnchorPatch({ file: "src/a.tsx", span }, "forward");
+    const nodePatch = tracePatch({ at: "src/a.tsx#Foo", line: 12 }, "traceFrom");
+    for (const patch of [sourcePatch, nodePatch]) {
+      // This is the live store's shallow merge, before any Back/Forward reparse.
+      const after = { ...before, ...patch };
+      expect(isSymbols(after)).toBe(false);
+      expect(after.to).toBeUndefined();
+      expect(isDataFlow(after)).toBe(true);
+      expect(sameLocation(after, parseLocation(toSearch(after)))).toBe(true);
+      expect(after.repo).toBe(before.repo);
+    }
+    expect(sourcePatch).toMatchObject({ anchor: "src/a.tsx:12:7-12:17", dir: "forward" });
   });
 });
 

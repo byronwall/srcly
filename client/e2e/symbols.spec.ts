@@ -77,6 +77,31 @@ test.describe("Symbols mode on solid-route", () => {
     expect(errors).toEqual([]);
   });
 
+  test("a source trace switches immediately from Symbols to Data flow and survives Back and Forward", async ({ page }) => {
+    await page.goto(url({ view: "graph", symbols: "src/components/ViewerCard.tsx#ViewerCard" }));
+    const mode = page.getByRole("radiogroup", { name: "Graph mode" });
+    await expect(mode.getByRole("radio", { name: "Symbols" })).toHaveAttribute("aria-checked", "true");
+    await expect(stats(page)).toHaveAttribute("data-symbol-stats", "ready", { timeout: 90_000 });
+    await page.locator('[data-box][data-label="ViewerCard"]').first().dblclick();
+    const line = page.locator("span.line").filter({ hasText: "props.viewer?.name" }).first();
+    const expression = line.getByText("props.viewer?.name");
+    await expect(expression).toBeVisible();
+    await expression.click({ button: "right" });
+    await page.locator("[data-inspect-menu]").getByRole("menuitem", { name: /Trace where it goes/ }).click();
+    await page.waitForURL(/anchor=/, { timeout: 15_000 }).catch(async () => {
+      await page.getByRole("listbox", { name: "Pick an expression" }).getByRole("option").first().click();
+    });
+    await expect(page).toHaveURL(/anchor=.*&dir=forward/);
+    await expect(mode.getByRole("radio", { name: "Data flow" })).toHaveAttribute("aria-checked", "true");
+    await expect(stats(page)).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/symbols=/);
+    await expect(mode.getByRole("radio", { name: "Symbols" })).toHaveAttribute("aria-checked", "true");
+    await page.goForward();
+    await expect(page).toHaveURL(/anchor=.*&dir=forward/);
+    await expect(mode.getByRole("radio", { name: "Data flow" })).toHaveAttribute("aria-checked", "true");
+  });
+
   test("a file focus draws its module and top-level symbols; a missing symbol says so", async ({ page }) => {
     await page.goto(url({ view: "graph", symbols: "src/components/RecordTable.tsx" }));
     await expect(stats(page)).toHaveAttribute("data-symbol-stats", "ready", { timeout: 90_000 });
