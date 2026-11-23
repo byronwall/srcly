@@ -4,7 +4,10 @@
 // becomes a frontier and the walk stops there, so emphasis never implies a
 // proof the engine did not give. A structural edge (a declaration anchor's
 // own parameter or return link) is walked through, since it only places the
-// boxes, but it is never lit as proven reach: it goes in `structural`.
+// boxes, but it is never lit as proven reach: it goes in `structural`. On a
+// canvas of several anchors, each edge names the traces that have it, and the
+// walk follows one of the seed's traces at a time: a box two traces share
+// reaches each trace's ends, but a path never joins one trace to another's.
 import type { ViewEdge, ViewModel } from "../viewModel";
 
 export type ReachMode = "both" | "up" | "down";
@@ -63,8 +66,20 @@ export function reachFrom(vm: Pick<ViewModel, "edges">, seed: string, mode: Reac
   const edges = vm.edges.filter((e) => e.source !== e.target && !opts.exclude?.has(e.id));
   const frontier = new Set<string>();
   const structural = new Set<string>();
-  const up = mode === "down" ? { nodes: new Set<string>(), edges: new Set<string>() } : walk(seed, edges, "up", frontier, structural);
-  const down = mode === "up" ? { nodes: new Set<string>(), edges: new Set<string>() } : walk(seed, edges, "down", frontier, structural);
+  // The seed's traces; an edge no trace names (one anchor, a link) belongs to every one.
+  const traces = [...new Set(edges.filter((e) => e.source === seed || e.target === seed).flatMap((e) => e.traces ?? []))];
+  const runs = traces.length ? traces.map((trace) => edges.filter((e) => !e.traces || e.traces.includes(trace))) : [edges];
+  const along = (dir: "up" | "down") => {
+    const found = { nodes: new Set<string>(), edges: new Set<string>() };
+    for (const run of runs) {
+      const one = walk(seed, run, dir, frontier, structural);
+      for (const id of one.nodes) found.nodes.add(id);
+      for (const id of one.edges) found.edges.add(id);
+    }
+    return found;
+  };
+  const up = mode === "down" ? { nodes: new Set<string>(), edges: new Set<string>() } : along("up");
+  const down = mode === "up" ? { nodes: new Set<string>(), edges: new Set<string>() } : along("down");
   const strong = { nodes: new Set([seed, ...up.nodes]), edges: new Set(up.edges) };
   const light = { nodes: new Set<string>(), edges: new Set<string>() };
   // The seed's own outgoing proven edges read strong in `both`: they are what it does with what it got.

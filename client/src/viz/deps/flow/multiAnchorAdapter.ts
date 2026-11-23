@@ -2,7 +2,8 @@
 // from the engine, all of one generation, merged by element id. A box that
 // more than one trace reaches is shared: drawn lit, with a note naming the
 // anchors that meet there. Frames merge the same way, since the owning
-// scope has one id across graphs.
+// scope has one id across graphs. An edge both traces draw is one edge
+// that keeps every witness, and names the traces that have it.
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
@@ -14,6 +15,17 @@ export interface MergedAnchors {
   shared: Map<string, string[]>;
 }
 
+const STRENGTH: Record<NonNullable<ViewEdge["status"]>, number> = { structural: 0, unsupported: 1, partial: 2, proven: 3 };
+
+/** One edge, two traces' witnesses: every relation and proof stays, with the strongest status any of them has, as one trace's edges do. */
+function merge(known: ViewEdge, edge: ViewEdge) {
+  for (const kind of (edge.relation ?? "").split(", ").filter(Boolean)) if (!(known.relation ?? "").split(", ").includes(kind)) known.relation = known.relation ? `${known.relation}, ${kind}` : kind;
+  for (const field of (edge.label ?? "").split(", ").filter(Boolean)) if (!(known.label ?? "").split(", ").includes(field)) known.label = known.label ? `${known.label}, ${field}` : field;
+  for (const p of edge.proof ?? []) if (!known.proof?.some((item) => item.kind === p.kind && item.detail === p.detail)) known.proof = [...(known.proof ?? []), p];
+  if (edge.status && STRENGTH[edge.status] > STRENGTH[known.status ?? "structural"]) Object.assign(known, { status: edge.status, faint: edge.faint, style: edge.style });
+  if (known.assumed && !edge.assumed) delete known.assumed;
+}
+
 export function anchorsToViewModel(graphs: readonly AnchorGraphResult[]): MergedAnchors {
   const models = graphs.map((graph) => ({ graph, model: anchorGraphToViewModel(graph) }));
   const owners = new Map<string, string[]>();
@@ -22,10 +34,11 @@ export function anchorsToViewModel(graphs: readonly AnchorGraphResult[]): Merged
   const nodes: ViewNode[] = [];
   const seenNodes = new Set<string>();
   const edges: ViewEdge[] = [];
-  const seenEdges = new Set<string>();
+  const seenEdges = new Map<string, ViewEdge>();
   const byId: FlowViewModel["byId"] = new Map();
   const shownAs = new Map<string, string>();
-  for (const { model } of models) {
+  for (const [index, { model }] of models.entries()) {
+    const trace = String(index);
     for (const node of model.vm.nodes) {
       if (seenNodes.has(node.id)) continue;
       seenNodes.add(node.id);
@@ -34,9 +47,15 @@ export function anchorsToViewModel(graphs: readonly AnchorGraphResult[]): Merged
     }
     for (const edge of model.vm.edges) {
       const key = `${edge.source}|${edge.target}`;
-      if (seenEdges.has(key)) continue;
-      seenEdges.add(key);
-      edges.push(edge);
+      const known = seenEdges.get(key);
+      if (known) {
+        merge(known, edge);
+        if (!known.traces!.includes(trace)) known.traces!.push(trace);
+        continue;
+      }
+      const own = { ...edge, traces: [trace], ...(edge.proof ? { proof: [...edge.proof] } : {}) };
+      seenEdges.set(key, own);
+      edges.push(own);
     }
     for (const [id, box] of model.byId) if (!byId.has(id)) byId.set(id, box);
     for (const [id, drawn] of model.shownAs) if (!shownAs.has(id)) shownAs.set(id, drawn);
