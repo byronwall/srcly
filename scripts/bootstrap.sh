@@ -24,7 +24,9 @@ fi
 # old srcly-api (uv run … uvicorn on 8000) and srcly-client (vite on 5173),
 # key for key. Any other file is yours and is kept.
 launch="$ROOT_DIR/.claude/launch.json"
-if [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
+# Only in a linked worktree: the main checkout's own file is where the copies come from, and stays as it is.
+linked=$([ "$(git -C "$ROOT_DIR" rev-parse --git-dir)" != "$(git -C "$ROOT_DIR" rev-parse --git-common-dir)" ] && echo 1 || true)
+if [ -n "$linked" ] && [ -f "$launch" ] && ! grep -q "scripts/dev-server.sh" "$launch"; then
   if python3 -c '
 import json, sys
 old = {"version": "0.0.1", "configurations": [
@@ -33,8 +35,8 @@ old = {"version": "0.0.1", "configurations": [
 ]}
 sys.exit(0 if json.load(open(sys.argv[1])) == old else 1)
 ' "$launch" 2>/dev/null; then
-    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it"
-    rm "$launch"
+    echo "==> .claude/launch.json is the old srcly config (fixed ports, no data-flow engine): replacing it (kept as launch.json.bak)"
+    mv "$launch" "$launch.bak"
   else
     echo "==> .claude/launch.json does not run scripts/dev-server.sh; keeping it. Delete it to get this worktree's ports and the engine."
   fi
