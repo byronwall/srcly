@@ -41,6 +41,9 @@ const STRENGTH: Record<NonNullable<ViewEdge["status"]>, number> = { structural: 
 
 const proofsOf = (e: AnchorGraphResult["edges"][number]) => e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined }));
 
+/** One proof record: the same kind and words at another place or status is another witness. */
+export const sameProof = (a: NonNullable<ViewEdge["proof"]>[number], b: NonNullable<ViewEdge["proof"]>[number]) => a.kind === b.kind && a.detail === b.detail && a.status === b.status && a.at === b.at;
+
 /** A traced edge whose own proof assumes what code with no source does. */
 const assumedEdge = (e: AnchorGraphResult["edges"][number]) => e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind));
 
@@ -91,8 +94,16 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
     };
   });
   const passThrough = view ? new Map<string, string>() : passThroughs(graph);
+  // Before twins join: only a folded reference has links to carry.
+  const links = foldedLinks(graph, passThrough);
   // A box that repeats another's place joins it the way a pass-through does.
   for (const [id, first] of twins(graph, passThrough)) passThrough.set(id, first);
+  // A reference folded into a box that then joined its twin is shown at that twin.
+  for (const [id, to] of passThrough) {
+    let at = to;
+    for (const seen = new Set([id]); passThrough.has(at) && !seen.has(at); seen.add(at)) at = passThrough.get(at)!;
+    passThrough.set(id, at);
+  }
   const shown = (id: string) => {
     const at = view?.shownAs.get(id) ?? id;
     const limitedAt = limited?.shownAs.get(at) ?? at;
@@ -107,11 +118,13 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
   const edges: ViewEdge[] = [];
   for (const raw of graph.edges) {
     // An edge out of a folded reference leaves from the value it repeats; the reference link itself goes.
-    if (passThrough.get(raw.target) === raw.source) continue;
+    if (passThrough.get(raw.target) === raw.source || links.get(raw.target)?.includes(raw)) continue;
     const from = passThrough.get(raw.source) ?? raw.source;
     const to = passThrough.get(raw.target) ?? raw.target;
+    // The folded links still witness this edge: their proofs stay on its card, so it expands to the chain it stands for.
+    const chain = links.get(raw.source) ?? [];
     // An edge into or out of a folded function joins its box.
-    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to };
+    const e = { ...raw, proof: [...chain.flatMap((link) => link.proof), ...raw.proof], source: fold.get(from) ?? from, target: fold.get(to) ?? to };
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     const key = `${e.source}|${e.target}`;
     const known = seen.get(key);
@@ -120,7 +133,7 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
       if (e.label && !(known.label ?? "").split(", ").includes(e.label)) known.label = known.label ? (known.label.includes(", ") ? known.label : `${known.label}, ${e.label}`) : e.label;
       // Every witness stays on the card: its relation, its proofs, and the strongest status any of them has.
       if (!(known.relation ?? "").split(", ").includes(e.kind)) known.relation = known.relation ? `${known.relation}, ${e.kind}` : e.kind;
-      for (const p of proofsOf(e)) if (!known.proof?.some((item) => item.kind === p.kind && item.detail === p.detail)) known.proof = [...(known.proof ?? []), p];
+      for (const p of proofsOf(e)) if (!known.proof?.some((item) => sameProof(item, p))) known.proof = [...(known.proof ?? []), p];
       if (STRENGTH[e.status] > STRENGTH[known.status ?? "structural"]) {
         known.status = e.status;
         known.faint = e.status !== "proven";
@@ -299,7 +312,8 @@ function passThroughs(graph: AnchorGraphResult): Map<string, string> {
   for (const n of graph.nodes) {
     if (n.kind !== "value" || n.elementKind !== "value") continue;
     const incoming = into.get(n.id) ?? [];
-    const source = incoming.length === 1 && incoming[0].kind === "references" ? byId.get(incoming[0].source) : undefined;
+    // Only a proven reference folds: a partial or structural link stays drawn, so the shown path never claims more than the engine proved.
+    const source = incoming.length === 1 && incoming[0].kind === "references" && incoming[0].status === "proven" ? byId.get(incoming[0].source) : undefined;
     if (source && source.kind !== "scope" && source.label === n.label && source.side === n.side) out.set(n.id, source.id);
   }
   // A reference of a folded reference repeats the first value.
@@ -307,6 +321,19 @@ function passThroughs(graph: AnchorGraphResult): Map<string, string> {
     let to = source;
     while (out.has(to)) to = out.get(to)!;
     out.set(id, to);
+  }
+  return out;
+}
+
+/** Each folded reference's chain of `references` links back to the value it repeats, nearest the value first. */
+function foldedLinks(graph: AnchorGraphResult, passThrough: Map<string, string>): Map<string, AnchorEdge[]> {
+  const into = new Map<string, AnchorEdge>();
+  for (const e of graph.edges) if (e.kind === "references" && passThrough.has(e.target)) into.set(e.target, e);
+  const out = new Map<string, AnchorEdge[]>();
+  for (const id of passThrough.keys()) {
+    const chain: AnchorEdge[] = [];
+    for (let link = into.get(id); link && !chain.includes(link); link = into.get(link.source)) chain.unshift(link);
+    if (chain.length) out.set(id, chain);
   }
   return out;
 }

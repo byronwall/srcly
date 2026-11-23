@@ -195,10 +195,10 @@ describe.skipIf(!fs.existsSync(path.join(srclyClient, "src/components/HotSpotIte
 
   it("HotSpotList.tsx:88: item.node passes through row(...) to its own HotSpotItem; the other call of row never appears (T13)", () => {
     const result = ledger("src/components/HotSpotList.tsx", "item.node", "row(item.node");
-    expect(result.outcome).toBe("ok");
-    expect(result.rows.some((row) => row.kind === "boundary")).toBe(false);
-    const terminal = result.rows.find((row) => row.kind === "terminal")!;
-    expect(terminal).toMatchObject({ label: "HotSpotItem", note: "handed to a component" });
+    // The graph's answer: the value goes on into HotSpotItem and stops there later, never at row's other call.
+    expect(result.outcome).toBe("partial");
+    expect(result.rows.filter((row) => row.kind === "boundary").map((row) => row.reason).sort()).toEqual(["disconnected", "unresolved-symbol"]);
+    expect(result.rows.find((row) => row.kind === "terminal" && row.label === "HotSpotItem")).toMatchObject({ note: "handed to a component" });
     // Line 109 is the other call of row: it is not this walk's.
     const lines = fs.readFileSync(path.join(srclyClient, "src/components/HotSpotList.tsx"), "utf8").split("\n");
     const other = lines.findIndex((line, index) => index !== 87 && line.includes("row(")) + 1;

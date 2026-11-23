@@ -1,0 +1,1510 @@
+[
+ {
+  "outcome": "ok",
+  "generation": 1,
+  "programHash": "",
+  "tsconfig": "",
+  "typescript": "",
+  "nullProof": true,
+  "reason": null,
+  "anchor": {
+   "file": "src/two-call-identity-helper.tsx",
+   "absPath": "<root>/src/two-call-identity-helper.tsx",
+   "span": {
+    "startLine": 11,
+    "startColumn": 17,
+    "endLine": 11,
+    "endColumn": 24
+   },
+   "text": "props.a",
+   "kind": "PropertyAccessExpression",
+   "elementId": "program-element:1xt36tv",
+   "typeText": "string"
+  },
+  "direction": "forward",
+  "nodes": [
+   {
+    "id": "scope:src/two-call-identity-helper.tsx:8:1",
+    "kind": "scope",
+    "label": "TwoCalls",
+    "detail": "two-call-identity-helper.tsx",
+    "parent": null,
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 8,
+    "span": {
+     "startLine": 8,
+     "startColumn": 1,
+     "endLine": 15,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "component",
+    "note": null
+   },
+   {
+    "id": "program-element:1xt36tv",
+    "kind": "anchor",
+    "label": "props.a",
+    "detail": "property read",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 11,
+    "span": {
+     "startLine": 11,
+     "startColumn": 17,
+     "endLine": 11,
+     "endColumn": 24
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": "field-read",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "props@src/two-call-identity-helper.tsx:381",
+    "field": "a",
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "scope:src/two-call-identity-helper.tsx:4:1",
+    "kind": "scope",
+    "label": "id",
+    "detail": "two-call-identity-helper.tsx",
+    "parent": null,
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 1,
+     "endLine": 6,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "helper",
+    "note": null
+   },
+   {
+    "id": "program-element:gnkfg4",
+    "kind": "value",
+    "label": "value",
+    "detail": "parameter",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 13,
+     "endLine": 4,
+     "endColumn": 18
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "parameter",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "value@src/two-call-identity-helper.tsx:230",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:rwzheg",
+    "kind": "value",
+    "label": "value",
+    "detail": "value",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 10,
+     "endLine": 5,
+     "endColumn": 15
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "value",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "value@src/two-call-identity-helper.tsx:230",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1fiogzl",
+    "kind": "value",
+    "label": "return",
+    "detail": "return",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 3,
+     "endLine": 5,
+     "endColumn": 16
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "return",
+    "typeText": "any",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:yul0s9",
+    "kind": "value",
+    "label": "id(props.a)",
+    "detail": "call",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 11,
+    "span": {
+     "startLine": 11,
+     "startColumn": 14,
+     "endLine": 11,
+     "endColumn": 25
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "call",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:ahg8ut",
+    "kind": "terminal",
+    "label": "id(props.a)",
+    "detail": "render slot",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 11,
+    "span": {
+     "startLine": 11,
+     "startColumn": 14,
+     "endLine": 11,
+     "endColumn": 25
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "render-terminal",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   }
+  ],
+  "edges": [
+   {
+    "id": "program-relation:31bfhk",
+    "source": "program-element:1xt36tv",
+    "target": "program-element:gnkfg4",
+    "kind": "argument-binding",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "argument-binding",
+      "detail": "The compiler-resolved call argument binds to the target parameter.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 11,
+        "column": 17,
+        "span": {
+         "startLine": 11,
+         "startColumn": 17,
+         "endLine": 11,
+         "endColumn": 24
+        }
+       },
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 4,
+        "column": 13,
+        "span": {
+         "startLine": 4,
+         "startColumn": 13,
+         "endLine": 4,
+         "endColumn": 26
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:azadrc",
+    "source": "program-element:gnkfg4",
+    "target": "program-element:rwzheg",
+    "kind": "references",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "compiler-symbol",
+      "detail": "The value occurrence resolves to a function parameter.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 5,
+        "column": 10,
+        "span": {
+         "startLine": 5,
+         "startColumn": 10,
+         "endLine": 5,
+         "endColumn": 15
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:19kssap",
+    "source": "program-element:rwzheg",
+    "target": "program-element:1fiogzl",
+    "kind": "return-expression",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The return expression supplies the function return.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 5,
+        "column": 3,
+        "span": {
+         "startLine": 5,
+         "startColumn": 3,
+         "endLine": 5,
+         "endColumn": 16
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:hyaw55",
+    "source": "program-element:1fiogzl",
+    "target": "program-element:yul0s9",
+    "kind": "return-value",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The call target has a source-backed return expression.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 11,
+        "column": 14,
+        "span": {
+         "startLine": 11,
+         "startColumn": 14,
+         "endLine": 11,
+         "endColumn": 25
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:188jqk",
+    "source": "program-element:yul0s9",
+    "target": "program-element:ahg8ut",
+    "kind": "render-terminal",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "jsx-tag",
+      "detail": "The value expression reaches the intrinsic DOM terminal.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 11,
+        "column": 14,
+        "span": {
+         "startLine": 11,
+         "startColumn": 14,
+         "endLine": 11,
+         "endColumn": 25
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   }
+  ],
+  "links": [
+   {
+    "id": "calls:scope:src/two-call-identity-helper.tsx:8:1>scope:src/two-call-identity-helper.tsx:4:1",
+    "source": "scope:src/two-call-identity-helper.tsx:8:1",
+    "target": "scope:src/two-call-identity-helper.tsx:4:1",
+    "kind": "calls"
+   }
+  ],
+  "origins": [],
+  "terminals": [
+   {
+    "nodeId": "program-element:ahg8ut",
+    "label": "id(props.a)",
+    "roles": [
+     "render"
+    ],
+    "status": "proven"
+   }
+  ],
+  "counts": {
+   "up": 0,
+   "down": 5,
+   "scopes": 2,
+   "origins": 0,
+   "terminals": 1,
+   "boundaries": 0,
+   "frontiers": 0
+  },
+  "coverage": {
+   "elements": 7,
+   "relations": 6,
+   "budget": {
+    "limit": 4096,
+    "used": 6,
+    "exhausted": false
+   }
+  }
+ },
+ {
+  "outcome": "ok",
+  "generation": 1,
+  "programHash": "",
+  "tsconfig": "",
+  "typescript": "",
+  "nullProof": true,
+  "reason": null,
+  "anchor": {
+   "file": "src/two-call-identity-helper.tsx",
+   "absPath": "<root>/src/two-call-identity-helper.tsx",
+   "span": {
+    "startLine": 12,
+    "startColumn": 15,
+    "endLine": 12,
+    "endColumn": 22
+   },
+   "text": "props.b",
+   "kind": "PropertyAccessExpression",
+   "elementId": "program-element:1yfbeq1",
+   "typeText": "string"
+  },
+  "direction": "forward",
+  "nodes": [
+   {
+    "id": "scope:src/two-call-identity-helper.tsx:8:1",
+    "kind": "scope",
+    "label": "TwoCalls",
+    "detail": "two-call-identity-helper.tsx",
+    "parent": null,
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 8,
+    "span": {
+     "startLine": 8,
+     "startColumn": 1,
+     "endLine": 15,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "component",
+    "note": null
+   },
+   {
+    "id": "program-element:1yfbeq1",
+    "kind": "anchor",
+    "label": "props.b",
+    "detail": "property read",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 12,
+    "span": {
+     "startLine": 12,
+     "startColumn": 15,
+     "endLine": 12,
+     "endColumn": 22
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": "field-read",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "props@src/two-call-identity-helper.tsx:381",
+    "field": "b",
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "scope:src/two-call-identity-helper.tsx:4:1",
+    "kind": "scope",
+    "label": "id",
+    "detail": "two-call-identity-helper.tsx",
+    "parent": null,
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 1,
+     "endLine": 6,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "helper",
+    "note": null
+   },
+   {
+    "id": "program-element:gnkfg4",
+    "kind": "value",
+    "label": "value",
+    "detail": "parameter",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 13,
+     "endLine": 4,
+     "endColumn": 18
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "parameter",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "value@src/two-call-identity-helper.tsx:230",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:rwzheg",
+    "kind": "value",
+    "label": "value",
+    "detail": "value",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 10,
+     "endLine": 5,
+     "endColumn": 15
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "value",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "value@src/two-call-identity-helper.tsx:230",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1fiogzl",
+    "kind": "value",
+    "label": "return",
+    "detail": "return",
+    "parent": "scope:src/two-call-identity-helper.tsx:4:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 3,
+     "endLine": 5,
+     "endColumn": 16
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "return",
+    "typeText": "any",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1o0ezlw",
+    "kind": "value",
+    "label": "id(props.b)",
+    "detail": "call",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 12,
+    "span": {
+     "startLine": 12,
+     "startColumn": 12,
+     "endLine": 12,
+     "endColumn": 23
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "call",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:lvjumy",
+    "kind": "terminal",
+    "label": "id(props.b)",
+    "detail": "render slot",
+    "parent": "scope:src/two-call-identity-helper.tsx:8:1",
+    "file": "src/two-call-identity-helper.tsx",
+    "absPath": "<root>/src/two-call-identity-helper.tsx",
+    "line": 12,
+    "span": {
+     "startLine": 12,
+     "startColumn": 12,
+     "endLine": 12,
+     "endColumn": 23
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "render-terminal",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   }
+  ],
+  "edges": [
+   {
+    "id": "program-relation:p1o77o",
+    "source": "program-element:1yfbeq1",
+    "target": "program-element:gnkfg4",
+    "kind": "argument-binding",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "argument-binding",
+      "detail": "The compiler-resolved call argument binds to the target parameter.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 12,
+        "column": 15,
+        "span": {
+         "startLine": 12,
+         "startColumn": 15,
+         "endLine": 12,
+         "endColumn": 22
+        }
+       },
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 4,
+        "column": 13,
+        "span": {
+         "startLine": 4,
+         "startColumn": 13,
+         "endLine": 4,
+         "endColumn": 26
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:azadrc",
+    "source": "program-element:gnkfg4",
+    "target": "program-element:rwzheg",
+    "kind": "references",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "compiler-symbol",
+      "detail": "The value occurrence resolves to a function parameter.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 5,
+        "column": 10,
+        "span": {
+         "startLine": 5,
+         "startColumn": 10,
+         "endLine": 5,
+         "endColumn": 15
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:19kssap",
+    "source": "program-element:rwzheg",
+    "target": "program-element:1fiogzl",
+    "kind": "return-expression",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The return expression supplies the function return.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 5,
+        "column": 3,
+        "span": {
+         "startLine": 5,
+         "startColumn": 3,
+         "endLine": 5,
+         "endColumn": 16
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:1giekhg",
+    "source": "program-element:1fiogzl",
+    "target": "program-element:1o0ezlw",
+    "kind": "return-value",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The call target has a source-backed return expression.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 12,
+        "column": 12,
+        "span": {
+         "startLine": 12,
+         "startColumn": 12,
+         "endLine": 12,
+         "endColumn": 23
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:1o5sl95",
+    "source": "program-element:1o0ezlw",
+    "target": "program-element:lvjumy",
+    "kind": "render-terminal",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "jsx-tag",
+      "detail": "The value expression reaches the intrinsic DOM terminal.",
+      "locations": [
+       {
+        "file": "src/two-call-identity-helper.tsx",
+        "line": 12,
+        "column": 12,
+        "span": {
+         "startLine": 12,
+         "startColumn": 12,
+         "endLine": 12,
+         "endColumn": 23
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   }
+  ],
+  "links": [
+   {
+    "id": "calls:scope:src/two-call-identity-helper.tsx:8:1>scope:src/two-call-identity-helper.tsx:4:1",
+    "source": "scope:src/two-call-identity-helper.tsx:8:1",
+    "target": "scope:src/two-call-identity-helper.tsx:4:1",
+    "kind": "calls"
+   }
+  ],
+  "origins": [],
+  "terminals": [
+   {
+    "nodeId": "program-element:lvjumy",
+    "label": "id(props.b)",
+    "roles": [
+     "render"
+    ],
+    "status": "proven"
+   }
+  ],
+  "counts": {
+   "up": 0,
+   "down": 5,
+   "scopes": 2,
+   "origins": 0,
+   "terminals": 1,
+   "boundaries": 0,
+   "frontiers": 0
+  },
+  "coverage": {
+   "elements": 7,
+   "relations": 6,
+   "budget": {
+    "limit": 4096,
+    "used": 6,
+    "exhausted": false
+   }
+  }
+ },
+ {
+  "outcome": "ok",
+  "generation": 1,
+  "programHash": "",
+  "tsconfig": "",
+  "typescript": "",
+  "nullProof": true,
+  "reason": null,
+  "anchor": {
+   "file": "src/returns-other-argument.tsx",
+   "absPath": "<root>/src/returns-other-argument.tsx",
+   "span": {
+    "startLine": 9,
+    "startColumn": 24,
+    "endLine": 9,
+    "endColumn": 35
+   },
+   "text": "props.first",
+   "kind": "PropertyAccessExpression",
+   "elementId": "program-element:xutskb",
+   "typeText": "string"
+  },
+  "direction": "forward",
+  "nodes": [
+   {
+    "id": "scope:src/returns-other-argument.tsx:8:1",
+    "kind": "scope",
+    "label": "Picks",
+    "detail": "returns-other-argument.tsx",
+    "parent": null,
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 8,
+    "span": {
+     "startLine": 8,
+     "startColumn": 1,
+     "endLine": 10,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "component",
+    "note": null
+   },
+   {
+    "id": "program-element:xutskb",
+    "kind": "anchor",
+    "label": "props.first",
+    "detail": "property read",
+    "parent": "scope:src/returns-other-argument.tsx:8:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 9,
+    "span": {
+     "startLine": 9,
+     "startColumn": 24,
+     "endLine": 9,
+     "endColumn": 35
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": "field-read",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "props@src/returns-other-argument.tsx:367",
+    "field": "first",
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "scope:src/returns-other-argument.tsx:4:1",
+    "kind": "scope",
+    "label": "pick",
+    "detail": "returns-other-argument.tsx",
+    "parent": null,
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 1,
+     "endLine": 6,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "helper",
+    "note": null
+   },
+   {
+    "id": "program-element:tmxqp3",
+    "kind": "terminal",
+    "label": "a",
+    "detail": "parameter",
+    "parent": "scope:src/returns-other-argument.tsx:4:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 15,
+     "endLine": 4,
+     "endColumn": 16
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "parameter",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "a@src/returns-other-argument.tsx:227",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": "ends here · never read"
+   }
+  ],
+  "edges": [
+   {
+    "id": "program-relation:gbbdg",
+    "source": "program-element:xutskb",
+    "target": "program-element:tmxqp3",
+    "kind": "argument-binding",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "argument-binding",
+      "detail": "The compiler-resolved call argument binds to the target parameter.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 9,
+        "column": 24,
+        "span": {
+         "startLine": 9,
+         "startColumn": 24,
+         "endLine": 9,
+         "endColumn": 35
+        }
+       },
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 4,
+        "column": 15,
+        "span": {
+         "startLine": 4,
+         "startColumn": 15,
+         "endLine": 4,
+         "endColumn": 24
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   }
+  ],
+  "links": [
+   {
+    "id": "calls:scope:src/returns-other-argument.tsx:8:1>scope:src/returns-other-argument.tsx:4:1",
+    "source": "scope:src/returns-other-argument.tsx:8:1",
+    "target": "scope:src/returns-other-argument.tsx:4:1",
+    "kind": "calls"
+   }
+  ],
+  "origins": [],
+  "terminals": [
+   {
+    "nodeId": "program-element:tmxqp3",
+    "label": "a",
+    "roles": [
+     "unused"
+    ],
+    "status": "proven"
+   }
+  ],
+  "counts": {
+   "up": 0,
+   "down": 1,
+   "scopes": 2,
+   "origins": 0,
+   "terminals": 1,
+   "boundaries": 0,
+   "frontiers": 0
+  },
+  "coverage": {
+   "elements": 3,
+   "relations": 2,
+   "budget": {
+    "limit": 4096,
+    "used": 2,
+    "exhausted": false
+   }
+  }
+ },
+ {
+  "outcome": "ok",
+  "generation": 1,
+  "programHash": "",
+  "tsconfig": "",
+  "typescript": "",
+  "nullProof": true,
+  "reason": null,
+  "anchor": {
+   "file": "src/returns-other-argument.tsx",
+   "absPath": "<root>/src/returns-other-argument.tsx",
+   "span": {
+    "startLine": 9,
+    "startColumn": 37,
+    "endLine": 9,
+    "endColumn": 49
+   },
+   "text": "props.second",
+   "kind": "PropertyAccessExpression",
+   "elementId": "program-element:jdx07d",
+   "typeText": "string"
+  },
+  "direction": "forward",
+  "nodes": [
+   {
+    "id": "scope:src/returns-other-argument.tsx:8:1",
+    "kind": "scope",
+    "label": "Picks",
+    "detail": "returns-other-argument.tsx",
+    "parent": null,
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 8,
+    "span": {
+     "startLine": 8,
+     "startColumn": 1,
+     "endLine": 10,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "component",
+    "note": null
+   },
+   {
+    "id": "program-element:jdx07d",
+    "kind": "anchor",
+    "label": "props.second",
+    "detail": "property read",
+    "parent": "scope:src/returns-other-argument.tsx:8:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 9,
+    "span": {
+     "startLine": 9,
+     "startColumn": 37,
+     "endLine": 9,
+     "endColumn": 49
+    },
+    "status": "proven",
+    "side": "seed",
+    "elementKind": "field-read",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "props@src/returns-other-argument.tsx:367",
+    "field": "second",
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "scope:src/returns-other-argument.tsx:4:1",
+    "kind": "scope",
+    "label": "pick",
+    "detail": "returns-other-argument.tsx",
+    "parent": null,
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 1,
+     "endLine": 6,
+     "endColumn": 2
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": null,
+    "typeText": null,
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": "helper",
+    "note": null
+   },
+   {
+    "id": "program-element:w11xpe",
+    "kind": "value",
+    "label": "b",
+    "detail": "parameter",
+    "parent": "scope:src/returns-other-argument.tsx:4:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 4,
+    "span": {
+     "startLine": 4,
+     "startColumn": 26,
+     "endLine": 4,
+     "endColumn": 27
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "parameter",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "b@src/returns-other-argument.tsx:238",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1dhwef4",
+    "kind": "value",
+    "label": "b",
+    "detail": "value",
+    "parent": "scope:src/returns-other-argument.tsx:4:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 10,
+     "endLine": 5,
+     "endColumn": 11
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "value",
+    "typeText": "string",
+    "reason": null,
+    "symbol": "b@src/returns-other-argument.tsx:238",
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:7p9xuo",
+    "kind": "value",
+    "label": "return",
+    "detail": "return",
+    "parent": "scope:src/returns-other-argument.tsx:4:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 5,
+    "span": {
+     "startLine": 5,
+     "startColumn": 3,
+     "endLine": 5,
+     "endColumn": 12
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "return",
+    "typeText": "any",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1u2dczh",
+    "kind": "value",
+    "label": "pick(props.first, props.second)",
+    "detail": "call",
+    "parent": "scope:src/returns-other-argument.tsx:8:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 9,
+    "span": {
+     "startLine": 9,
+     "startColumn": 19,
+     "endLine": 9,
+     "endColumn": 50
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "call",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   },
+   {
+    "id": "program-element:1qps72a",
+    "kind": "terminal",
+    "label": "pick(props.first, props.second)",
+    "detail": "render slot",
+    "parent": "scope:src/returns-other-argument.tsx:8:1",
+    "file": "src/returns-other-argument.tsx",
+    "absPath": "<root>/src/returns-other-argument.tsx",
+    "line": 9,
+    "span": {
+     "startLine": 9,
+     "startColumn": 19,
+     "endLine": 9,
+     "endColumn": 50
+    },
+    "status": "proven",
+    "side": "down",
+    "elementKind": "render-terminal",
+    "typeText": "string",
+    "reason": null,
+    "symbol": null,
+    "field": null,
+    "operation": null,
+    "state": null,
+    "role": null,
+    "note": null
+   }
+  ],
+  "edges": [
+   {
+    "id": "program-relation:1krl9bi",
+    "source": "program-element:jdx07d",
+    "target": "program-element:w11xpe",
+    "kind": "argument-binding",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "argument-binding",
+      "detail": "The compiler-resolved call argument binds to the target parameter.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 9,
+        "column": 37,
+        "span": {
+         "startLine": 9,
+         "startColumn": 37,
+         "endLine": 9,
+         "endColumn": 49
+        }
+       },
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 4,
+        "column": 26,
+        "span": {
+         "startLine": 4,
+         "startColumn": 26,
+         "endLine": 4,
+         "endColumn": 35
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:1mdryfm",
+    "source": "program-element:w11xpe",
+    "target": "program-element:1dhwef4",
+    "kind": "references",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "compiler-symbol",
+      "detail": "The value occurrence resolves to a function parameter.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 5,
+        "column": 10,
+        "span": {
+         "startLine": 5,
+         "startColumn": 10,
+         "endLine": 5,
+         "endColumn": 11
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:6vfjsc",
+    "source": "program-element:1dhwef4",
+    "target": "program-element:7p9xuo",
+    "kind": "return-expression",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The return expression supplies the function return.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 5,
+        "column": 3,
+        "span": {
+         "startLine": 5,
+         "startColumn": 3,
+         "endLine": 5,
+         "endColumn": 12
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:12fvsd8",
+    "source": "program-element:7p9xuo",
+    "target": "program-element:1u2dczh",
+    "kind": "return-value",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "return-expression",
+      "detail": "The call target has a source-backed return expression.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 9,
+        "column": 19,
+        "span": {
+         "startLine": 9,
+         "startColumn": 19,
+         "endLine": 9,
+         "endColumn": 50
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   },
+   {
+    "id": "program-relation:1hlwmyp",
+    "source": "program-element:1u2dczh",
+    "target": "program-element:1qps72a",
+    "kind": "render-terminal",
+    "status": "proven",
+    "proof": [
+     {
+      "kind": "jsx-tag",
+      "detail": "The value expression reaches the intrinsic DOM terminal.",
+      "locations": [
+       {
+        "file": "src/returns-other-argument.tsx",
+        "line": 9,
+        "column": 19,
+        "span": {
+         "startLine": 9,
+         "startColumn": 19,
+         "endLine": 9,
+         "endColumn": 50
+        }
+       }
+      ],
+      "status": "proven"
+     }
+    ],
+    "label": null
+   }
+  ],
+  "links": [
+   {
+    "id": "calls:scope:src/returns-other-argument.tsx:8:1>scope:src/returns-other-argument.tsx:4:1",
+    "source": "scope:src/returns-other-argument.tsx:8:1",
+    "target": "scope:src/returns-other-argument.tsx:4:1",
+    "kind": "calls"
+   }
+  ],
+  "origins": [],
+  "terminals": [
+   {
+    "nodeId": "program-element:1qps72a",
+    "label": "pick(props.first, props.second)",
+    "roles": [
+     "render"
+    ],
+    "status": "proven"
+   }
+  ],
+  "counts": {
+   "up": 0,
+   "down": 5,
+   "scopes": 2,
+   "origins": 0,
+   "terminals": 1,
+   "boundaries": 0,
+   "frontiers": 0
+  },
+  "coverage": {
+   "elements": 7,
+   "relations": 6,
+   "budget": {
+    "limit": 4096,
+    "used": 6,
+    "exhausted": false
+   }
+  }
+ }
+]

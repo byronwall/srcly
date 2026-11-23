@@ -1,9 +1,9 @@
 import path from "node:path";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
-import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
+import { type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
-import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS, type AnchorLimits, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
+import { type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { ANCHOR_LIMITS, anchorSlice, CARRIES_RETURN, NARROW_ANCHOR_LIMITS, type AnchorLimits, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
@@ -43,8 +43,6 @@ type Run = {
 /** Relations that bind a declaration's parameter to the places it is read. */
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
 const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
-/** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
-const CARRIES_RETURN = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return"]);
 
 /**
  * The field a relation moves, from its own field end, never from the side the
@@ -344,15 +342,7 @@ class AnchorGraphBuilder {
   }
 
   private slice(run: Run, label: string): EvidenceSlice {
-    const dir = run.side === "down" ? "forward" : "backward";
-    return queryEvidenceSlice(this.tier1.provider(), {
-      seed: { candidateId: `anchor:${run.seedId}:${dir}`, entryElementId: run.seedId, adapter: "anchor-graph", label, framework: null, proof: [], defaults: scopePolicy({ direction: dir }) },
-      direction: dir,
-      boundaryPolicy: { maxDepth: this.limits.maxDepth, maxElements: this.limits.maxElements, maxRelations: this.limits.maxRelations },
-      terminalPolicy: { maxTerminals: this.limits.maxTerminals, ...(dir === "forward" ? { roles: ["render", "component-occurrence", "side-effect", "return"] } : {}) },
-      follow: walkFollows(run.seedId, dir === "forward"),
-      cancellation: this.cancellation,
-    });
+    return anchorSlice(this.tier1.provider(), run.seedId, run.side === "down", label, this.limits, this.cancellation);
   }
 
   /**

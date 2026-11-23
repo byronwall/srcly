@@ -48,7 +48,7 @@ Evidence-first trace (#442)
 
 **Appetite:** One compact, source-backed explanation on the existing inspector. Keep the full view and its navigation available.
 
-**Key decision:** Start with an inspector projection, not a new graph or a label-only fix. Reuse routeGraph/routePath field witnesses and anchorGraph proofs/stops as available. Build on existing field lineage, [proof strength](../../../pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md) and [graph/ledger agreement](../../../pgm/data/projects/srcly-backlog/nodes/task-ledger-and-graph-agree-on-every-shared-expression.md); don't add parallel tasks. If anchor evidence cannot locate a widening, state where exact proof ends and test one narrow boundary proof before expanding scope.
+**Key decision:** Start with an inspector projection, not a new graph or a label-only fix. Reuse routeGraph/routePath field witnesses and anchorGraph proofs/stops as available. Build on existing field lineage, [proof strength](../../../pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md) and [graph/ledger agreement](../../dataflow-coverage.md#outcomes-and-honesty); don't add parallel tasks. If anchor evidence cannot locate a widening, state where exact proof ends and test one narrow boundary proof before expanding scope.
 
 **Boundary:** No workspace, general field/path sensitivity, graph/ledger redesign or full framework scheduler. A later Solid `untrack` control must show initial value carriage without a live subscription; contrast a genuinely tracked read and a separately scheduled callback. Async Effects remains an independent activation witness, not a subscription claim.
 

@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type * as TypeScript from "typescript";
-import { queryEvidenceSlice } from "../../analysis/evidence-slice";
-import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type EvidenceProof, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { type EvidenceProof } from "../../analysis/scope-seam";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "../../analysis/cancellation";
 import { projectProofs } from "../../api/projections/route-totality-evidence-projection";
 import {
@@ -13,9 +12,11 @@ import {
   type ValueFlowResult,
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
-import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { assumedCallee, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
-import { elementTraits, proofStrength, relationTraits } from "../kinds";
+import { toSliceElement } from "../../analysis/evidence-slice-normalization";
+import type { AnchorEdge, AnchorGraphResult, AnchorNode } from "../contracts/anchor-graph";
+import { anchorGraphOp } from "./anchor-graph";
+import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
+import { elementsAt, IN_PLACE_NOTES, seedFor, standardLibraryCall } from "../facts";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
@@ -72,7 +73,10 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
   const span = parseSpan(params.span);
   const text = typeof params.text === "string" ? params.text : null;
   const unsupported = () => new EngineError("unsupported-selection", "The selection is not exactly one supported expression; pick a candidate from selectExpression", { span });
-  const builder = new LedgerBuilder(tier1, cancellation);
+  // The anchor graph for the same selection holds the answer: the ledger names its outcome, stops and ends, so the two never disagree.
+  // Over its byte bound the graph throws `budget-exhausted`, and so does the ledger: the same answer.
+  const graph = () => anchorGraphOp(session, { file: params.file, span, text: text ?? undefined, direction: "forward" }, cancellation);
+  const builder = new LedgerBuilder(tier1, graph, cancellation);
   let result: ValueFlowResult;
   if (tier1.language === "typescript") {
     const { sourceFile, relative } = sourceFileFor(tier1, params.file);
@@ -94,13 +98,9 @@ type LedgerDraft = Omit<LedgerRow, "proof"> & { proof: EvidenceProof[] };
 
 class LedgerBuilder {
   private rows: LedgerDraft[] = [];
-  /** Some step the ledger walked assumes what code with no source does (`assumedCallee`), or rests on an assumed proof (`shared-instance`). */
-  private assumed = false;
-  /** Elements the forward walk visited: a dead end counts only where the walk went. */
-  private readonly visited = new Set<string>();
   private readonly root: string;
 
-  constructor(private readonly tier1: Tier1, private readonly cancellation?: AnalysisCancellationToken) {
+  constructor(private readonly tier1: Tier1, private readonly graph: () => AnchorGraphResult, private readonly cancellation?: AnalysisCancellationToken) {
     this.root = tier1.root;
   }
 
@@ -163,27 +163,82 @@ class LedgerBuilder {
     return this.forward(selection, seed, span);
   }
 
-  /** Where the value goes: the forward evidence slice, walked in operation order. */
+  /**
+   * Where the value goes: the anchor graph for the same selection, laid out
+   * as rows. Its steps depth first in FOLLOW order, each with its edge's
+   * relation, status and proof; then every end it lands at and every stop it
+   * names (a frontier, a boundary it could not pass). The ledger has no walk
+   * of its own, so its outcome, steps, ends and stops are the graph's.
+   */
   private forward(selection: ValueFlowResult["selection"], seed: string, span: Span): ValueFlowResult {
-    const slice = queryEvidenceSlice(this.tier1.provider(), {
-      seed: { candidateId: `value-flow:${seed}`, entryElementId: seed, adapter: "value-flow", label: selection.text, framework: null, proof: [], defaults: scopePolicy({ direction: "forward" }) },
-      direction: "forward",
-      terminalPolicy: { roles: ["render", "component-occurrence", "side-effect", "return"] },
-      cancellation: this.cancellation,
-    });
-    this.rows[0].proof = slice.elements.find((element) => element.id === seed)?.proof ?? [];
-    this.walk(seed, slice.elements, slice.relations, span);
-    this.deadEnds(slice.elements, slice.gaps);
-    const exhausted = slice.coverage.truncation.budget;
-    // As the graph's: a path that lands only by assuming what code with no source does is `assumed`, not `ok`.
-    const outcome = this.rows.some((row) => row.kind === "boundary") ? "partial" : this.rows.some((row) => row.kind === "terminal") ? (this.assumed ? "assumed" : "ok") : exhausted ? "budget" : "partial";
-    return this.finish(selection, outcome, null, {
-      elements: slice.elements.length,
-      relations: slice.relations.length,
-      limit: DEFAULT_BOUNDARY_POLICY.maxRelations,
-      used: slice.relations.length,
-      exhausted,
-    });
+    const graph = this.graph();
+    const indexed = this.tier1.provider().factIndex.getElement(seed);
+    this.rows[0].proof = indexed ? toSliceElement(indexed).proof : [];
+    const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
+    const anchor = graph.nodes.find((node) => node.kind === "anchor");
+    const into = new Map<string, AnchorEdge>();
+    const out = new Map<string, AnchorEdge[]>();
+    for (const edge of graph.edges) {
+      if (!into.has(edge.target)) into.set(edge.target, edge);
+      (out.get(edge.source) ?? out.set(edge.source, []).get(edge.source)!).push(edge);
+    }
+    const roles = new Map(graph.terminals.map((end) => [end.nodeId, end.roles]));
+    const rank = (kind: string) => (FOLLOW.indexOf(kind) < 0 ? FOLLOW.length : FOLLOW.indexOf(kind));
+    const isStop = (node: AnchorNode) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven");
+    const written = new Set<string>();
+    const row = (node: AnchorNode, edge: AnchorEdge | undefined, kind: LedgerRow["kind"]) => {
+      written.add(node.id);
+      this.add({
+        kind,
+        label: node.label,
+        file: node.file,
+        span: node.span,
+        status: kind === "boundary" ? "partial" : edge?.status === "proven" ? "proven" : edge?.status === "unsupported" ? "unsupported" : "partial",
+        // A frontier is hung off the element it stopped at.
+        elementId: node.kind === "frontier" ? (edge?.source ?? null) : node.id,
+        relationId: edge && edge.kind !== "gap" ? edge.id : null,
+        proof: (edge?.proof ?? []).filter(Boolean) as EvidenceProof[],
+        reason: kind === "boundary" ? (node.reason ?? "partial-proof") : null,
+        note: kind === "terminal" ? (node.note ?? terminalNote(node.elementKind, roles.get(node.id) ?? [])) : kind === "boundary" ? node.note : null,
+      });
+    };
+    // The steps, depth first from the anchor: a path is written only when it reaches an end or a stop.
+    const seen = new Set(anchor ? [anchor.id] : []);
+    const descend = (from: string): [AnchorNode, AnchorEdge][][] => {
+      const paths: [AnchorNode, AnchorEdge][][] = [];
+      for (const edge of [...(out.get(from) ?? [])].sort((a, b) => rank(a.kind) - rank(b.kind))) {
+        const node = nodes.get(edge.target);
+        if (!node || node.kind === "scope" || seen.has(node.id)) continue;
+        seen.add(node.id);
+        if (node.kind === "terminal" || isStop(node)) paths.push([[node, edge]]);
+        else for (const rest of descend(node.id)) paths.push([[node, edge], ...rest]);
+      }
+      return paths;
+    };
+    // Steps and ends in path order; stops go last, so no stop reads as if a later step went on from it.
+    const omitted = new Set<string>();
+    for (const path of anchor ? descend(anchor.id) : []) {
+      for (const [node, edge] of path) {
+        if (written.has(node.id) || isStop(node)) continue;
+        if (node.kind !== "terminal" && this.rows.length >= MAX_ROWS) {
+          omitted.add(node.id);
+          continue;
+        }
+        row(node, edge, node.kind === "terminal" ? "terminal" : node.kind === "transform" ? "transform" : edge.kind === "show-when" || node.elementKind === "type-narrow" ? "branch" : "transfer");
+      }
+    }
+    // First, so the ledger's short view shows it.
+    if (omitted.size) this.rows[0].note = [`${omitted.size} more step${omitted.size === 1 ? "" : "s"} not listed (the ledger lists ${MAX_ROWS} rows); every end and stop is`, this.rows[0].note].filter(Boolean).join(" · ");
+    // Every end the graph names, reached above or not.
+    for (const node of graph.nodes) if (node.kind === "terminal" && !written.has(node.id)) row(node, into.get(node.id), "terminal");
+    // A value the code ends where it is selected (never read, a branch test, thrown) lands at the input itself, as the graph notes on its anchor.
+    if (anchor?.note && Object.values(IN_PLACE_NOTES).includes(anchor.note as never)) {
+      this.add({ kind: "terminal", label: this.rows[0].label, file: this.rows[0].file, span: this.rows[0].span, status: "proven", elementId: seed, proof: this.rows[0].proof, note: anchor.note });
+    }
+    // Every stop the graph names.
+    for (const node of graph.nodes) if (isStop(node) && !written.has(node.id)) row(node, into.get(node.id), "boundary");
+    const { coverage } = graph;
+    return this.finish(selection, graph.outcome, graph.reason, { elements: coverage.elements, relations: coverage.relations, limit: coverage.budget.limit, used: coverage.budget.used, exhausted: coverage.budget.exhausted });
   }
 
   /** Rows for the expression's own parts: fallbacks, branches, assertions, calls, reads. */
@@ -264,9 +319,11 @@ class LedgerBuilder {
 
   /**
    * A call inside the selection. A zero-argument call reads an accessor; a
-   * call into first-party code is a transform when the evidence pairs its
-   * return with this call (T13) or it has one call site, and a boundary
-   * (unproven-handoff) otherwise (R7).
+   * standard-library call is a transform; a call into first-party code is a
+   * transform when the evidence pairs its return with this call (T13) or it
+   * has one call site. Any other call is still a transform, marked partial
+   * and named (external-code, unproven-handoff, R7): it says how the value
+   * was made, not where it goes, so it is never a forward stop.
    */
   private composeCall(sourceFile: TypeScript.SourceFile, file: string, call: TypeScript.CallExpression, at: { span: Span; elementId: string | null; status: LedgerRow["status"] }) {
     const { ts } = this.typescript;
@@ -280,8 +337,13 @@ class LedgerBuilder {
     const target = declaration?.valueDeclaration ?? declaration?.declarations?.[0];
     const targetFile = target?.getSourceFile();
     const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
+    // As the graph's: the standard library is known, its value derives from what it is given (`standardLibraryCall`).
+    if (!firstParty && standardLibraryCall(this.tier1, { kind: "call", location: { file, line: at.span.startLine, column: at.span.startColumn, span: at.span } })) {
+      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: `through ${callee}, from the standard library` });
+      return;
+    }
     if (!firstParty) {
-      this.add({ kind: "boundary", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "external-code", note: `${callee} is outside the program's own source; its return is not traced` });
+      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "external-code", note: `${callee} is outside the program's own source; its return is not traced` });
       return;
     }
     const sites = this.sites.forCall(call);
@@ -290,127 +352,10 @@ class LedgerBuilder {
       this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: singleCall(sites) ? `through ${callee}, which has one call site` : `through ${callee}, paired with this call` });
       return;
     }
-    this.add({ kind: "boundary", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
+    this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
   }
 
-  /**
-   * The same rule as the anchor graph (R16): a `disconnected` gap is a dead
-   * end unless the element is where a value naturally begins. A dead end is a
-   * boundary row, so the ledger and the graph agree on where a path stops. A
-   * value the code ends in place (a branch test, a write, never read) is a
-   * terminal row named by how it ends, as the graph draws it.
-   */
-  private deadEnds(elements: readonly ProgramElement[], gaps: readonly EvidenceGap[]) {
-    const byId = new Map(elements.map((element) => [element.id, element]));
-    for (const gap of gaps) {
-      if (gap.reason !== "disconnected" || !gap.from || !gap.location) continue;
-      const element = byId.get(gap.from);
-      // Only where the ledger's own walk went: a gap past a boundary it already stopped at is not a second stop.
-      if (!element || !this.visited.has(element.id) || this.rows.some((row) => (row.kind === "boundary" || row.kind === "terminal") && row.elementId === element.id)) continue;
-      const end = naturalEnd(this.tier1, element);
-      if (this.rows.length >= MAX_ROWS) return;
-      const consumed = end === "consumed" ? endsInPlace(this.tier1, element) : null;
-      if (consumed) {
-        this.add({ kind: "terminal", label: element.label, file: element.location.file, span: element.location.span, status: "proven", elementId: element.id, proof: gap.proof, note: IN_PLACE_NOTES[consumed] });
-        continue;
-      }
-      if (end) continue;
-      const callee = externalCallee(this.tier1, element);
-      this.add({
-        kind: "boundary",
-        label: element.label,
-        file: element.location.file,
-        span: element.location.span,
-        status: "partial",
-        elementId: element.id,
-        proof: gap.proof,
-        typeText: null,
-        reason: callee ? "external-code" : "disconnected",
-        note: callee ? `${callee} is outside the program's own source; its return is not traced` : "dead end · nothing continues from here",
-      });
-    }
-  }
-
-  /** The forward slice from the seed, depth first, in FOLLOW order; dead ends are dropped. */
-  private walk(seed: string, elements: readonly ProgramElement[], relations: readonly ProgramRelation[], seedSpan: Span) {
-    const byId = new Map(elements.map((element) => [element.id, element]));
-    const out = new Map<string, ProgramRelation[]>();
-    for (const relation of relations) {
-      if (relation.kind === "contains" || relation.kind === "declares-parameter") continue;
-      (out.get(relation.from) ?? out.set(relation.from, []).get(relation.from)!).push(relation);
-    }
-    const rank = (kind: string) => (relationTraits(kind).crossCall ? FOLLOW.length : FOLLOW.indexOf(kind) < 0 ? FOLLOW.length + 1 : FOLLOW.indexOf(kind));
-    const visited = this.visited;
-    visited.add(seed);
-    const crossed = new Set<CallSites | string>();
-    type Step = { relation: ProgramRelation; element: ProgramElement; kind: LedgerRow["kind"]; note: string | null; reason: string | null };
-    // Returns the steps of one path that ends at a terminal or a boundary, or null for a dead end.
-    const descend = (from: string, depth: number): Step[][] => {
-      if (depth > DEFAULT_BOUNDARY_POLICY.maxDepth) return [];
-      const paths: Step[][] = [];
-      // A cross-call's `argument` (to the call) sorts before its `argument-binding` (to the parameter), so the boundary sits at the call.
-      const order = (kind: string) => rank(kind) * 2 + (kind === "argument-binding" ? 1 : 0);
-      for (const relation of [...(out.get(from) ?? [])].sort((a, b) => order(a.kind) - order(b.kind))) {
-        if (visited.has(relation.to)) continue;
-        const element = byId.get(relation.to);
-        if (!element) continue;
-        visited.add(relation.to);
-        if (needsOneCallSite(relation.kind, this.tier1.host.evidence.pairsCalls)) {
-          const { sites, name } = this.sitesOfElement(element);
-          if (!singleCall(sites) && !pairedInSlice(sites, elements)) {
-            // One boundary per callee, however many relations lead into it.
-            const key = sites ?? element.id;
-            if (!crossed.has(key)) {
-              crossed.add(key);
-              paths.push([{ relation, element, kind: "boundary", reason: "unproven-handoff", note: describeSites(name, sites) }]);
-            }
-            continue;
-          }
-        }
-        // Bookkeeping elements at the seed's own span repeat the input.
-        const terminal = Boolean(elementTraits(element.kind).terminal) || element.terminalRoles.length > 0;
-        const repeatsInput = sameSpan(element.location.span, seedSpan) && !terminal;
-        // A return the slice carried on from (to its paired call) is a transfer, not where the value leaves (T13).
-        const returnsToCaller = element.kind === "return" && (out.get(element.id) ?? []).some((item) => item.kind === "return-value");
-        if (terminal && !returnsToCaller) {
-          if (relation.status === "proven" || element.kind !== "jsx-occurrence") paths.push([{ relation, element, kind: "terminal", reason: null, note: terminalNote(element) }]);
-          continue;
-        }
-        for (const rest of descend(relation.to, depth + 1)) {
-          paths.push(repeatsInput ? rest : [{ relation, element, kind: classify(relation, element), reason: null, note: null }, ...rest]);
-        }
-      }
-      return paths;
-    };
-    const seen = new Set<string>();
-    for (const steps of descend(seed, 0)) {
-      for (const step of steps) {
-        if (this.rows.length >= MAX_ROWS) return;
-        const key = `${step.kind}|${step.element.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (step.kind !== "boundary" && (proofStrength(step.relation.proof.kind) === "assumed" || assumedCallee(this.tier1, step.relation))) this.assumed = true;
-        this.add({
-          kind: step.kind,
-          label: step.element.label,
-          file: step.element.location.file,
-          span: step.element.location.span,
-          status: step.kind === "boundary" ? "partial" : step.relation.status,
-          elementId: step.element.id,
-          relationId: step.relation.id,
-          proof: [step.relation.proof],
-          note: step.note,
-          reason: step.reason,
-        });
-      }
-    }
-  }
-
-  private sitesOfElement(element: ProgramElement): { sites: CallSites | null; name: string } {
-    return this.tier1.host.callSitesOf(element);
-  }
-
-  private typeText(node: TypeScript.Node): string | null {
+    private typeText(node: TypeScript.Node): string | null {
     try {
       const text = this.checker.typeToString(this.checker.getTypeAtLocation(node));
       return text.length > 160 ? `${text.slice(0, 159)}…` : text;
@@ -425,10 +370,12 @@ class LedgerBuilder {
       relationId: null,
       proof: [],
       typeText: null,
-      note: null,
       reason: null,
       ...row,
-      id: `row:${this.rows.length + 1}`,
+      // Bounded words: a selection over a huge literal is still a small ledger.
+      label: clip(row.label, 240),
+      note: row.note ? clip(row.note, 400) : null,
+      id: "",
       absPath: path.resolve(this.root, row.file),
       line: row.span.startLine,
     });
@@ -440,13 +387,15 @@ class LedgerBuilder {
     reason: string | null,
     coverage: { elements: number; relations: number; limit: number; used: number; exhausted: boolean },
   ): ValueFlowResult {
+    this.rows.forEach((row, index) => (row.id = `row:${index + 1}`));
     const files = [...new Set([selection.file, ...this.rows.map((row) => row.file)])];
     const cancellation = this.cancellation ?? NO_ANALYSIS_CANCELLATION;
     return valueFlowResultSchema.parse({
       outcome,
       ...base(this.tier1),
       reason,
-      selection,
+      // Bounded words: a selection over a huge literal is still a small ledger.
+      selection: { ...selection, text: clip(selection.text, 240) },
       // Internal invocation tags disambiguate the walk but are not public evidence.
       rows: this.rows.map((row) => ({ ...row, proof: projectProofs(row.proof, cancellation) })),
       frontiers: this.rows.filter((row) => row.kind === "boundary").map((row) => ({ rowId: row.id, reason: row.reason ?? "partial-proof", label: row.label })),
@@ -461,23 +410,22 @@ class LedgerBuilder {
   }
 }
 
-function classify(relation: ProgramRelation, element: ProgramElement): LedgerRow["kind"] {
-  if (relation.kind === "show-when" || element.kind === "type-narrow") return "branch";
-  if (relationTraits(relation.kind).role === "transform" || element.kind === "selection" || element.kind === "object-pack") return "transform";
-  return "transfer";
+/** What an end the graph names is, by its element kind, when the graph gives it no note of its own. */
+function terminalNote(kind: string | null, roles: readonly string[]): string {
+  if (kind === "render-terminal") return "JSX render slot";
+  if (kind === "dom-terminal") return "DOM attribute or property";
+  if (kind === "branch-condition") return "decides which branch renders";
+  if (kind === "component-occurrence") return "handed to a component";
+  if (kind === "side-effect") return "side effect";
+  if (roles.includes("http-response")) return "HTTP response";
+  if (roles.includes("stdout")) return "printed";
+  if (roles.includes("file-write")) return "written to a file";
+  if (roles.includes("side-effect") || kind === "external-effect") return "side effect";
+  return kind === "return" ? "returned" : (kind ?? "end").replaceAll("-", " ");
 }
 
-function terminalNote(element: ProgramElement): string {
-  if (element.kind === "render-terminal") return "JSX render slot";
-  if (element.kind === "dom-terminal") return "DOM attribute or property";
-  if (element.kind === "branch-condition") return "decides which branch renders";
-  if (element.kind === "component-occurrence") return "handed to a component";
-  if (element.kind === "side-effect") return "side effect";
-  if (element.terminalRoles.includes("http-response")) return "HTTP response";
-  if (element.terminalRoles.includes("stdout")) return "printed";
-  if (element.terminalRoles.includes("file-write")) return "written to a file";
-  if (element.terminalRoles.includes("side-effect")) return "side effect";
-  return "returned";
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 function fingerprint(root: string, file: string) {

@@ -4,7 +4,8 @@
 import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { toSliceElement, toSliceRelation } from "../analysis/evidence-slice-normalization";
 import type { EvidenceRelationSource } from "../analysis/evidence-slice-support";
-import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
+import { queryEvidenceSlice, type EvidenceSlice } from "../analysis/evidence-slice";
+import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
 import { elementTraits, proofStrength, relationTraits } from "./kinds";
 
 export type AnchorLimits = {
@@ -59,6 +60,9 @@ export function undrawn(kind: string): boolean {
   return Boolean(traits.structural || traits.callee);
 }
 
+/** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
+export const CARRIES_RETURN: ReadonlySet<string> = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return"]);
+
 /** Where the anchor walk ends a path: a terminal forward (a return still carries on to its paired call), an origin backward. */
 export function endsWalk(element: ProgramElement, forward: boolean): boolean {
   if (!forward) return element.originRoles.length > 0;
@@ -72,6 +76,30 @@ export function endsWalk(element: ProgramElement, forward: boolean): boolean {
  */
 export function walkFollows(seedId: string, forward: boolean): (relation: ProgramRelation, from: ProgramElement) => boolean {
   return (relation, from) => !undrawn(relation.kind) && (from.id === seedId || !endsWalk(from, forward));
+}
+
+/**
+ * The one slice a value's walk reads: the anchor graph's runs and the
+ * value-flow ledger both take it, so the two find the same ends and the
+ * same gaps for one expression.
+ */
+export function anchorSlice(
+  provider: EvidenceRelationSource & Parameters<typeof queryEvidenceSlice>[0],
+  seedId: string,
+  forward: boolean,
+  label: string,
+  limits: Readonly<AnchorLimits>,
+  cancellation?: AnalysisCancellationToken,
+): EvidenceSlice {
+  const direction = forward ? "forward" : "backward";
+  return queryEvidenceSlice(provider, {
+    seed: { candidateId: `anchor:${seedId}:${direction}`, entryElementId: seedId, adapter: "anchor-graph", label, framework: null, proof: [], defaults: scopePolicy({ direction }) },
+    direction,
+    boundaryPolicy: { maxDepth: limits.maxDepth, maxElements: limits.maxElements, maxRelations: limits.maxRelations },
+    terminalPolicy: { maxTerminals: limits.maxTerminals, ...(forward ? { roles: ["render", "component-occurrence", "side-effect", "return"] } : {}) },
+    follow: walkFollows(seedId, forward),
+    cancellation,
+  });
 }
 
 /**
