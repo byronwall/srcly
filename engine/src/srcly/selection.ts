@@ -101,5 +101,11 @@ export function candidatesAt(ts: typeof TypeScript, sourceFile: TypeScript.Sourc
  */
 export function sameText(source: string, text: string): boolean {
   const named = text.trim();
-  return named.endsWith("…") ? source.startsWith(named.slice(0, -1)) : source === named;
+  return source === named || (source.length > CLIP && named === clipText(source));
+}
+
+/** How `selectExpression` shows a long candidate. */
+export const CLIP = 240;
+export function clipText(text: string): string {
+  return text.length > CLIP ? `${text.slice(0, CLIP - 1)}…` : text;
 }

@@ -39,9 +39,12 @@ function answer(run: () => Answer): string {
     return `${outcome} stops ${stops.sort().join(",") || "-"} ends ${ends.sort().join(",") || "-"}${problems?.length ? ` PROBLEMS ${problems.join("; ")}` : ""}`;
   } catch (error) {
     // Both refuse the same selections (no expression there, over the byte bound): compare the refusal, not its words.
-    return error instanceof EngineError ? `refused ${error.code}` : `CRASH ${(error as Error).message.slice(0, 120)}`;
+    // Only a refusal a client is told to expect counts as agreement; anything else is a crash.
+    return error instanceof EngineError && REFUSALS.has(error.code) ? `refused ${error.code}` : `CRASH ${(error as Error).message.slice(0, 120)}`;
   }
 }
+
+const REFUSALS = new Set(["unsupported-selection", "budget-exhausted", "not-found"]);
 
 const inside = (inner: Span, outer: Span) =>
   (inner.startLine > outer.startLine || (inner.startLine === outer.startLine && inner.startColumn >= outer.startColumn)) &&
@@ -60,7 +63,7 @@ for (const name of roots) {
     ? createEngineSession({ root, source, tsconfig: null, typescriptFrom: ENGINE, language: "python", python: python()! })
     : createEngineSession({ root, source, tsconfig: null, typescriptFrom: chooseTypescript(root, source).from });
   const files = fs.readdirSync(source, { recursive: true }).map(String)
-    .filter((file) => (isPython ? file.endsWith(".py") : /\.[cm]?[jt]sx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)) && !file.includes("node_modules"))
+    .filter((file) => (isPython ? file.endsWith(".py") : /\.[cm]?[jt]sx?$/.test(file)) && !file.includes("node_modules"))
     .map((file) => path.relative(root, path.join(source, file)).split(path.sep).join("/"));
   let count = 0;
   const differ: string[] = [];
@@ -71,7 +74,15 @@ for (const name of roots) {
       // Every caret position a click can land on, the end of the line included.
       for (let column = 1; column <= code.length + 1; column += 1) {
         const caret = { startLine: line, startColumn: column, endLine: line, endColumn: column };
-        for (const candidate of selectExpressionOp(session, { file, span: caret }).candidates) {
+        let candidates: ReturnType<typeof selectExpressionOp>["candidates"];
+        try {
+          candidates = selectExpressionOp(session, { file, span: caret }).candidates;
+        } catch (error) {
+          // A file the session does not hold (a declaration file outside the Program) has nothing to select.
+          if (error instanceof EngineError && error.code === "not-found") break;
+          throw error;
+        }
+        for (const candidate of candidates) {
           const key = JSON.stringify(candidate.span);
           if (seen.has(key)) continue;
           seen.add(key);
@@ -97,7 +108,7 @@ for (const name of roots) {
             let parts = true;
             for (const row of result.rows.slice(1)) {
               const edge = row.relationId ? edges.get(row.relationId) : undefined;
-              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && inside(row.span, result.selection.span);
+              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span);
               if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);

@@ -18,7 +18,7 @@ import { anchorGraphOp } from "./anchor-graph";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
 import { elementsAt, IN_PLACE_NOTES, seedFor, standardLibraryCall } from "../facts";
 import type { HostCandidate } from "../host";
-import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
+import { candidatesAt, clipText, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
 
 /** Ledgers bigger than this are refused as `budget-exhausted`, never truncated. */
@@ -60,7 +60,7 @@ export function selectExpressionOp(session: EngineSession, params: Record<string
     reason: candidates.length ? null : `No supported expression at this selection (${supported}).`,
     candidates: candidates.map((candidate) => ({
       kind: candidate.kind,
-      text: candidate.text.length > 240 ? `${candidate.text.slice(0, 239)}…` : candidate.text,
+      text: clipText(candidate.text),
       span: candidate.span,
       evidence: elementsAt(tier1, relative, candidate.span).length > 0,
     })),
@@ -98,7 +98,7 @@ type LedgerDraft = Omit<LedgerRow, "proof"> & { proof: EvidenceProof[] };
 
 class LedgerBuilder {
   private rows: LedgerDraft[] = [];
-  private omittedParts = 0;
+  private parts: Parameters<LedgerBuilder["add"]>[0][] = [];
   private readonly root: string;
 
   constructor(private readonly tier1: Tier1, private readonly graph: () => AnchorGraphResult, private readonly cancellation?: AnalysisCancellationToken) {
@@ -137,6 +137,7 @@ class LedgerBuilder {
       const kind: LedgerRow["kind"] = part.kind === "BoolOp" ? "fallback" : part.kind === "IfExp" ? "branch" : part.kind === "Call" ? "transform" : "transfer";
       this.part({ kind, label: part.text, file, span: part.span, status: "proven", elementId: fact?.id ?? null, typeText: host.typeTextAt(file, part.span), note: null });
     }
+    this.flushParts();
     if (!seed) return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     return this.forward(selection, seed, span);
   }
@@ -158,6 +159,7 @@ class LedgerBuilder {
     });
     // What the selected expression is made of, in evaluation order.
     this.compose(sourceFile, file, ts.isPropertyAccessExpression(node) ? node.expression : node, node);
+    this.flushParts();
     if (!seed) {
       return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     }
@@ -365,12 +367,26 @@ class LedgerBuilder {
     }
   }
 
-  /** A row for a part of the selection, while there is room (fallbacks and branches always); the input row says how many it left out. A selection with thousands of parts still makes a small ledger. */
+  /** A row for a part of the selection, written by `flushParts`. */
   private part(row: Parameters<LedgerBuilder["add"]>[0]) {
-    // A fallback or a branch changes what the value can be: always listed, never crowded out by plain reads.
-    if (this.rows.length < MAX_ROWS || row.kind === "fallback" || row.kind === "branch") return this.add(row);
-    this.omittedParts += 1;
-    this.rows[0].note = [`${this.omittedParts} more part${this.omittedParts === 1 ? "" : "s"} of the selection not listed`, (this.rows[0].note ?? "").replace(/^\d+ more parts? of the selection not listed( · )?/, "")].filter(Boolean).join(" · ");
+    this.parts.push(row);
+  }
+
+  /**
+   * The selection's parts, in evaluation order, within the row limit. When
+   * they do not fit, the selection's own operation (the last part) comes
+   * first, then its fallbacks and branches, then plain reads; the input row
+   * says how many it left out. A selection with thousands of parts still
+   * makes a small ledger.
+   */
+  private flushParts() {
+    const room = Math.max(0, MAX_ROWS - this.rows.length);
+    const rank = (index: number) => (index === this.parts.length - 1 ? 0 : this.parts[index].kind === "fallback" || this.parts[index].kind === "branch" ? 1 : 2);
+    const kept = new Set(this.parts.map((_, index) => index).sort((a, b) => rank(a) - rank(b) || a - b).slice(0, room));
+    this.parts.forEach((row, index) => kept.has(index) && this.add(row));
+    const omitted = this.parts.length - kept.size;
+    if (omitted) this.rows[0].note = [`${omitted} more part${omitted === 1 ? "" : "s"} of the selection not listed`, this.rows[0].note].filter(Boolean).join(" · ");
+    this.parts = [];
   }
 
   private add(row: Omit<LedgerDraft, "id" | "absPath" | "line" | "elementId" | "relationId" | "proof" | "typeText" | "note" | "reason"> & Partial<LedgerDraft>) {
