@@ -1,7 +1,7 @@
 // The ledger and the anchor graph must give one answer for every expression a
 // user can select. This walks every selectable expression in a fixture root
-// (each caret position on each line, sent as the client sends it: the span and
-// the candidate's text) and compares the two: the outcome, each stop's reason
+// (each caret position on each line, sent as the client sends it: the graph
+// gets the URL's file and span, the ledger also the candidate's text) and compares the two: the outcome, each stop's reason
 // and line, the ends, and that every ledger step is an edge the graph drew,
 // into the box the row names. A refusal must be a named engine error on both
 // sides; a crash is a failure. The fixture annotations test only the anchors they
@@ -19,10 +19,11 @@ import { selectExpressionOp, valueFlowOp } from "../src/srcly/ops/value-flow";
 import { createEngineSession } from "../src/srcly/session";
 import { chooseTypescript } from "../src/srcly/typescript-choice";
 import type { Span } from "../src/srcly/selection";
+import { EngineError } from "../src/srcly/protocol";
 
 const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const at = process.argv.indexOf("--root");
-const roots = at > 0 ? [process.argv[at + 1]] : ["examples/value-flow-basics", "examples/python-anchors"];
+const roots = at > 0 ? [process.argv[at + 1]] : ["examples/value-flow-basics", "examples/value-flow-js", "examples/python-anchors"];
 
 /** An interpreter with mypy for a Python root: SRCLY_PYTHON, else the server's venv. */
 function python(): string | null {
@@ -38,8 +39,7 @@ function answer(run: () => Answer): string {
     return `${outcome} stops ${stops.sort().join(",") || "-"} ends ${ends.sort().join(",") || "-"}${problems?.length ? ` PROBLEMS ${problems.join("; ")}` : ""}`;
   } catch (error) {
     // Both refuse the same selections (no expression there, over the byte bound): compare the refusal, not its words.
-    const code = (error as { code?: string }).code;
-    return code ? `refused ${code}` : `CRASH ${(error as Error).message.slice(0, 120)}`;
+    return error instanceof EngineError ? `refused ${error.code}` : `CRASH ${(error as Error).message.slice(0, 120)}`;
   }
 }
 
@@ -60,7 +60,7 @@ for (const name of roots) {
     ? createEngineSession({ root, source, tsconfig: null, typescriptFrom: ENGINE, language: "python", python: python()! })
     : createEngineSession({ root, source, tsconfig: null, typescriptFrom: chooseTypescript(root, source).from });
   const files = fs.readdirSync(source, { recursive: true }).map(String)
-    .filter((file) => (isPython ? file.endsWith(".py") : /\.(tsx?|jsx?)$/.test(file) && !file.endsWith(".d.ts")) && !file.includes("node_modules"))
+    .filter((file) => (isPython ? file.endsWith(".py") : /\.[cm]?[jt]sx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)) && !file.includes("node_modules"))
     .map((file) => path.relative(root, path.join(source, file)).split(path.sep).join("/"));
   let count = 0;
   const differ: string[] = [];
@@ -79,12 +79,12 @@ for (const name of roots) {
           const selection = { file, span: candidate.span, text: candidate.text };
           let edges = new Map<string, { source: string; target: string }>();
           const graph = answer(() => {
-            const result = anchorGraphOp(session, { ...selection, direction: "forward" });
+            const result = anchorGraphOp(session, { file, span: candidate.span, direction: "forward" });
             edges = new Map(result.edges.map((edge) => [edge.id, edge]));
             const anchor = result.nodes.find((node) => node.kind === "anchor");
             return {
               outcome: result.outcome,
-              stops: result.nodes.filter((node) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven")).map((node) => `${node.reason}@${node.line}`),
+              stops: result.nodes.filter((node) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven")).map((node) => `${node.reason}@${node.file}:${node.line}`),
               // A value that ends where it is selected also lands at the anchor.
               ends: [...result.nodes.filter((node) => node.kind === "terminal").map((node) => node.id), ...(anchor?.note?.startsWith("ends here") ? [anchor.id] : [])],
             };
@@ -93,16 +93,23 @@ for (const name of roots) {
             const result = valueFlowOp(session, selection);
             const rows = new Map(result.rows.map((row) => [row.id, row]));
             const problems: string[] = [];
+            // The selection's own parts come right after the input, inside its span, before any step.
+            let parts = true;
             for (const row of result.rows.slice(1)) {
               const edge = row.relationId ? edges.get(row.relationId) : undefined;
+              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && inside(row.span, result.selection.span);
+              if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);
-              // Without an edge: a stop, an end at the input, or a part of the selection itself.
-              else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !inside(row.span, result.selection.span)) problems.push(`row ${row.label} is a step with no edge`);
+              // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
+              else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
+            // The ends the client counts are the terminal rows.
+            const terminalRows = new Set(result.rows.filter((row) => row.kind === "terminal").map((row) => row.id));
+            if (result.terminals.length !== terminalRows.size || result.terminals.some((id) => !terminalRows.has(id))) problems.push("the terminals list is not the terminal rows");
             return {
               outcome: result.outcome,
-              stops: result.frontiers.map((stop) => `${stop.reason}@${rows.get(stop.rowId)!.line}`),
+              stops: result.frontiers.map((stop) => `${stop.reason}@${rows.get(stop.rowId)!.file}:${rows.get(stop.rowId)!.line}`),
               ends: result.rows.filter((row) => row.kind === "terminal").map((row) => row.elementId ?? "?"),
               problems,
             };

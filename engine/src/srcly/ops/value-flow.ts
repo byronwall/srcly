@@ -365,9 +365,10 @@ class LedgerBuilder {
     }
   }
 
-  /** A row for a part of the selection, while there is room; the input row says how many it left out. A selection with thousands of parts still makes a small ledger. */
+  /** A row for a part of the selection, while there is room (fallbacks and branches always); the input row says how many it left out. A selection with thousands of parts still makes a small ledger. */
   private part(row: Parameters<LedgerBuilder["add"]>[0]) {
-    if (this.rows.length < MAX_ROWS) return this.add(row);
+    // A fallback or a branch changes what the value can be: always listed, never crowded out by plain reads.
+    if (this.rows.length < MAX_ROWS || row.kind === "fallback" || row.kind === "branch") return this.add(row);
     this.omittedParts += 1;
     this.rows[0].note = [`${this.omittedParts} more part${this.omittedParts === 1 ? "" : "s"} of the selection not listed`, (this.rows[0].note ?? "").replace(/^\d+ more parts? of the selection not listed( · )?/, "")].filter(Boolean).join(" · ");
   }
