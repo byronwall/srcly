@@ -2,7 +2,10 @@
 // The browser pane scales captures to ~800px; this takes them at 2x.
 //
 //   pnpm shot <url> <out.png> [--width 1440] [--height 900] [--scale 2] [--dark]
-//             [--wait-for <selector>] [--click <selector>]... [--full] [--selector <el>] [--delay <ms>]
+//             [--wait-for <selector>] [--click <selector>]... [--hover <selector>] [--full] [--selector <el>] [--delay <ms>]
+//
+// --hover rests the pointer on an element after the clicks, so a hover card or
+// an emphasis state is in the capture (a native `title` tooltip never is).
 //
 // It waits for the scan to finish painting (`data-scan-state="ready"` on the app
 // shell) before --wait-for, so a capture never catches the progress panel.
@@ -25,6 +28,7 @@ const { values, positionals } = parseArgs({
     dark: { type: "boolean", default: false },
     "wait-for": { type: "string" },
     click: { type: "string", multiple: true, default: [] },
+    hover: { type: "string" },
     full: { type: "boolean", default: false },
     selector: { type: "string" },
     timeout: { type: "string", default: "60000" },
@@ -35,7 +39,7 @@ const { values, positionals } = parseArgs({
 
 const [url, out] = positionals;
 if (!url || !out) {
-  console.error("usage: pnpm shot <url> <out.png> [--width] [--height] [--scale] [--dark] [--wait-for] [--click]... [--full] [--selector]");
+  console.error("usage: pnpm shot <url> <out.png> [--width] [--height] [--scale] [--dark] [--wait-for] [--click]... [--hover] [--full] [--selector]");
   process.exit(2);
 }
 
@@ -56,6 +60,13 @@ try {
   for (const selector of values.click) {
     await page.locator(selector).first().click();
     await page.waitForLoadState("networkidle");
+  }
+  // `force` hovers an SVG edge under another layer, as a pointer resting there would.
+  // An edge's hit area has a transparent stroke, which Playwright counts as hidden: wait for it to exist, not to show.
+  if (values.hover) {
+    const hovered = page.locator(values.hover).first();
+    await hovered.waitFor({ state: "attached" });
+    await hovered.hover({ force: true });
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   const target = values.selector ? page.locator(values.selector).first() : page;
