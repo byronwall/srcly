@@ -45,6 +45,9 @@ function answer(run: () => Answer): string {
   }
 }
 
+/** A proof list as a client reads it: each proof's kind, words and status. */
+const witness = (proofs: readonly ({ kind: string; detail?: string; status?: string } | null)[]) => JSON.stringify(proofs.filter(Boolean).map((proof) => [proof!.kind, proof!.detail, proof!.status]));
+
 const REFUSALS = new Set(["unsupported-selection", "budget-exhausted", "not-found"]);
 
 const inside = (inner: Span, outer: Span) =>
@@ -75,7 +78,8 @@ for (const name of roots) {
   const differ: string[] = [];
   for (const file of files) {
     const seen = new Set<string>();
-    fs.readFileSync(path.join(root, file), "utf8").split("\n").forEach((code, index) => {
+    // The compiler drops a byte-order mark, so columns count from after it.
+    fs.readFileSync(path.join(root, file), "utf8").replace(/^\uFEFF/, "").split("\n").forEach((code, index) => {
       const line = index + 1;
       // Every caret position a click can land on, the end of the line included.
       for (let column = 1; column <= code.length + 1; column += 1) {
@@ -94,7 +98,7 @@ for (const name of roots) {
           seen.add(key);
           count += 1;
           const selection = { file, span: candidate.span, text: candidate.text };
-          let edges = new Map<string, { source: string; target: string; status: string; proof: ({ kind: string } | null)[] }>();
+          let edges = new Map<string, { source: string; target: string; status: string; proof: ({ kind: string; detail?: string; status?: string } | null)[] }>();
           const graph = answer(() => {
             const result = anchorGraphOp(session, { file, span: candidate.span, direction: "forward" });
             edges = new Map(result.edges.map((edge) => [edge.id, edge]));
@@ -116,12 +120,14 @@ for (const name of roots) {
               const edge = row.relationId ? edges.get(row.relationId) : undefined;
               // A part's proof is the syntax itself (or none, where an evidence element sits at its span); a step carries a relation's proof.
               // A part with no proof stands on an evidence element at its own span.
-              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span) && (row.proof.length ? row.proof.every((proof) => proof.kind === "syntax") : row.elementId !== null);
+              const element = row.elementId ? tier1.provider().factIndex.getElement(row.elementId) : undefined;
+              const part = !row.relationId && ["fallback", "branch", "transform", "transfer"].includes(row.kind) && row.file === result.selection.file && inside(row.span, result.selection.span) &&
+                (row.proof.length ? row.proof.every((proof) => proof.kind === "syntax") : !!element && element.location.file === row.file && JSON.stringify(element.location.span) === JSON.stringify(row.span));
               if (!part) parts = false;
               if (row.relationId && !edge) problems.push(`row ${row.label} has an edge the graph did not draw`);
               else if (edge && edge.target !== row.elementId) problems.push(`row ${row.label} names a box its edge does not reach`);
               // A step says what its edge proves: the same status (structural reads as partial) and the same proofs.
-              else if (edge && row.kind !== "boundary" && (row.status !== (edge.status === "proven" ? "proven" : edge.status === "unsupported" ? "unsupported" : "partial") || row.proof.map((proof) => proof.kind).join() !== edge.proof.filter(Boolean).map((proof) => proof!.kind).join())) problems.push(`row ${row.label} does not say what its edge proves`);
+              else if (edge && row.kind !== "boundary" && (row.status !== (edge.status === "proven" ? "proven" : edge.status === "unsupported" ? "unsupported" : "partial") || witness(row.proof) !== witness(edge.proof))) problems.push(`row ${row.label} does not say what its edge proves`);
               // Without an edge: a stop, an end at the input, or a part of the selection listed before any step.
               else if (!edge && row.kind !== "boundary" && !(row.kind === "terminal" && row.elementId === result.rows[0].elementId) && !(part && parts)) problems.push(`row ${row.label} is a step with no edge`);
             }
