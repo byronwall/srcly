@@ -90,6 +90,28 @@ export function candidatesAt(ts: typeof TypeScript, sourceFile: TypeScript.Sourc
     seen.add(key);
     out.push({ node, kind: ts.SyntaxKind[node.kind], text: nodeText, span: nodeSpan });
   }
-  const selected = text && text.trim() ? out.filter((candidate) => candidate.text === text.trim()) : out;
+  const selected = text && text.trim() ? out.filter((candidate) => sameText(candidate.text, text)) : out;
   return selected;
+}
+
+/**
+ * Whether a candidate's source text is the text a request names. `selectExpression`
+ * clips a long candidate's text (`…` at 240 characters), and a client sends that
+ * text back: a clipped text names the candidates it begins.
+ */
+export function sameText(source: string, text: string): boolean {
+  const named = text.trim();
+  return source === named || (source.length > CLIP && named === clipText(source));
+}
+
+/** How `selectExpression` shows a long candidate. */
+export const CLIP = 240;
+export function clipText(text: string): string {
+  return text.length > CLIP ? `${sliceWhole(text, CLIP - 1)}…` : text;
+}
+
+/** The first `end` UTF-16 units of a text, one fewer when the cut would split a surrogate pair (an emoji): half a pair is not valid UTF-8. */
+export function sliceWhole(text: string, end: number): string {
+  const code = text.charCodeAt(end - 1);
+  return text.slice(0, code >= 0xd800 && code <= 0xdbff ? end - 1 : end);
 }

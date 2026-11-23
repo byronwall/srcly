@@ -6,7 +6,7 @@ import path from "node:path";
 import type { ProgramElement } from "../../analysis/scope-seam";
 import type { HostCandidate, LanguageHost } from "../host";
 import { EngineError } from "../protocol";
-import { sameSpan, type Span } from "../selection";
+import { sameSpan, sameText, type Span } from "../selection";
 import { spanKey, toSpan, type WireExpression } from "./facts";
 import type { PythonTier1 } from "./session";
 
@@ -77,7 +77,7 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
       }
       // A parameter's text includes its annotation; selecting its name selects it.
       const names = new Map(found.map((entry) => [spanKey(toSpan(entry.s)), entry.k === "arg" ? entry.n : undefined]));
-      return text && text.trim() ? out.filter((candidate) => candidate.text === text.trim() || names.get(spanKey(candidate.span)) === text.trim()) : out;
+      return text && text.trim() ? out.filter((candidate) => sameText(candidate.text, text) || names.get(spanKey(candidate.span)) === text.trim()) : out;
     },
     parts(file, span) {
       return tableFor(file).list
