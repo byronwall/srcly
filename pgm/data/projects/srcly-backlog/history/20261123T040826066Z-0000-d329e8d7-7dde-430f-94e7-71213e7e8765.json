@@ -1,0 +1,14 @@
+{
+  "id": "d329e8d7-7dde-430f-94e7-71213e7e8765",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f1beab",
+    "label": "Agent token ...f1beab"
+  },
+  "createdAt": "2026-11-23T04:08:26.066Z",
+  "summary": "Deleted \"Ledger and graph agree on every shared expression\".",
+  "nodeIds": [
+    "task-ledger-and-graph-agree-on-every-shared-expression"
+  ]
+}
