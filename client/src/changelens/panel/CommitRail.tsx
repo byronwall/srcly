@@ -161,11 +161,18 @@ export function CommitRail(props: {
                   {c().subject}
                 </span>
                 <span class="shrink-0 whitespace-nowrap text-[11px] text-[var(--plc-on-subtle)]">
-                  {c().date ? formatTime(c().date, tz()) : "Now"} · {c().files} {c().files === 1 ? "file" : "files"}
+                  {c().date ? formatTime(c().date, tz()) : "Now"} ·{" "}
+                  <Show when={c().statsSource !== "excluded-upstream"} fallback="Upstream merge changes excluded">
+                    <span data-commit-files title={isWorktree(c().sha) ? "Files included in structural analysis" : "Changed Git paths in the analyzed scope"}>
+                      {c().files} {isWorktree(c().sha) ? "structural " : ""}{c().files === 1 ? "file" : "files"}
+                    </span>
+                  </Show>
                 </span>
-                <span class="shrink-0">
-                  <LineCounts added={c().added} deleted={c().deleted} />
-                </span>
+                <Show when={c().statsSource !== "excluded-upstream"}>
+                  <span class="shrink-0" data-commit-lines title={isWorktree(c().sha) ? "Lines in structural working-tree edits" : "Added and deleted lines in regular text files"}>
+                    <LineCounts added={c().added} deleted={c().deleted} />
+                  </span>
+                </Show>
               </>
             )}
           </Show>

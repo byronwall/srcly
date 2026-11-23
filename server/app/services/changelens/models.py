@@ -83,6 +83,7 @@ class LensCommit(LensModel):
     added: int
     deleted: int
     chunk_ids: list[str]
+    stats_source: Literal["git-commit", "structural-worktree", "excluded-upstream"]
 
 
 class LensHunk(LensModel):

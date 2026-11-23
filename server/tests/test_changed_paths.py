@@ -119,6 +119,22 @@ def test_unsupported_only_and_dirty_worktree_do_not_claim_empty_or_complete(tmp_
     assert selected_path.json()["headSource"]["revision"] == head
 
 
+def test_json_only_commit_has_git_rail_totals_not_structural_chunks(tmp_path):
+    repo = make_repo(tmp_path / "repo")
+    base = commit(repo, "base", {"config/a.json": "{}\n", "other/b.json": "{}\n"})
+    head = commit(repo, "two data edits", {"config/a.json": '{"a":1}\n', "other/b.json": '{"b":2}\n'})
+    expected_stats = _git(repo, "show", "--format=", "--numstat", head).splitlines()
+    assert expected_stats == ["1\t1\tconfig/a.json", "1\t1\tother/b.json"]
+    for checkout, expected in ((repo, 2), (repo / "config", 1)):
+        for mode in ("touched", "net"):
+            payload = service.build_payload(checkout, selected(base, head, mode))
+            measured = next(c for c in payload["commits"] if c["sha"] == head)
+            assert (measured["files"], measured["added"], measured["deleted"]) == (expected,) * 3
+            assert measured["statsSource"] == "git-commit"
+            assert payload["chunks"] == measured["chunkIds"] == []
+            assert payload["summary"]["filesEdited"] == 0
+
+
 def test_touched_rename_is_not_reverted_when_git_endpoints_split_it(tmp_path):
     repo = make_repo(tmp_path / "repo")
     base = commit(repo, "base", {"old.json": "old content\n" * 30})

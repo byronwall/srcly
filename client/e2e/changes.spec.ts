@@ -147,6 +147,10 @@ test("Changed paths carries a committed JSON diff through source, Compare, and B
   await page.locator("[data-lens-toggle-paths]").press("Enter");
   const inventory = page.locator("[data-changed-paths]");
   await expect(inventory.locator("[data-changed-path]")).toHaveCount(2);
+  await page.locator(`[data-commit="${step}"]`).focus();
+  const commitInfo = page.locator("[data-commit-info]");
+  await expect(commitInfo.locator("[data-commit-files]")).toHaveText("2 files");
+  await expect(commitInfo.locator("[data-commit-lines]")).toContainText(/\+2.*−2/);
   const row = inventory.locator(`[data-changed-path="${file}"]`);
   await row.press("Enter");
   await expect(row).toHaveAttribute("aria-current", "true");
