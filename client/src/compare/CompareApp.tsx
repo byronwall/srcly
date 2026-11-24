@@ -30,7 +30,7 @@ import { CommitStepper } from "./CommitStepper";
 import { ComparePicker } from "./ComparePicker";
 import { activeStep, stepRefs } from "./stepper";
 import { Inspector } from "./Inspector";
-import { buildRows, collectFiles, indexFiles, type FileRow, type RowSort } from "./rows";
+import { ALL_STATUSES, buildRows, collectFiles, filterFiles, indexFiles, type FileRow, type RowSort } from "./rows";
 import { Scorecard } from "./Scorecard";
 import { SummaryStrip } from "./SummaryStrip";
 import type { ComparePayload } from "./types";
@@ -129,7 +129,10 @@ export default function CompareApp() {
                 const match = path.touchedOnly ? null : result.files.find((f) => f.path === path.path || Boolean(path.oldPath && f.oldPath === path.oldPath));
                 select(match?.path ?? path.path);
               } else if (!result.files.some((f) => f.path === selected())) {
-                const first = buildRows(collectFiles(result.files, new Map(), false), {
+                // Start inside the URL's path filter, so the inspector shows a visible row.
+                const all = collectFiles(result.files, new Map(), false);
+                const kept = filterFiles(all, { statuses: new Set(ALL_STATUSES), regressionsOnly: false, query: filter() });
+                const first = buildRows(kept.some((f) => f.change) ? kept : all, {
                   showUnchanged: false,
                   sort: "regressed",
                   collapsed: new Set(),
@@ -277,7 +280,10 @@ export default function CompareApp() {
   };
 
   return (
-    <div class="plc-app-shell flex h-screen flex-col overflow-hidden">
+    <div
+      class="plc-app-shell flex h-screen flex-col overflow-hidden"
+      data-scan-state={payload() ? "ready" : error() ? "error" : "loading"}
+    >
       <header class="plc-topbar flex items-center gap-4 border-b px-4">
         <h1 class="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
           <img src="/favicon.svg" alt="" class="h-5 w-5" />
