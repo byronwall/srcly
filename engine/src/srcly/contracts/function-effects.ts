@@ -62,7 +62,7 @@ export const effectFactSchema = z.strictObject({
 
 export const effectFrontierSchema = z.strictObject({
   id: z.string(),
-  /** `unresolved-callee`, `callback-parameter`, `dynamic-dispatch`, `external-library`, `recursion`, `budget`. */
+  /** `unresolved-callee`, `callback-parameter`, `dynamic-dispatch`, `implementation-unavailable` (a first-party callee with no body), `external-library`, `recursion`, `budget`. */
   reason: z.string(),
   label: z.string(),
   detail: z.string(),

@@ -39,6 +39,7 @@ export const FRONTIER_WORDS: Record<string, string> = {
   "dynamic-dispatch": "a computed callee",
   "receiver-ownership": "a receiver whose ownership is unknown",
   "unresolved-callee": "a callee the checker cannot name",
+  "implementation-unavailable": "a declared callee with no implementation",
   recursion: "already on the call chain",
   budget: "past the budget",
   "external-library": "a library the analysis does not follow",
@@ -85,7 +86,7 @@ export function effectsView(result: FunctionEffectsResult): EffectsView {
         ? result.coverage === "complete-for-supported-scope"
           ? "Closed: nothing it touches is visible from outside, under the assumptions below"
           : "Partial analysis: no effects were confirmed"
-        : `${known} known effect${known === 1 ? "" : "s"}${partial ? ` · ${partial} place${partial === 1 ? "" : "s"} the analysis could not follow` : ""}`;
+        : `${known === 0 ? "No confirmed effects" : `${known} known effect${known === 1 ? "" : "s"}`}${partial ? ` · ${partial} place${partial === 1 ? "" : "s"} the analysis could not follow` : ""}`;
   return {
     callable: result.callable,
     outcome: result.outcome,
