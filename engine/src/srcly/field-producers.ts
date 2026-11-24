@@ -84,6 +84,8 @@ export type ProducerHooks = {
   hasArguments(call: ProgramElement): boolean;
   /** A call in an optional chain (`LanguageHost.optionalCall`): when it short-circuits, the value is undefined. */
   optionalCall(call: ProgramElement): boolean;
+  /** A call whose function can be replaced (`LanguageHost.calleeReplaced`). */
+  calleeReplaced(call: ProgramElement): boolean;
   /** A call awaited where it is made (`LanguageHost.awaited`). */
   awaited(call: ProgramElement): boolean;
 };
@@ -169,6 +171,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       const unsure = hooks.returnUnsure(target);
       if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
       if (unsure === "method") return at(target.id, "receiver");
+      if (relation.kind === "return-value" && hooks.calleeReplaced(current)) return at(current.id, "receiver");
       // A return reaches the read only out of its own call, or as a state's lazy initial value (an updater's return is a later write, listed apart).
       // Any other way (a library call it was handed to: `.then(f)`) gives the caller what that call makes of it.
       if (relation.kind === "return-value" && hooks.optionalCall(current)) return at(current.id, "fallthrough");

@@ -66,6 +66,8 @@ export interface LanguageHost {
   returnUnsure?(file: string, span: Span): boolean | "async" | "callback" | "method";
   /** Whether the call at this span sits in an optional chain (`a?.b()`), so it may not run. */
   optionalCall?(file: string, span: Span): boolean;
+  /** Whether the function a call at this span runs can be replaced (`let f` reassigned, `service.load = …`). */
+  calleeReplaced?(file: string, span: Span): boolean;
   /** Whether the call at this span passes arguments. */
   hasArguments?(file: string, span: Span): boolean;
   /** Whether the call at this span is awaited where it is made. */
