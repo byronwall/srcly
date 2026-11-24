@@ -16,6 +16,12 @@ export type FieldProducer = {
   via: ProducerVia[];
   /** `proven` when every step from the field to the read is proven or modelled; a state's seed counts as proven for its first value. */
   status: "proven" | "partial";
+  /**
+   * Why this value may not be what the read sees, where the path to it
+   * passed a soft stop (`SOFT_STOPS`): another caller, a changed object, a
+   * default, an unnamed member. The walk went on past each one.
+   */
+  caveats: ProducerStop[];
 };
 
 export type FieldProducers = {
@@ -43,10 +49,18 @@ export type FieldProducers = {
  * (`missing`: the read can be undefined), an object the code changes after it
  * is built (`mutable`), a function that can end without this return
  * (`fallthrough`: a branch with no return, a generator), a return handed
- * to a library call (`callback`: `.then(f)`, a store creator).
+ * to a library call (`callback`: `.then(f)`, a store creator), a method that
+ * another receiver's method of the same name may replace (`receiver`).
  */
-export type ProducerStopReason = "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+export type ProducerStopReason = "receiver" | "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
 export type ProducerStop = { elementId: string; reason: ProducerStopReason };
+
+/**
+ * Stops the walk goes on past, as caveats on what it finds beyond them: the
+ * value there can still fill the field, but it may not be the only one.
+ * Every other reason ends the path (nothing past it names the field).
+ */
+const SOFT_STOPS = new Set<ProducerStopReason>(["receiver", "callers", "binding", "mutable", "fallthrough", "callback", "unnamed-member", "write"]);
 
 /** What the walk asks of the language host. */
 export type ProducerHooks = {
@@ -65,7 +79,7 @@ export type ProducerHooks = {
   /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
   mutatedBinding(binding: ProgramElement): boolean;
   /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
-  returnUnsure(ret: ProgramElement): boolean | "async" | "callback";
+  returnUnsure(ret: ProgramElement): boolean | "async" | "callback" | "method";
   /** A call that passes arguments (`LanguageHost.hasArguments`). */
   hasArguments(call: ProgramElement): boolean;
   /** A call in an optional chain (`LanguageHost.optionalCall`): when it short-circuits, the value is undefined. */
@@ -137,7 +151,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     return !!known && !known.includes(null) && !known.includes(field);
   };
 
-  type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean };
+  type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean; caveats: ProducerStop[] };
   /** Why one step back from `current` to `target` cannot carry the field exactly, and where to say so; null when it can. */
   const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath, via: ProducerVia[]): ProducerStop | null => {
     const at = (elementId: string, reason: ProducerStopReason) => ({ elementId, reason });
@@ -154,6 +168,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (target.kind === "return") {
       const unsure = hooks.returnUnsure(target);
       if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
+      if (unsure === "method") return at(target.id, "receiver");
       // A return reaches the read only out of its own call, or as a state's lazy initial value (an updater's return is a later write, listed apart).
       // Any other way (a library call it was handed to: `.then(f)`) gives the caller what that call makes of it.
       if (relation.kind === "return-value" && hooks.optionalCall(current)) return at(current.id, "fallthrough");
@@ -167,7 +182,11 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (current.kind !== "call" && isState(target.id) && hooks.callable(target)) return at(current.id, "accessor");
     return null;
   };
-  const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false }];
+  const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false, caveats: [] }];
+  /** Writes straight into the read: a caveat on every producer. */
+  const seedCaveats: ProducerStop[] = [];
+  const caveat = (list: ProducerStop[], elementId: string, reason: ProducerStopReason) =>
+    list.some((item) => item.elementId === elementId && item.reason === reason) ? list : [...list, { elementId, reason }];
   const seen = new Set<string>([`${seedId}||`]);
   const found = new Map<string, FieldProducer>();
   const stops = new Map<string, ProducerStop>();
@@ -202,13 +221,9 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     for (const relation of incoming(item.id)) {
       const target = byId.get(relation.from);
       if (!target) continue;
-      if (atSeed && relation.kind !== "field-input") {
-        stop(item, current.id, "write");
-        continue;
-      }
-      // Before any field is named, only a step that keeps the value, or a field read, goes on; anything else (a member's write into the read) may supply it.
-      if (!named && relation.kind !== "field-input" && !keepsIdentity(relation.kind)) {
-        stop(item, current.id, "write");
+      // Before any field is named, only the read's own field read, or a step that keeps the value, goes on; anything else (a member's write into the read) may supply it.
+      if ((atSeed && relation.kind !== "field-input") || (!named && relation.kind !== "field-input" && !keepsIdentity(relation.kind))) {
+        seedCaveats.splice(0, seedCaveats.length, ...caveat(seedCaveats, current.id, "write"));
         continue;
       }
       const path = stepFieldPath(item.path, relation, current, target, false, cache);
@@ -224,10 +239,12 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       const step: ProducerVia | null = init ? "initialization" : throughState(relation.proof.kind) && relation.status !== "proven" && isState(item.id) ? "write" : relation.kind === "return-value" || relation.kind === "return-expression" ? "return" : null;
       const via = step && item.via.at(-1) !== step ? [...item.via, step] : item.via;
       const block = blocked(relation, item, current, target, path, via);
-      if (block) {
+      let caveats = item.caveats;
+      if (block && !SOFT_STOPS.has(block.reason)) {
         stop({ via }, block.elementId, block.reason);
         continue;
       }
+      if (block) caveats = caveat(caveats, block.elementId, block.reason);
       // A read out of a state (a getter's call, the store itself) is as sure as the first value it reads: only its time is not proven.
       const stateRead = throughState(relation.proof.kind) && isState(target.id);
       const assumed = proofStrength(relation.proof.kind) === "assumed";
@@ -235,22 +252,23 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       if (relation.kind === "pack-field" && named) {
         const field = packedField(current, relation, cache);
         // Only a member named as the field the walk is after fills it; a spread or computed key may hold it, unless a later named member replaces it.
-        if (field === SPREAD || field === null) {
-          if (!shadowed(current, item.path[item.path.length - 1])) stop({ via }, current.id, field === null ? "widened" : "unnamed-member");
+        if (field === null) {
+          stop({ via }, current.id, "widened");
           continue;
         }
-        // At every level, the member must be the field's own settled value.
-        if (field === item.path[item.path.length - 1] && !settled(current, field)) {
-          stop({ via }, current.id, "unnamed-member");
-          continue;
+        // A spread or computed key may hold the field, unless a later named member replaces it: walk into it, as a caveat.
+        if (field === SPREAD) {
+          if (shadowed(current, item.path[item.path.length - 1])) continue;
+          caveats = caveat(caveats, current.id, "unnamed-member");
         }
+        // At every level, a member named as the field is its value only when no later unnamed member may replace it.
+        if (field === item.path[item.path.length - 1] && !settled(current, field)) caveats = caveat(caveats, current.id, "unnamed-member");
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
-          if (hooks.mutable(current)) {
-            stop({ via }, current.id, "mutable");
-            continue;
-          }
+          if (hooks.mutable(current)) caveats = caveat(caveats, current.id, "mutable");
           const key = `${target.id}|${current.id}|${via.join(",")}`;
-          if (!found.has(key)) found.set(key, { elementId: target.id, packId: current.id, field, via, status: partial ? "partial" : "proven" });
+          const known = found.get(key);
+          if (known) known.caveats = caveats.reduce((list, item) => caveat(list, item.elementId, item.reason), known.caveats);
+          else found.set(key, { elementId: target.id, packId: current.id, field, via, status: partial ? "partial" : "proven", caveats });
           continue;
         }
       }
@@ -261,14 +279,15 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         stop({ via }, current.id, noReturn ? "no-return" : "widened");
         continue;
       }
-      const key = `${target.id}|${path.join(".")}|${via.join(",")}`;
+      const key = `${target.id}|${path.join(".")}|${via.join(",")}|${caveats.map((item) => `${item.elementId}:${item.reason}`).join(",")}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      queue.push({ id: target.id, path, via, partial });
+      queue.push({ id: target.id, path, via, partial, caveats });
     }
     // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside;
     // an object with no such field leaves the read undefined on this path.
     if (named && !continued) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
   }
-  return { producers: [...found.values()], open, stops: [...stops.values()] };
+  const producers = [...found.values()].map((producer) => ({ ...producer, caveats: seedCaveats.reduce((list, item) => caveat(list, item.elementId, item.reason), producer.caveats) }));
+  return { producers, open, stops: [...stops.values()] };
 }

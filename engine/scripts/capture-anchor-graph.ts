@@ -44,11 +44,12 @@ write("solid-route-viewer-card.anchor-graph.json", { file, name: "ViewerCard", l
 {
   const exampleRoot = path.join(engineRoot, "examples/value-flow-basics");
   const example = createEngineSession({ root: exampleRoot, source: path.join(exampleRoot, "src"), tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });
-  const fixture = "src/field-producers.tsx";
-  const fixtureLines = fs.readFileSync(path.join(exampleRoot, fixture), "utf8").split("\n");
   // The anchor is the `text` on the line that declares `@trace <id>`.
-  const cases: [string, string][] = [["fpr-returned", "note.title"], ["fpr-opaque", "note.title"], ["fpr-title", "draft.title"], ["fpr-tags", "draft.title"], ["fpr-shared", "draft.title"], ["fpr-owner", "summary.owner"]];
-  for (const [id, anchorText] of cases) {
+  const main = "src/field-producers.tsx";
+  const limits = "src/field-producers-limits.tsx";
+  const cases: [string, string, string][] = [["fpr-returned", "note.title", main], ["fpr-opaque", "note.title", main], ["fpr-title", "draft.title", main], ["fpr-tags", "draft.title", main], ["fpr-shared", "draft.title", main], ["fpr-owner", "summary.owner", main], ["fpl-mutated", "doc.note.title", limits]];
+  for (const [id, anchorText, fixture] of cases) {
+    const fixtureLines = fs.readFileSync(path.join(exampleRoot, fixture), "utf8").split("\n");
     const declared = fixtureLines.findIndex((line) => line.includes(`@trace ${id} `));
     // A comment alone on its line is about the next line of code.
     const line = fixtureLines[declared].trim().startsWith("//") ? declared + 1 : declared;

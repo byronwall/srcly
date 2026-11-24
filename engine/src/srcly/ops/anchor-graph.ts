@@ -878,7 +878,10 @@ class AnchorGraphBuilder {
         const source = this.host.textAt(node.file, node.span) ?? node.label;
         return source.length > 160 ? `${source.slice(0, 159)}…` : source;
       };
-      out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack) });
+      const caveats = fact.caveats
+        .map((item) => ({ nodeId: this.resolve(item.elementId), reason: item.reason }))
+        .filter((item, index, all) => this.nodes.has(item.nodeId) && all.findIndex((other) => other.nodeId === item.nodeId && other.reason === item.reason) === index);
+      out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack), caveats });
     }
     return out;
   }

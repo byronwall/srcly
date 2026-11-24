@@ -174,7 +174,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (fn.asteriskToken) return true;
       if (fn.body && ts.isBlock(fn.body) && !endsAlways(fn.body)) return true;
       // A method (of a class or an object, or a function-valued property) runs on whatever receiver the call has: another object's method of the same name may run.
-      if (ts.isMethodDeclaration(fn) || ts.isPropertyAssignment(fn.parent) || ts.isPropertyDeclaration(fn.parent)) return true;
+      if (ts.isMethodDeclaration(fn) || ts.isPropertyAssignment(fn.parent) || ts.isPropertyDeclaration(fn.parent)) return "method";
       // An async function's call is a promise: what it returns is the field only once awaited.
       if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
       // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.

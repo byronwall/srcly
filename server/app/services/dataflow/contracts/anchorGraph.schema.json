@@ -534,6 +534,43 @@
           },
           "packText": {
             "type": "string"
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nodeId": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "receiver",
+                    "no-return",
+                    "fallthrough",
+                    "callback",
+                    "dead-end",
+                    "missing",
+                    "mutable",
+                    "widened",
+                    "unnamed-member",
+                    "operand",
+                    "callers",
+                    "binding",
+                    "accessor",
+                    "factory",
+                    "write",
+                    "budget"
+                  ]
+                }
+              },
+              "required": [
+                "nodeId",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -543,7 +580,8 @@
           "via",
           "status",
           "text",
-          "packText"
+          "packText",
+          "caveats"
         ],
         "additionalProperties": false
       }
@@ -562,6 +600,7 @@
           "reason": {
             "type": "string",
             "enum": [
+              "receiver",
               "no-return",
               "fallthrough",
               "callback",

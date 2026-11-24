@@ -95,6 +95,9 @@ export const anchorEdgeSchema = z.strictObject({
   label: z.string().nullable(),
 });
 
+/** Why a producer path stops or may not hold (`ProducerStopReason` in `src/srcly/field-producers.ts`). */
+const producerStopReasonSchema = z.enum(["receiver", "no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]);
+
 export const anchorGraphResultSchema = z.strictObject({
   outcome: outcomeSchema,
   ...generationFields,
@@ -138,6 +141,8 @@ export const anchorGraphResultSchema = z.strictObject({
     /** The producer's and its object's source text, clipped. */
     text: z.string(),
     packText: z.string(),
+    /** Soft stops the path to it passed: why it may not be the only value the read sees, each at a drawn box. */
+    caveats: z.array(z.strictObject({ nodeId: z.string(), reason: producerStopReasonSchema })),
   })),
   /**
    * A path that may still fill the field ended without a producer: a call
@@ -149,7 +154,7 @@ export const anchorGraphResultSchema = z.strictObject({
   producerStops: z.array(z.strictObject({
     nodeId: z.string(),
     /** `ProducerStopReason` in `src/srcly/field-producers.ts`. */
-    reason: z.enum(["no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]),
+    reason: producerStopReasonSchema,
   })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),

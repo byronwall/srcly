@@ -1,0 +1,456 @@
+{
+ "outcome": "ok",
+ "generation": 1,
+ "programHash": "07b1a93ae28073b6",
+ "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
+ "typescript": "5.9.3",
+ "nullProof": true,
+ "reason": null,
+ "anchor": {
+  "file": "src/field-producers-limits.tsx",
+  "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+  "span": {
+   "startLine": 204,
+   "startColumn": 14,
+   "endLine": 204,
+   "endColumn": 28
+  },
+  "text": "doc.note.title",
+  "kind": "PropertyAccessExpression",
+  "elementId": "program-element:1xysrhb",
+  "typeText": "string"
+ },
+ "direction": "backward",
+ "nodes": [
+  {
+   "id": "scope:src/field-producers-limits.tsx:201:1",
+   "kind": "scope",
+   "label": "Mutated",
+   "detail": "field-producers-limits.tsx",
+   "parent": null,
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 201,
+   "span": {
+    "startLine": 201,
+    "startColumn": 1,
+    "endLine": 205,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "component",
+   "note": null
+  },
+  {
+   "id": "program-element:1xysrhb",
+   "kind": "anchor",
+   "label": "doc.note.title",
+   "detail": "property read",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 204,
+   "span": {
+    "startLine": 204,
+    "startColumn": 14,
+    "endLine": 204,
+    "endColumn": 28
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "doc@src/field-producers-limits.tsx:9759",
+   "field": "note.title",
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:wqkovl",
+   "kind": "value",
+   "label": "note",
+   "detail": "field read",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 204,
+   "span": {
+    "startLine": 204,
+    "startColumn": 14,
+    "endLine": 204,
+    "endColumn": 22
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "{ title: string; }",
+   "reason": null,
+   "symbol": "doc@src/field-producers-limits.tsx:9759",
+   "field": "note",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1lhvv43",
+   "kind": "value",
+   "label": "doc",
+   "detail": "value",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 204,
+   "span": {
+    "startLine": 204,
+    "startColumn": 14,
+    "endLine": 204,
+    "endColumn": 17
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ note: { title: string; }; }",
+   "reason": null,
+   "symbol": "doc@src/field-producers-limits.tsx:9759",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1hyne5v",
+   "kind": "value",
+   "label": "doc",
+   "detail": "alias",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 202,
+   "span": {
+    "startLine": 202,
+    "startColumn": 9,
+    "endLine": 202,
+    "endColumn": 41
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "{ note: { title: string; }; }",
+   "reason": null,
+   "symbol": "doc@src/field-producers-limits.tsx:9759",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1lk85v0",
+   "kind": "transform",
+   "label": "{ note: { title: \"OLD\" } }",
+   "detail": "object",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 202,
+   "span": {
+    "startLine": 202,
+    "startColumn": 15,
+    "endLine": 202,
+    "endColumn": 41
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "{ note: { title: string; }; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "object-pack",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:11683mb",
+   "kind": "transform",
+   "label": "{ title: \"OLD\" }",
+   "detail": "object",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 202,
+   "span": {
+    "startLine": 202,
+    "startColumn": 23,
+    "endLine": 202,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "{ title: string; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "object-pack",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:yx8m0",
+   "kind": "transform",
+   "label": "\"OLD\"",
+   "detail": "literal",
+   "parent": "scope:src/field-producers-limits.tsx:201:1",
+   "file": "src/field-producers-limits.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers-limits.tsx",
+   "line": 202,
+   "span": {
+    "startLine": 202,
+    "startColumn": 32,
+    "endLine": 202,
+    "endColumn": 37
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "literal",
+   "typeText": "\"OLD\"",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  }
+ ],
+ "edges": [
+  {
+   "id": "program-relation:13st1pj",
+   "source": "program-element:wqkovl",
+   "target": "program-element:1xysrhb",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 204,
+       "column": 14,
+       "span": {
+        "startLine": 204,
+        "startColumn": 14,
+        "endLine": 204,
+        "endColumn": 28
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "title"
+  },
+  {
+   "id": "program-relation:jn9wqa",
+   "source": "program-element:1lhvv43",
+   "target": "program-element:wqkovl",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 204,
+       "column": 14,
+       "span": {
+        "startLine": 204,
+        "startColumn": 14,
+        "endLine": 204,
+        "endColumn": 22
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "note"
+  },
+  {
+   "id": "program-relation:1akq69s",
+   "source": "program-element:1hyne5v",
+   "target": "program-element:1lhvv43",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 204,
+       "column": 14,
+       "span": {
+        "startLine": 204,
+        "startColumn": 14,
+        "endLine": 204,
+        "endColumn": 17
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:qs1q7r",
+   "source": "program-element:1lk85v0",
+   "target": "program-element:1hyne5v",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The variable initializer is assigned to the declared binding.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 202,
+       "column": 9,
+       "span": {
+        "startLine": 202,
+        "startColumn": 9,
+        "endLine": 202,
+        "endColumn": 41
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:nxfra3",
+   "source": "program-element:11683mb",
+   "target": "program-element:1lk85v0",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 202,
+       "column": 17,
+       "span": {
+        "startLine": 202,
+        "startColumn": 17,
+        "endLine": 202,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "note"
+  },
+  {
+   "id": "program-relation:1hgssku",
+   "source": "program-element:yx8m0",
+   "target": "program-element:11683mb",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/field-producers-limits.tsx",
+       "line": 202,
+       "column": 25,
+       "span": {
+        "startLine": 202,
+        "startColumn": 25,
+        "endLine": 202,
+        "endColumn": 37
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "title"
+  }
+ ],
+ "links": [],
+ "producers": [
+  {
+   "nodeId": "program-element:yx8m0",
+   "packNodeId": "program-element:11683mb",
+   "field": "title",
+   "via": [],
+   "status": "proven",
+   "text": "\"OLD\"",
+   "packText": "{ title: \"OLD\" }",
+   "caveats": [
+    {
+     "nodeId": "program-element:1hyne5v",
+     "reason": "mutable"
+    },
+    {
+     "nodeId": "program-element:11683mb",
+     "reason": "mutable"
+    }
+   ]
+  }
+ ],
+ "producersOpen": false,
+ "producerStops": [],
+ "origins": [],
+ "terminals": [],
+ "counts": {
+  "up": 6,
+  "down": 0,
+  "scopes": 1,
+  "origins": 0,
+  "terminals": 0,
+  "boundaries": 0,
+  "frontiers": 0
+ },
+ "coverage": {
+  "elements": 7,
+  "relations": 6,
+  "budget": {
+   "limit": 4096,
+   "used": 6,
+   "exhausted": false
+  }
+ }
+}

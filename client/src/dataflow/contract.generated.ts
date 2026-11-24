@@ -357,11 +357,15 @@ export type AnchorGraphResult = {
     status: "proven" | "partial";
     text: string;
     packText: string;
+    caveats: {
+      nodeId: string;
+      reason: "receiver" | "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+    }[];
   }[];
   producersOpen: boolean;
   producerStops: {
     nodeId: string;
-    reason: "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+    reason: "receiver" | "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
   }[];
   origins: {
     nodeId: string;
