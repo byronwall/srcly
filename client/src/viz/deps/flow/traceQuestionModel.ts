@@ -11,12 +11,15 @@ export type NamedWitness = TraceWitness & { text: string };
 /** How the producer's value reaches the read: as a store's first value, out of a call's return, or as an object's field. */
 export type HandoffKind = "initialization" | "return" | "field" | "mixed";
 
-export type FieldProducerAnswer = {
-  field: string;
+export type StopReason = AnchorGraphResult["producerStops"][number]["reason"];
+/** Where a path stops, or why a candidate may not hold, with the source to open. */
+export type StopWitness = NamedWitness & { reason: StopReason };
+
+/** One expression that can fill the read field, how it gets there, and why it may not be the value the read sees. */
+export type ProducerCandidate = {
   producer: NamedWitness;
   handoff: { kind: HandoffKind; object: NamedWitness };
-  /** Writes to the same state after its first value: possible static writers, not observed updates. */
-  laterWrites: NamedWitness[];
+  caveats: StopWitness[];
 };
 
 export type AnchorQuestion = {
@@ -26,14 +29,18 @@ export type AnchorQuestion = {
   fieldRead: TraceWitness | null;
   context: TraceWitness | null;
   stop: string | null;
-  /** The one proven producer of the read field, when the engine found exactly one. */
-  producer: FieldProducerAnswer | null;
-  /** Several producers fill the field (not counting later writes): none is the answer. */
-  alternatives: NamedWitness[];
-  /** Two or more call sites pass the value the producer reads: the earlier value depends on which one. */
+  /** The read field. */
+  field: string | null;
+  /** Every expression the engine's field walk found that can fill the field for its first value, nearest first. */
+  candidates: ProducerCandidate[];
+  /** One candidate, no caveat, and every path ended at it: the only producer the static source shows. */
+  only: boolean;
+  /** Writes to the read's own state after its first value: possible static writers, not observed updates. */
+  laterWrites: NamedWitness[];
+  /** Two or more call sites pass the value a field-read candidate reads: the earlier value depends on which one. */
   callers: NamedWitness[];
-  /** Where the field's trail ends with no producer (`producerStops`), and why. */
-  boundary: (NamedWitness & { reason: AnchorGraphResult["producerStops"][number]["reason"] }) | null;
+  /** Where paths that may fill the field end without a producer (`producerStops`), and why. */
+  stops: StopWitness[];
 };
 
 function sameSpan(a: SourceSpan, b: SourceSpan) {
@@ -47,7 +54,7 @@ export function anchorQuestion(graph: AnchorGraphResult): AnchorQuestion {
   const subject = graph.nodes.find((n) => n.id === graph.anchor.elementId && n.kind === "anchor" && n.file === selection.file && sameSpan(n.span, selection.span));
   const stop = graph.reason ?? (graph.coverage.budget.exhausted ? "evidence budget exhausted" :
     graph.outcome === "partial" ? graph.nodes.find((n) => (n.kind === "frontier" || n.kind === "boundary") && n.status !== "proven" && n.reason)?.reason ?? "some steps are unproven" : null);
-  const base = { expression: graph.anchor.text, direction: graph.direction, selection, fieldRead: null, context: null, stop, producer: null, alternatives: [], callers: [], boundary: null };
+  const base = { expression: graph.anchor.text, direction: graph.direction, selection, fieldRead: null, context: null, stop, field: null, candidates: [], only: false, laterWrites: [], callers: [], stops: [] };
   if (graph.outcome === "stale" || graph.outcome === "unsupported" || graph.outcome === "not-analyzed" || graph.outcome === "cancelled") return base;
   if (!subject || subject.elementKind !== "field-read" || subject.status !== "proven") return base;
   // A read with no local binding (`load().title`) has no field of its own: its field-input edge names it.
@@ -85,49 +92,52 @@ const witness = (node: AnchorNode, text = node.label): NamedWitness => ({ file: 
 
 /**
  * The anchor's field producers, from the engine's own field walk
- * (`graph.producers`): the field's value where an object is built, with the
- * handoff that carries it to the read. A store's later writes stay apart
- * from its first value; two first values, or one beside a path the walk
- * could not finish (`producersOpen`), are no answer.
+ * (`graph.producers`): each expression that can fill the field where an
+ * object is built, the handoff that carries it to the read, and the caveats
+ * the walk passed on the way. A store's later writes stay apart from its
+ * first value. The card claims one producer only when there is one, with no
+ * caveat, and no path ended without a producer.
  */
-function producerAnswer(graph: AnchorGraphResult): Pick<AnchorQuestion, "producer" | "alternatives" | "callers" | "boundary"> {
+function producerAnswer(graph: AnchorGraphResult): Pick<AnchorQuestion, "field" | "candidates" | "only" | "laterWrites" | "callers" | "stops"> {
   const nodes = byNode(graph);
   const found = graph.producers.flatMap((p) => {
     const value = nodes.get(p.nodeId);
     const object = nodes.get(p.packNodeId);
     return value && object ? [{ ...p, value, object }] : [];
   });
+  const stopsAt = (list: readonly { nodeId: string; reason: StopReason }[]): StopWitness[] => list.flatMap((item) => {
+    const node = nodes.get(item.nodeId);
+    return node ? [{ ...witness(node), reason: item.reason }] : [];
+  });
   // Whose state a path went through first, back from the read: a write there is a later write to the read's own state.
   // A write met only past a first value (another state that seeded this one) can still be that first value.
   const firstState = (via: readonly string[]) => via.find((step) => step !== "return") ?? null;
-  const writes = found.filter((p) => firstState(p.via) === "write");
   const handoffOf = (via: readonly string[]): HandoffKind => (via.includes("initialization") ? "initialization" : via.includes("return") ? "return" : "field");
-  // One expression reached by several handoffs is one producer; its handoff is named only when they agree.
-  const byValue = new Map<string, (typeof found)[number] & { kinds: Set<HandoffKind> }>();
+  // One expression reached by several handoffs is one candidate; its handoff is named only when they agree, and its caveats add up.
+  const byValue = new Map<string, { item: (typeof found)[number]; kinds: Set<HandoffKind>; caveats: StopWitness[] }>();
   for (const p of found.filter((item) => firstState(item.via) !== "write")) {
     const seen = byValue.get(p.nodeId);
-    if (seen) seen.kinds.add(handoffOf(p.via));
-    else byValue.set(p.nodeId, { ...p, kinds: new Set([handoffOf(p.via)]) });
+    const caveats = stopsAt(p.caveats);
+    if (seen) {
+      seen.kinds.add(handoffOf(p.via));
+      for (const c of caveats) if (!seen.caveats.some((o) => o.reason === c.reason && sameSpan(o.span, c.span) && o.file === c.file)) seen.caveats.push(c);
+    } else byValue.set(p.nodeId, { item: p, kinds: new Set([handoffOf(p.via)]), caveats });
   }
+  const candidates: ProducerCandidate[] = [...byValue.values()].map(({ item, kinds, caveats }) => ({
+    producer: witness(item.value, item.text),
+    handoff: { kind: kinds.size === 1 ? [...kinds][0] : "mixed", object: witness(item.object, item.packText) },
+    caveats,
+  }));
   const first = [...byValue.values()];
-  const none = { producer: null, alternatives: [], callers: [], boundary: null };
-  const stopAt = graph.producerStops.map((stop) => ({ stop, node: nodes.get(stop.nodeId) })).find((item) => !!item.node);
-  const boundary = stopAt ? { ...witness(stopAt.node!), reason: stopAt.stop.reason } : null;
-  if (first.length === 0) return { ...none, boundary };
-  if (first.length > 1 || graph.producersOpen) return { ...none, alternatives: first.map((p) => witness(p.value, p.text)), boundary };
-  const [only] = first;
-  if (only.status !== "proven") return none;
-  const kind: HandoffKind = only.kinds.size === 1 ? [...only.kinds][0] : "mixed";
+  const only = first.length === 1 && first[0].caveats.length === 0 && first[0].item.status === "proven" && !graph.producersOpen;
+  const initialized = first.some((p) => p.kinds.has("initialization"));
   return {
-    producer: {
-      field: only.field,
-      producer: witness(only.value, only.text),
-      handoff: { kind, object: witness(only.object, only.packText) },
-      laterWrites: only.kinds.has("initialization") ? writes.map((p) => witness(p.value, p.text)) : [],
-    },
-    alternatives: [],
-    callers: only.value.elementKind === "field-read" ? callersOf(graph, only.value) : [],
-    boundary: null,
+    field: found[0]?.field ?? null,
+    candidates,
+    only,
+    laterWrites: initialized ? found.filter((p) => firstState(p.via) === "write").map((p) => witness(p.value, p.text)) : [],
+    callers: first.length === 1 && first[0].item.value.elementKind === "field-read" ? callersOf(graph, first[0].item.value) : [],
+    stops: stopsAt(graph.producerStops),
   };
 }
 

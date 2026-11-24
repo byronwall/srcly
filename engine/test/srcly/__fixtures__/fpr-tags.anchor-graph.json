@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "b607e7de8349b697",
+ "programHash": "07b1a93ae28073b6",
  "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -1095,7 +1095,8 @@
    ],
    "status": "proven",
    "text": "props.note.tags.join(\" / \")",
-   "packText": "{ title: props.note.tags.join(\" / \") }"
+   "packText": "{ title: props.note.tags.join(\" / \") }",
+   "caveats": []
   },
   {
    "nodeId": "program-element:hyiweg",
@@ -1106,7 +1107,8 @@
    ],
    "status": "partial",
    "text": "event.currentTarget.value",
-   "packText": "\"title\""
+   "packText": "\"title\"",
+   "caveats": []
   }
  ],
  "producersOpen": false,

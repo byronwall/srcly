@@ -27,6 +27,8 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 //   @produces <ids> <via|none|*> [status]        a field producer on this line (`producers`)
 //   @no-produces <ids>                           the trace names no field producer
 //   @produces-open <ids>                         a path that may fill the field ends with no producer (`producersOpen`)
+//   @caveat <ids> <reason>                       a producer on this line carries this caveat
+//   @no-caveat <ids>                             no producer on this line carries a caveat
 //
 // `@reaches` and `@stop` are exhaustive: a trace's every terminal and origin must be
 // claimed by a `@reaches`, and its every frontier and boundary by a `@stop`.
@@ -49,7 +51,7 @@ const example = (name: string) => fileURLToPath(new URL(`../../examples/${name}`
 // `value-flow-basics` is typed; `value-flow-js` is actual JavaScript, kept apart so a `.ts` twin cannot stand in for a `.js` file.
 // `value-flow-loose` has a jsconfig with `strictNullChecks` off, and `value-flow-bare` has no config at all.
 const ROOTS = ["value-flow-basics", "value-flow-js", "value-flow-loose", "value-flow-bare"];
-const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path", "produces", "no-produces", "produces-open"] as const;
+const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path", "produces", "no-produces", "produces-open", "caveat", "no-caveat"] as const;
 type Keyword = (typeof KEYWORDS)[number];
 type Annotation = { keyword: Keyword; args: string[]; label?: string; route?: [string, string]; rest: string; file: string; line: number; code: string };
 type Trace = { id: string; file: string; line: number; code: string; direction: string; text: string | null; symbol: string | null; claims: Annotation[] };
@@ -223,6 +225,13 @@ function check(trace: Trace, graph: AnchorGraphResult, source: (file: string) =>
   const openClaim = claims("produces-open").length > 0;
   if (openClaim && !graph.producersOpen) failures.push(`${trace.file}:${trace.line} @produces-open: every path that names the field ends at a producer`);
   if (!openClaim && produced.length && graph.producersOpen) failures.push(`${trace.file}:${trace.line} @produces: a path that may fill the field ends with no producer (claim @produces-open)`);
+  for (const claim of claims("caveat")) {
+    if (!producers.some((item) => sameLine(item.node, claim) && item.caveats.some((c) => c.reason === claim.args[0]))) failures.push(`${where(claim)} @caveat ${claim.args[0]}: no producer here carries it; the trace names ${producers.map((item) => `${describeProducer(item)} [${item.caveats.map((c) => c.reason).join(",")}]`).join(", ") || "none"}`);
+  }
+  for (const claim of claims("no-caveat")) {
+    const hit = producers.filter((item) => sameLine(item.node, claim) && item.caveats.length);
+    if (hit.length) failures.push(`${where(claim)} @no-caveat: ${hit.map((item) => `${describeProducer(item)} [${item.caveats.map((c) => c.reason).join(",")}]`).join(", ")}`);
+  }
   for (const claim of claims("no-produces")) if (producers.length) failures.push(`${where(claim)} @no-produces: the trace names ${producers.map(describeProducer).join(", ")}`);
   return failures;
 }

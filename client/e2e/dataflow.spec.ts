@@ -661,7 +661,8 @@ test.describe("the trace question names a field's producer", () => {
     await expect(card.locator('[data-trace-handoff="return"]')).toContainText("field-producers.tsx:12");
     await expect(card.locator("[data-trace-scope]")).toContainText("No runtime value history");
     await shot(page, "trace-question-returned-producer");
-    await card.locator("[data-trace-producer] [data-trace-witness]").click();
+    await expect(card.locator('[data-trace-producers="only"]')).toBeVisible();
+    await card.locator("[data-trace-producer] [data-trace-witness]").first().click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.locator("span.line").filter({ hasText: "LOADED_TITLE" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -674,8 +675,18 @@ test.describe("the trace question names a field's producer", () => {
     await expect(card.locator("[data-trace-producer]")).toContainText("props.note.title", { timeout: 60_000 });
     await expect(card.locator('[data-trace-handoff="initialization"]')).toContainText("NoteView.tsx:7");
     await expect(card.locator("[data-trace-later-write]")).toContainText("event.currentTarget.value");
+    await expect(card.locator('[data-trace-producers="only"]')).toContainText("initial value");
     await expect(card.locator("[data-trace-producer]")).not.toContainText("tags");
     await shot(page, "trace-question-store-initialization");
+  });
+
+  test("a changed object's first value is a candidate with its caveat, never the only producer", async ({ page }) => {
+    await page.goto(url({ repo: basics, view: "graph", anchor: "src/field-producers-limits.tsx:204:14-204:28", dir: "backward" }));
+    const card = question(page);
+    await expect(card.locator('[data-trace-producers="1"]')).toContainText("Producer candidate", { timeout: 60_000 });
+    await expect(card.locator("[data-trace-producer]")).toContainText('"OLD"');
+    await expect(card.locator('[data-trace-caveat="mutable"]').first()).toBeVisible();
+    await shot(page, "trace-question-caveat");
   });
 
   test("S12: the rendered accent's first screen names its fallback producer", async ({ page }) => {

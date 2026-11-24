@@ -696,6 +696,14 @@ class AnchorLink(BaseModel):
     kind: Literal["calls", "reads", "writes"]
 
 
+ProducerStopReason = Literal["receiver", "no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
+
+
+class AnchorProducerStop(BaseModel):
+    nodeId: str
+    reason: ProducerStopReason
+
+
 class AnchorProducer(BaseModel):
     nodeId: str
     packNodeId: str
@@ -704,11 +712,9 @@ class AnchorProducer(BaseModel):
     status: Literal["proven", "partial"]
     text: str
     packText: str
+    caveats: list[AnchorProducerStop]
 
 
-class AnchorProducerStop(BaseModel):
-    nodeId: str
-    reason: Literal["no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
 
 
 class AnchorGraphResult(BaseModel):

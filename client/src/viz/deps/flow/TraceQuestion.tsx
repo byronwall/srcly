@@ -1,8 +1,6 @@
 import { For, Match, Show, Switch } from "solid-js";
-import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
-import type { AnchorQuestion, FieldProducerAnswer, HandoffKind, NamedWitness, TraceWitness, routeQuestion } from "./traceQuestionModel";
+import type { AnchorQuestion, HandoffKind, NamedWitness, ProducerCandidate, StopReason, TraceWitness, routeQuestion } from "./traceQuestionModel";
 
-type StopReason = AnchorGraphResult["producerStops"][number]["reason"];
 
 const DIRECTIONS = { backward: "Where it comes from", forward: "Where it goes", both: "Where it comes from and goes" };
 
@@ -24,7 +22,7 @@ function Witness(props: { witness: TraceWitness; onOpen: (path: string, line: nu
 function Named(props: { witness: NamedWitness; onOpen: (path: string, line: number) => void; label?: string }) {
   return (
     <div>
-      <code class="whitespace-pre-wrap break-all">{props.witness.text}</code>
+      <code class="block whitespace-pre-wrap break-all">{props.witness.text}</code>
       <Witness witness={props.witness} onOpen={props.onOpen} label={props.label ?? "Open"} />
     </div>
   );
@@ -37,22 +35,55 @@ const HANDOFF: Record<HandoffKind, (field: string) => string> = {
   mixed: (field) => `Several handoffs carry this ${field} to the read: returned on one path, a store's first value or an object's field on another.`,
 };
 
-function Producer(props: { answer: FieldProducerAnswer; onOpen: (path: string, line: number) => void }) {
+/** One candidate: its expression, the handoff that carries it to the read, and why it may not be what the read sees. */
+function Candidate(props: { candidate: ProducerCandidate; field: string; onOpen: (path: string, line: number) => void }) {
+  return (
+    <div class="mt-2 border-t border-[var(--plc-divider)] pt-2 first-of-type:border-t-0 first-of-type:pt-0" data-trace-producer data-trace-caveats={props.candidate.caveats.length}>
+      <Named witness={props.candidate.producer} onOpen={props.onOpen} />
+      <div class="mt-1" data-trace-handoff={props.candidate.handoff.kind}>
+        <p class="text-[var(--plc-on-muted)]">{HANDOFF[props.candidate.handoff.kind](props.field)}</p>
+        <Witness witness={props.candidate.handoff.object} onOpen={props.onOpen} label="Open handoff" />
+      </div>
+      <Show when={props.candidate.caveats.length}>
+        <ul class="mt-1 list-disc pl-4 text-[var(--plc-on-muted)]">
+          {/* One line per reason, with a link to each place it applies. */}
+          <For each={[...new Set(props.candidate.caveats.map((caveat) => caveat.reason))]}>
+            {(reason) => (
+              <li data-trace-caveat={reason}>
+                May not hold: {STOP_WORDS[reason]}
+                <For each={props.candidate.caveats.filter((caveat) => caveat.reason === reason)}>
+                  {(caveat) => <div><Witness witness={caveat} onOpen={props.onOpen} /></div>}
+                </For>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
+    </div>
+  );
+}
+
+function Producers(props: { question: AnchorQuestion; onOpen: (path: string, line: number) => void }) {
+  const field = () => props.question.field ?? "the field";
   return (
     <>
-      <p class="mt-2 font-semibold">{props.answer.handoff.kind === "initialization" ? "Proven producer · initial value" : "Proven producer"}</p>
-      <div data-trace-producer>
-        <Named witness={props.answer.producer} onOpen={props.onOpen} />
-      </div>
-      <p class="mt-2 font-semibold">Proven handoff</p>
-      <div data-trace-handoff={props.answer.handoff.kind}>
-        <p class="text-[var(--plc-on-muted)]">{HANDOFF[props.answer.handoff.kind](props.answer.field)}</p>
-        <Witness witness={props.answer.handoff.object} onOpen={props.onOpen} label="Open handoff" />
-      </div>
-      <Show when={props.answer.laterWrites.length}>
-        <p class="mt-2 font-semibold">Later writes to {props.answer.field}</p>
+      <p class="mt-2 font-semibold" data-trace-producers={props.question.only ? "only" : props.question.candidates.length}>
+        {props.question.only
+          ? `Producer · the only one found${props.question.candidates[0].handoff.kind === "initialization" ? " · initial value" : ""}`
+          : props.question.candidates.length === 1 ? "Producer candidate" : `Producer candidates · ${props.question.candidates.length}`}
+      </p>
+      <Show when={!props.question.only}>
+        <p class="text-[var(--plc-on-muted)]">
+          {props.question.candidates.length === 1
+            ? `This can fill ${field()}, but the static source does not settle that the read sees it.`
+            : `Each can fill ${field()}. The static source does not settle which value this read sees.`}
+        </p>
+      </Show>
+      <For each={props.question.candidates}>{(candidate) => <Candidate candidate={candidate} field={field()} onOpen={props.onOpen} />}</For>
+      <Show when={props.question.laterWrites.length}>
+        <p class="mt-2 font-semibold">Later writes to {field()}</p>
         <p class="text-[var(--plc-on-muted)]">Code that can replace the first value. Not observed updates.</p>
-        <For each={props.answer.laterWrites}>
+        <For each={props.question.laterWrites}>
           {(write) => <div data-trace-later-write><Named witness={write} onOpen={props.onOpen} /></div>}
         </For>
       </Show>
@@ -61,6 +92,7 @@ function Producer(props: { answer: FieldProducerAnswer; onOpen: (path: string, l
 }
 
 const STOP_WORDS: Record<StopReason, string> = {
+  receiver: "This is a method: another object's method of the same name may run for this call.",
   "no-return": "No source in the analysis returns a value into this call, so the field's value past it is not known.",
   "dead-end": "The field's path ends here: its value comes from outside what the analysis can follow.",
   missing: "This object has no own field with this name, so on this path the value comes from its prototype or is undefined.",
@@ -91,17 +123,12 @@ export function TraceQuestion(props: {
           <p><code class="break-all">{a().expression}</code></p>
           <Show when={a().fieldRead}>{(read) => (
             <>
-              <p class="mt-1 font-semibold" data-trace-direct-read>{a().producer ? "Read" : "Direct field read"}</p>
+              <p class="mt-1 font-semibold" data-trace-direct-read>{a().candidates.length ? "Read" : "Direct field read"}</p>
               <Witness witness={read()} onOpen={props.onOpen} label="Open read" />
               <Show when={a().direction !== "forward"}>
-                <Switch fallback={<p class="mt-1 text-[var(--plc-on-muted)]" data-trace-no-producer>The proof here identifies this read, not the field’s earlier producer.</p>}>
-                  <Match when={a().producer}>{(answer) => <Producer answer={answer()} onOpen={props.onOpen} />}</Match>
-                  <Match when={a().alternatives.length}>
-                    <p class="mt-2 font-semibold" data-trace-ambiguous>No single producer</p>
-                    <p class="text-[var(--plc-on-muted)]">Each of these fills the field on one path. Another path can fill it too, so the source does not prove which value this read sees.</p>
-                    <For each={a().alternatives}>{(item) => <Named witness={item} onOpen={props.onOpen} />}</For>
-                  </Match>
-                </Switch>
+                <Show when={a().candidates.length} fallback={<p class="mt-1 text-[var(--plc-on-muted)]" data-trace-no-producer>The proof here identifies this read, not the field’s earlier producer.</p>}>
+                  <Producers question={a()} onOpen={props.onOpen} />
+                </Show>
                 <Show when={a().callers.length}>
                   <div data-trace-callers={a().callers.length}>
                     <p class="mt-2 font-semibold">Shared component · {a().callers.length} call sites</p>
@@ -109,14 +136,18 @@ export function TraceQuestion(props: {
                     <For each={a().callers}>{(site) => <Named witness={site} onOpen={props.onOpen} label="Open call site" />}</For>
                   </div>
                 </Show>
-                <Show when={a().boundary}>{(call) => (
-                  <div data-trace-boundary={call().reason}>
-                    <p class="mt-2 font-semibold">{call().reason === "no-return" ? "Stops at a call" : "Stops here"}</p>
-                    <p class="text-[var(--plc-on-muted)]">{STOP_WORDS[call().reason]}</p>
-                    <Named witness={call()} onOpen={props.onOpen} />
-                  </div>
-                )}</Show>
-                <Show when={a().producer}>
+                <Show when={a().stops.length}>
+                  <p class="mt-2 font-semibold">{a().candidates.length ? "Other paths end without a producer" : a().stops[0].reason === "no-return" ? "Stops at a call" : "Stops here"}</p>
+                  <For each={a().stops.slice(0, 3)}>
+                    {(stop) => (
+                      <div data-trace-boundary={stop.reason}>
+                        <p class="text-[var(--plc-on-muted)]">{STOP_WORDS[stop.reason]}</p>
+                        <Named witness={stop} onOpen={props.onOpen} />
+                      </div>
+                    )}
+                  </For>
+                </Show>
+                <Show when={a().candidates.length}>
                   <p class="mt-2 text-[10.5px] text-[var(--plc-on-disabled)]" data-trace-scope>Scope: static source relationship. No runtime value history. Writes through another name for the object are not tracked.</p>
                 </Show>
                 <Show when={a().context}>{(context) => (
