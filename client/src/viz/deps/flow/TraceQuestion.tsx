@@ -22,7 +22,7 @@ function Witness(props: { witness: TraceWitness; onOpen: (path: string, line: nu
 function Named(props: { witness: NamedWitness; onOpen: (path: string, line: number) => void; label?: string }) {
   return (
     <div>
-      <code class="whitespace-pre-wrap break-all">{props.witness.text}</code>
+      <code class="block whitespace-pre-wrap break-all">{props.witness.text}</code>
       <Witness witness={props.witness} onOpen={props.onOpen} label={props.label ?? "Open"} />
     </div>
   );
@@ -38,7 +38,7 @@ const HANDOFF: Record<HandoffKind, (field: string) => string> = {
 /** One candidate: its expression, the handoff that carries it to the read, and why it may not be what the read sees. */
 function Candidate(props: { candidate: ProducerCandidate; field: string; onOpen: (path: string, line: number) => void }) {
   return (
-    <div class="mt-1" data-trace-producer data-trace-caveats={props.candidate.caveats.length}>
+    <div class="mt-2 border-t border-[var(--plc-divider)] pt-2 first-of-type:border-t-0 first-of-type:pt-0" data-trace-producer data-trace-caveats={props.candidate.caveats.length}>
       <Named witness={props.candidate.producer} onOpen={props.onOpen} />
       <div class="mt-1" data-trace-handoff={props.candidate.handoff.kind}>
         <p class="text-[var(--plc-on-muted)]">{HANDOFF[props.candidate.handoff.kind](props.field)}</p>
@@ -46,11 +46,14 @@ function Candidate(props: { candidate: ProducerCandidate; field: string; onOpen:
       </div>
       <Show when={props.candidate.caveats.length}>
         <ul class="mt-1 list-disc pl-4 text-[var(--plc-on-muted)]">
-          <For each={props.candidate.caveats}>
-            {(caveat) => (
-              <li data-trace-caveat={caveat.reason}>
-                May not hold: {STOP_WORDS[caveat.reason]}
-                <Witness witness={caveat} onOpen={props.onOpen} />
+          {/* One line per reason, with a link to each place it applies. */}
+          <For each={[...new Set(props.candidate.caveats.map((caveat) => caveat.reason))]}>
+            {(reason) => (
+              <li data-trace-caveat={reason}>
+                May not hold: {STOP_WORDS[reason]}
+                <For each={props.candidate.caveats.filter((caveat) => caveat.reason === reason)}>
+                  {(caveat) => <div><Witness witness={caveat} onOpen={props.onOpen} /></div>}
+                </For>
               </li>
             )}
           </For>
@@ -67,10 +70,14 @@ function Producers(props: { question: AnchorQuestion; onOpen: (path: string, lin
       <p class="mt-2 font-semibold" data-trace-producers={props.question.only ? "only" : props.question.candidates.length}>
         {props.question.only
           ? `Producer · the only one found${props.question.candidates[0].handoff.kind === "initialization" ? " · initial value" : ""}`
-          : `Producer candidates · ${props.question.candidates.length}`}
+          : props.question.candidates.length === 1 ? "Producer candidate" : `Producer candidates · ${props.question.candidates.length}`}
       </p>
       <Show when={!props.question.only}>
-        <p class="text-[var(--plc-on-muted)]">Each can fill {field()}. The static source does not settle which value this read sees.</p>
+        <p class="text-[var(--plc-on-muted)]">
+          {props.question.candidates.length === 1
+            ? `This can fill ${field()}, but the static source does not settle that the read sees it.`
+            : `Each can fill ${field()}. The static source does not settle which value this read sees.`}
+        </p>
       </Show>
       <For each={props.question.candidates}>{(candidate) => <Candidate candidate={candidate} field={field()} onOpen={props.onOpen} />}</For>
       <Show when={props.question.laterWrites.length}>

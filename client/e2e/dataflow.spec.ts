@@ -683,7 +683,7 @@ test.describe("the trace question names a field's producer", () => {
   test("a changed object's first value is a candidate with its caveat, never the only producer", async ({ page }) => {
     await page.goto(url({ repo: basics, view: "graph", anchor: "src/field-producers-limits.tsx:204:14-204:28", dir: "backward" }));
     const card = question(page);
-    await expect(card.locator('[data-trace-producers="1"]')).toContainText("Producer candidates", { timeout: 60_000 });
+    await expect(card.locator('[data-trace-producers="1"]')).toContainText("Producer candidate", { timeout: 60_000 });
     await expect(card.locator("[data-trace-producer]")).toContainText('"OLD"');
     await expect(card.locator('[data-trace-caveat="mutable"]').first()).toBeVisible();
     await shot(page, "trace-question-caveat");
