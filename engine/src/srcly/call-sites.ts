@@ -37,14 +37,17 @@ export function createCallSiteIndex(tier1: TsTier1) {
     const names = new Set([name]);
     for (let size = 0; size !== names.size; ) {
       size = names.size;
+      // Every file's imports and exports: an importer may name it only by its alias (`import choose from "./barrel"`).
       for (const file of files) {
-        if (![...names].some((each) => file.text.includes(each))) continue;
-        const aliases = (node: TypeScript.Node) => {
-          const local = ts.isImportSpecifier(node) || ts.isExportSpecifier(node) || ts.isImportClause(node) ? node.name : undefined;
-          if (local && !names.has(local.text) && resolve(checker.getSymbolAtLocation(local)) === symbol) names.add(local.text);
-          ts.forEachChild(node, aliases);
-        };
-        aliases(file);
+        for (const statement of file.statements) {
+          if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+          const aliases = (node: TypeScript.Node) => {
+            const local = ts.isImportSpecifier(node) || ts.isExportSpecifier(node) || ts.isImportClause(node) ? node.name : undefined;
+            if (local && !names.has(local.text) && resolve(checker.getSymbolAtLocation(local)) === symbol) names.add(local.text);
+            ts.forEachChild(node, aliases);
+          };
+          aliases(statement);
+        }
       }
     }
     let handed = false;

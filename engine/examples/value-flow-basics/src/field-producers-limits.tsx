@@ -74,12 +74,12 @@ export function SignalSeed() {
   return <p>{sig().title}</p>; // @trace fpl-signal backward sig().title
 }
 
-// The seed handed to the setter again: its first value and its later write both stay.
+// The seed handed to the setter again: an object passed to a call may be changed there, so no producer is the answer.
 export function ReusedSeed() {
-  const v = { title: "REUSED" }; // @produces fpl-reused initialization proven @produces fpl-reused write partial
+  const v = { title: "REUSED" };
   const [s, setS] = createStore(v);
   setS(v);
-  return <p>{s.title}</p>; // @trace fpl-reused backward s.title
+  return <p>{s.title}</p>; // @trace fpl-reused backward s.title @no-produces fpl-reused @produces-open fpl-reused
 }
 
 // One helper, two calls on two branches: the walk cannot tell which call's argument the parameter holds.
@@ -242,4 +242,41 @@ function second(_a: { title: string }, b: { title: string }) {
 export function SpreadArgs() {
   const pair: [{ title: string }] = [{ title: "ONE" }];
   return <p>{second(...pair, { title: "TWO" })}</p>;
+}
+
+// Every branch returns: the function never ends without a return.
+function either(ok: boolean) {
+  if (ok) {
+    return { title: "A" }; // @produces fpl-either return proven
+  } else {
+    return { title: "B" }; // @produces fpl-either return proven
+  }
+}
+export function Either(props: { ok: boolean }) {
+  const got = either(props.ok);
+  return <p>{got.title}</p>; // @trace fpl-either backward got.title
+}
+
+// An async function's call is a promise: its returned object's field is the field only once awaited.
+async function loadStatus() {
+  return { status: "READY" };
+}
+export function Pending() {
+  const pending = loadStatus();
+  return <p>{String((pending as unknown as { status: string }).status)}</p>;
+}
+export async function Awaited() {
+  const done = await loadStatus();
+  return done.status; // @trace fpl-awaited backward done.status
+}
+export function PendingRead() {
+  const pending = loadStatus() as unknown as { status: string };
+  return <p>{pending.status}</p>; // @trace fpl-pending backward pending.status @no-produces fpl-pending
+}
+
+// A plain object seed of a state that can also take a function: that object is the first value.
+export function ObjectSeed() {
+  const [draft, setDraft] = useState({ title: "FIRST" }); // @produces fpl-object-seed initialization proven
+  // @trace fpl-object-seed backward draft.title @produces fpl-object-seed write partial
+  return <input value={draft.title} onInput={() => setDraft({ title: "NEXT" })} />;
 }

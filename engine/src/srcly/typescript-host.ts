@@ -30,6 +30,20 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
    * written through any access chain (`=`, compound, `++`, `delete`), passed
    * as `Object.assign`'s target, handed whole to another name, or exported.
    */
+  /** A target inside a destructuring assignment's pattern (`[doc.note.title] = …`). */
+  const destructuredTarget = (target: TypeScript.Node) => {
+    let node = target;
+    while (ts.isArrayLiteralExpression(node.parent) || ts.isObjectLiteralExpression(node.parent) || ts.isPropertyAssignment(node.parent) || ts.isShorthandPropertyAssignment(node.parent) || ts.isSpreadElement(node.parent) || ts.isSpreadAssignment(node.parent)) node = node.parent;
+    return node !== target && ts.isBinaryExpression(node.parent) && node.parent.left === node && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+  };
+  /** Whether running every statement in order always returns or throws. */
+  const endsAlways = (statement: TypeScript.Statement | undefined): boolean => {
+    if (!statement) return false;
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+    if (ts.isBlock(statement)) return endsAlways(statement.statements.at(-1));
+    if (ts.isIfStatement(statement)) return !!statement.elseStatement && endsAlways(statement.thenStatement) && endsAlways(statement.elseStatement);
+    return false;
+  };
   const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
     if (!ts.isIdentifier(declaration.name)) return true;
     const name = declaration.name;
@@ -42,8 +56,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       return top;
     };
     const changes = (use: TypeScript.Identifier) => {
-      const up0 = use.parent;
-      if (ts.isExportSpecifier(up0) || ts.isExportAssignment(up0)) return true;
+      if (ts.isExportAssignment(use.parent)) return true;
       // `x.a.b`, `x["a"]`: the access chain that starts at this use.
       let top: TypeScript.Node = unwrap(use);
       while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
@@ -51,16 +64,18 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const assigned = ts.isBinaryExpression(up) && up.left === top && up.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && up.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
       const stepped = (ts.isPrefixUnaryExpression(up) || ts.isPostfixUnaryExpression(up)) && (up.operator === ts.SyntaxKind.PlusPlusToken || up.operator === ts.SyntaxKind.MinusMinusToken);
       const whole = top === unwrap(use);
-      if (!whole && (assigned || stepped || ts.isDeleteExpression(up))) return true;
-      if (ts.isCallExpression(up) && up.arguments[0] === top && up.expression.getText() === "Object.assign") return true;
-      // Handed whole to another name.
-      if (whole && ts.isVariableDeclaration(up) && up.initializer === top) return true;
-      return whole && ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+      if (!whole && (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top))) return true;
+      // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
+      if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
+      if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
+      return ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
     };
     let found = false;
     const visit = (node: TypeScript.Node) => {
       if (found) return;
-      if (ts.isIdentifier(node) && node !== name && node.text === name.text && checker.getSymbolAtLocation(node) === symbol && changes(node)) found = true;
+      // `export { state }` hands it to every importer, which may change it.
+      if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
+      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && checker.getSymbolAtLocation(node) === symbol && changes(node)) found = true;
       else ts.forEachChild(node, visit);
     };
     // A local binding is used only in its own file; an exported one may be changed anywhere.
@@ -95,10 +110,12 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (!at) return true;
       // The element may sit on the name or on its whole declaration.
       const node = ts.isIdentifier(at.node) ? at.node.parent : at.node;
-      // An argument at or after a spread (`f(...pair, x)`) is not at the position the binding names.
-      const call = at.node.parent;
+      // An argument at or after a spread (`f(...pair, x)`) is not at the position the binding names; the evidence may sit inside `x as T`.
+      let argument: TypeScript.Node = at.node;
+      while (ts.isAsExpression(argument.parent) || ts.isSatisfiesExpression(argument.parent) || ts.isParenthesizedExpression(argument.parent) || ts.isNonNullExpression(argument.parent) || ts.isTypeAssertionExpression(argument.parent)) argument = argument.parent;
+      const call = argument.parent;
       if ((ts.isCallExpression(call) || ts.isNewExpression(call)) && call.arguments) {
-        const index = call.arguments.indexOf(at.node as TypeScript.Expression);
+        const index = call.arguments.indexOf(argument as TypeScript.Expression);
         if (index >= 0 && call.arguments.slice(0, index + 1).some((argument) => ts.isSpreadElement(argument))) return true;
       }
       // A function that declares `this` binds its arguments one place over.
@@ -132,9 +149,17 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const fn = node as TypeScript.SignatureDeclaration & { body?: TypeScript.Node; asteriskToken?: TypeScript.AsteriskToken };
       // A generator's value is an iterator, not what it returns; a block body whose end can be reached also returns undefined.
       if (fn.asteriskToken) return true;
+      // An async function's call is a promise: what it returns is the field only once awaited.
+      if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
       if (!fn.body || !ts.isBlock(fn.body)) return false;
-      const last = fn.body.statements.at(-1);
-      return !last || !(ts.isReturnStatement(last) || ts.isThrowStatement(last));
+      return !endsAlways(fn.body);
+    },
+    awaited(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      let node: TypeScript.Node = at.node;
+      while (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
+      return ts.isAwaitExpression(node.parent);
     },
     mutable(file, span) {
       const at = nodeAt(file, span);

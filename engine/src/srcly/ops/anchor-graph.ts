@@ -213,6 +213,7 @@ class AnchorGraphBuilder {
           mutable: (pack) => this.host.mutable?.(pack.location.file, pack.location.span) ?? false,
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
+          awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
         }));
       }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);

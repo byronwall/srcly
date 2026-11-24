@@ -63,8 +63,10 @@ export type ProducerHooks = {
   mutable(pack: ProgramElement): boolean;
   /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
   mutatedBinding(binding: ProgramElement): boolean;
-  /** A return that may not be all the call yields (`LanguageHost.returnUnsure`). */
-  returnUnsure(ret: ProgramElement): boolean;
+  /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
+  returnUnsure(ret: ProgramElement): boolean | "async";
+  /** A call awaited where it is made (`LanguageHost.awaited`). */
+  awaited(call: ProgramElement): boolean;
 };
 
 const MAX_WORK = 4000;
@@ -131,6 +133,30 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   };
 
   type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean };
+  /** Why one step back from `current` to `target` cannot carry the field exactly, and where to say so; null when it can. */
+  const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath): ProducerStop | null => {
+    const at = (elementId: string, reason: ProducerStopReason) => ({ elementId, reason });
+    // A field read pushes exactly its field; a path too deep to hold it no longer names the field.
+    if (relation.kind === "field-input" && (path.length !== item.path.length + 1 || path.slice(0, -1).join(".") !== item.path.join("."))) return at(current.id, "widened");
+    if (item.path.length === 0) return null;
+    // Into a caller's argument: only the function's one call site says which value the parameter holds.
+    if (relation.kind === "argument-binding" && !hooks.oneCaller(current)) return at(current.id, "callers");
+    // A destructured or defaulted binding, or a shifted argument, may hold another field or the default.
+    if (hooks.unsureBinding(target) || (relation.kind === "argument-binding" && hooks.unsureBinding(current))) return at(target.id, "binding");
+    // A binding whose object the code changes holds more than what was bound to it.
+    if ((target.kind === "alias" || target.kind === "parameter") && hooks.mutatedBinding(target)) return at(target.id, "mutable");
+    // Into a function's return (a call's, or a lazy initial value's): only if that return is all the function can yield.
+    if (target.kind === "return") {
+      const unsure = hooks.returnUnsure(target);
+      if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
+    }
+    if (isState(target.id) && throughState(relation.proof.kind)) {
+      // A getter read without its call (`get.length`) reads the function; a store hook called with a selector reads what the selector picks.
+      if (current.kind === "call" && incoming(current.id).some((other) => other.kind === "argument")) return at(current.id, "accessor");
+    }
+    if (current.kind !== "call" && isState(target.id) && hooks.callable(target)) return at(current.id, "accessor");
+    return null;
+  };
   const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false }];
   const seen = new Set<string>([`${seedId}||`]);
   const found = new Map<string, FieldProducer>();
@@ -157,7 +183,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     }
     let continued = false;
     // A call that no return or modelled result enters (only its arguments and its callee): its value comes from outside.
-    if (named && current.kind === "call" && incoming(item.id).every((relation) => relation.kind === "argument" || (relation.kind === "references" && byId.has(relation.from) && within(byId.get(relation.from)!, current)))) {
+    if (named && current.kind === "call" && incoming(item.id).every((relation) => relation.kind === "argument" || relation.kind === "carrier" || (relation.kind === "references" && byId.has(relation.from) && within(byId.get(relation.from)!, current)))) {
       stop(item, current.id, "no-return");
       continue;
     }
@@ -187,38 +213,13 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       }
       const step: ProducerVia | null = init ? "initialization" : throughState(relation.proof.kind) && relation.status !== "proven" && isState(item.id) ? "write" : relation.kind === "return-value" || relation.kind === "return-expression" ? "return" : null;
       const via = step && item.via.at(-1) !== step ? [...item.via, step] : item.via;
-      // A field read pushes exactly its field; a path too deep to hold it no longer names the field.
-      if (relation.kind === "field-input" && (path.length !== item.path.length + 1 || path.slice(0, -1).join(".") !== item.path.join("."))) {
-        stop({ via }, current.id, "widened");
-        continue;
-      }
-      // Into a caller's argument: only the function's one call site says which value the parameter holds.
-      if (named && relation.kind === "argument-binding" && !hooks.oneCaller(current)) {
-        stop({ via }, current.id, "callers");
-        continue;
-      }
-      // A destructured or defaulted binding may hold another field, or the default: the evidence names one value for it.
-      if (named && (hooks.unsureBinding(target) || (relation.kind === "argument-binding" && hooks.unsureBinding(current)))) {
-        stop({ via }, target.id, "binding");
-        continue;
-      }
-      // A binding whose object the code changes holds more than what was bound to it.
-      if (named && (target.kind === "alias" || target.kind === "parameter") && hooks.mutatedBinding(target)) {
-        stop({ via }, target.id, "mutable");
-        continue;
-      }
-      // Into a callee's return: only if that return is all the call can yield.
-      if (named && relation.kind === "return-value" && hooks.returnUnsure(target)) {
-        stop({ via }, target.id, "fallthrough");
+      const block = blocked(relation, item, current, target, path);
+      if (block) {
+        stop({ via }, block.elementId, block.reason);
         continue;
       }
       // A read out of a state (a getter's call, the store itself) is as sure as the first value it reads: only its time is not proven.
       const stateRead = throughState(relation.proof.kind) && isState(target.id);
-      // A getter read without its call (`get.length`) reads the function, not the state.
-      if (named && current.kind !== "call" && isState(target.id) && hooks.callable(target)) {
-        stop({ via }, current.id, "accessor");
-        continue;
-      }
       const assumed = proofStrength(relation.proof.kind) === "assumed";
       const partial = item.partial || assumed || (!init && !stateRead && relation.status !== "proven");
       if (relation.kind === "pack-field" && named) {

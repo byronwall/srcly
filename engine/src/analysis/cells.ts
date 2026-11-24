@@ -430,9 +430,11 @@ export function pairRole(handle: CellHandle | null): PairRole | null {
 export function seedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): TypeScript.Expression | null {
   const imported = importedCallee(ts, checker, call.expression);
   const row = imported ? cellRow(imported.module, imported.name) : null;
-  if (!row || !pairShaped(row) || !cellHas(row, "init", "Argument[0]") || callsInitialValue(row)) return null;
+  if (!row || !pairShaped(row) || !cellHas(row, "init", "Argument[0]")) return null;
   const pair = call.parent;
   const seed = call.arguments[0];
+  // A factory that calls a function initial value (`useState(fn)`) still holds an object literal as it is.
+  if (callsInitialValue(row) && !(seed && ts.isObjectLiteralExpression(unwrap(ts, seed)))) return null;
   // A function held as the state is found through its call (`make()()`), so it keeps its argument edge.
   if (!seed || ts.isSpreadElement(seed) || ts.isArrowFunction(seed) || ts.isFunctionExpression(seed)) return null;
   return ts.isVariableDeclaration(pair) && pair.initializer === call && ts.isArrayBindingPattern(pair.name) ? seed : null;
