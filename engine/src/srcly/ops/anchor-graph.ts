@@ -8,7 +8,7 @@ import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
-import { fieldProducers, type FieldProducer } from "../field-producers";
+import { fieldProducers, type FieldProducer, type ProducerStop } from "../field-producers";
 import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords, useWords } from "../anchor-words";
@@ -123,7 +123,7 @@ class AnchorGraphBuilder {
   private producerFacts: FieldProducer[] = [];
   /** A path that may fill the field ended without a producer (`FieldProducers.open`), and where. */
   private producersOpen = false;
-  private producerStopFacts: string[] = [];
+  private producerStopFacts: ProducerStop[] = [];
   /** A declaration anchor's own returns: where a body run hands on to the return's run. */
   private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
@@ -204,6 +204,9 @@ class AnchorGraphBuilder {
         ({ producers: this.producerFacts, open: this.producersOpen, stops: this.producerStopFacts } = fieldProducers(slice, seed, {
           members: (pack) => this.host.objectMembers?.(pack.location.file, pack.location.span) ?? null,
           oneCaller: (parameter) => singleCall(this.host.callSitesOf(parameter).sites),
+          unsureBinding: (element) => this.host.unsureBinding?.(element.location.file, element.location.span) ?? false,
+          stateFactory: (element) => this.host.stateFactory?.(element.location.file, element.location.span) ?? false,
+          callable: (element) => this.host.callable?.(element.location.file, element.location.span) ?? false,
         }));
       }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);
@@ -890,7 +893,9 @@ class AnchorGraphBuilder {
       links: this.links(nodes),
       producers: this.producers(),
       producersOpen: this.producersOpen,
-      producerStops: [...new Set(this.producerStopFacts.map((id) => this.resolve(id)))].filter((id) => this.nodes.has(id) && id !== this.anchorId),
+      producerStops: this.producerStopFacts
+        .map((stop) => ({ nodeId: this.resolve(stop.elementId), reason: stop.reason }))
+        .filter((stop, index, all) => this.nodes.has(stop.nodeId) && stop.nodeId !== this.anchorId && all.findIndex((other) => other.nodeId === stop.nodeId && other.reason === stop.reason) === index),
       origins: boxes.filter((node) => node.kind === "origin").map((node) => ({ nodeId: node.id, label: node.label, roles: this.originRoles.get(node.id) ?? [], status: node.status })),
       terminals: boxes.filter((node) => node.kind === "terminal").map((node) => ({ nodeId: node.id, label: node.label, roles: this.terminalRoles.get(node.id) ?? [], status: node.status })),
       counts: {

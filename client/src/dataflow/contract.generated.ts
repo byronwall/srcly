@@ -359,7 +359,10 @@ export type AnchorGraphResult = {
     packText: string;
   }[];
   producersOpen: boolean;
-  producerStops: string[];
+  producerStops: {
+    nodeId: string;
+    reason: "no-return" | "dead-end" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+  }[];
   origins: {
     nodeId: string;
     label: string;

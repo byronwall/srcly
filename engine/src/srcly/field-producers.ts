@@ -28,9 +28,21 @@ export type FieldProducers = {
    * later write's path never opens it.
    */
   open: boolean;
-  /** Where those open paths end, for the card to open. */
-  stops: string[];
+  /** Where those open paths end, and why, for the card to open. */
+  stops: ProducerStop[];
 };
+
+/**
+ * Why a path that may fill the field ends: a call nothing returns into
+ * (`no-return`), another end (`dead-end`), a step that widens to the whole
+ * value (`widened`), a spread or computed key (`unnamed-member`), an operand
+ * (`operand`), a function more than one call reaches (`callers`), a
+ * destructured or defaulted binding (`binding`), a function read without its
+ * call (`accessor`), a state factory with no initial value of its own
+ * (`factory`), a write into the read (`write`).
+ */
+export type ProducerStopReason = "no-return" | "dead-end" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+export type ProducerStop = { elementId: string; reason: ProducerStopReason };
 
 /** What the walk asks of the language host. */
 export type ProducerHooks = {
@@ -38,6 +50,12 @@ export type ProducerHooks = {
   members(pack: ProgramElement): (string | null)[] | null;
   /** Whether the function a parameter belongs to has exactly one call site, so its argument is the only value it holds. */
   oneCaller(parameter: ProgramElement): boolean;
+  /** A destructured or defaulted binding (`LanguageHost.unsureBinding`). */
+  unsureBinding(element: ProgramElement): boolean;
+  /** A state factory's call (`LanguageHost.stateFactory`). */
+  stateFactory(element: ProgramElement): boolean;
+  /** A function value (`LanguageHost.callable`): a signal's getter, whose own fields are not its state's. */
+  callable(element: ProgramElement): boolean;
 };
 
 const MAX_WORK = 4000;
@@ -107,17 +125,17 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false }];
   const seen = new Set<string>([`${seedId}||`]);
   const found = new Map<string, FieldProducer>();
-  const stops = new Set<string>();
+  const stops = new Map<string, ProducerStop>();
   let open = false;
   /** A path that may fill the field ends here; only a path to the read's first value leaves the answer open. */
-  const stop = (item: Pick<Item, "via">, at: string) => {
+  const stop = (item: Pick<Item, "via">, at: string, reason: ProducerStopReason) => {
     if (firstStateStep(item.via) === "write") return;
     open = true;
-    stops.add(at);
+    if (!stops.has(`${at}|${reason}`)) stops.set(`${at}|${reason}`, { elementId: at, reason });
   };
   for (let work = 0; queue.length; work += 1) {
     if (work >= MAX_WORK) {
-      open = true;
+      stop({ via: [] }, seedId, "budget");
       break;
     }
     const item = queue.shift()!;
@@ -125,49 +143,67 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (!current) continue;
     const named = item.path.length > 0;
     if (named && OPERATIONS.has(current.kind)) {
-      stop(item, current.id);
+      stop(item, current.id, "operand");
       continue;
     }
     let continued = false;
     for (const relation of incoming(item.id)) {
       const target = byId.get(relation.from);
       if (!target) continue;
-      // Before any field is named, only a step that keeps the value, or a field read, goes on.
-      if (!named && relation.kind !== "field-input" && !keepsIdentity(relation.kind)) continue;
+      // Before any field is named, only a step that keeps the value, or a field read, goes on; anything else (a member's write into the read) may supply it.
+      if (!named && relation.kind !== "field-input" && !keepsIdentity(relation.kind)) {
+        stop(item, current.id, "write");
+        continue;
+      }
       const path = stepFieldPath(item.path, relation, current, target, false, cache);
       if (path === null) continue;
       continued = true;
       const init = relation.proof.kind === "state-initialization";
       // The factory's call seeds the state too, as bookkeeping around its own initial value: that value is the first value.
-      if (init && incoming(item.id).some((other) => other !== relation && other.proof.kind === "state-initialization" && byId.has(other.from) && within(byId.get(other.from)!, target))) continue;
+      // With no initial value of its own (a reducer's), what the call's other arguments do is not the first value.
+      if (init && hooks.stateFactory(target)) {
+        if (!incoming(item.id).some((other) => other !== relation && other.proof.kind === "state-initialization" && byId.has(other.from) && within(byId.get(other.from)!, target))) stop(item, target.id, "factory");
+        continue;
+      }
       const step: ProducerVia | null = init ? "initialization" : throughState(relation.proof.kind) && relation.status !== "proven" && isState(item.id) ? "write" : relation.kind === "return-value" || relation.kind === "return-expression" ? "return" : null;
       const via = step && item.via.at(-1) !== step ? [...item.via, step] : item.via;
       // A field read pushes exactly its field; a path too deep to hold it no longer names the field.
       if (relation.kind === "field-input" && (path.length !== item.path.length + 1 || path.slice(0, -1).join(".") !== item.path.join("."))) {
-        stop({ via }, current.id);
+        stop({ via }, current.id, "widened");
         continue;
       }
       // Into a caller's argument: only the function's one call site says which value the parameter holds.
       if (named && relation.kind === "argument-binding" && !hooks.oneCaller(current)) {
-        stop({ via }, current.id);
+        stop({ via }, current.id, "callers");
         continue;
       }
-      // A read out of a state (a getter, the store itself) is as sure as the first value it reads: only its time is not proven.
+      // A destructured or defaulted binding may hold another field, or the default: the evidence names one value for it.
+      if (named && hooks.unsureBinding(target)) {
+        stop({ via }, target.id, "binding");
+        continue;
+      }
+      // A read out of a state (a getter's call, the store itself) is as sure as the first value it reads: only its time is not proven.
       const stateRead = throughState(relation.proof.kind) && isState(target.id);
+      // A getter read without its call (`get.length`) reads the function, not the state.
+      if (named && current.kind !== "call" && isState(target.id) && hooks.callable(target)) {
+        stop({ via }, current.id, "accessor");
+        continue;
+      }
       const assumed = proofStrength(relation.proof.kind) === "assumed";
       const partial = item.partial || assumed || (!init && !stateRead && relation.status !== "proven");
       if (relation.kind === "pack-field" && named) {
         const field = packedField(current, relation, cache);
         // Only a member named as the field the walk is after fills it; a spread or computed key may hold it, unless a later named member replaces it.
         if (field === SPREAD || field === null) {
-          if (!shadowed(current, item.path[item.path.length - 1])) stop({ via }, current.id);
+          if (!shadowed(current, item.path[item.path.length - 1])) stop({ via }, current.id, field === null ? "widened" : "unnamed-member");
+          continue;
+        }
+        // At every level, the member must be the field's own settled value.
+        if (field === item.path[item.path.length - 1] && !settled(current, field)) {
+          stop({ via }, current.id, "unnamed-member");
           continue;
         }
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
-          if (!settled(current, field)) {
-            stop({ via }, current.id);
-            continue;
-          }
           const key = `${target.id}|${current.id}|${via.join(",")}`;
           if (!found.has(key)) found.set(key, { elementId: target.id, packId: current.id, field, via, status: partial ? "partial" : "proven" });
           continue;
@@ -175,7 +211,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       }
       // A step that is not the field's own widened the path to the whole value: it no longer names the field.
       if (path.length === 0 && named) {
-        stop({ via }, current.id);
+        stop({ via }, current.id, "widened");
         continue;
       }
       const key = `${target.id}|${path.join(".")}|${via.join(",")}`;
@@ -185,7 +221,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     }
     // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside,
     // unless this is an object whose members are all named and none is the field.
-    if (named && !continued && !lacks(current, item.path[item.path.length - 1])) stop(item, current.id);
+    if (named && !continued && !lacks(current, item.path[item.path.length - 1])) stop(item, current.id, current.kind === "call" ? "no-return" : "dead-end");
   }
-  return { producers: [...found.values()], open, stops: [...stops] };
+  return { producers: [...found.values()], open, stops: [...stops.values()] };
 }

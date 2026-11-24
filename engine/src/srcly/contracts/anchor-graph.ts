@@ -146,7 +146,11 @@ export const anchorGraphResultSchema = z.strictObject({
    */
   producersOpen: z.boolean(),
   /** The drawn boxes where those open paths end (a call nothing returns into, a spread), for the card to open. */
-  producerStops: z.array(z.string()),
+  producerStops: z.array(z.strictObject({
+    nodeId: z.string(),
+    /** `ProducerStopReason` in `src/srcly/field-producers.ts`. */
+    reason: z.enum(["no-return", "dead-end", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]),
+  })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

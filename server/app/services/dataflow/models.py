@@ -706,6 +706,11 @@ class AnchorProducer(BaseModel):
     packText: str
 
 
+class AnchorProducerStop(BaseModel):
+    nodeId: str
+    reason: Literal["no-return", "dead-end", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
+
+
 class AnchorGraphResult(BaseModel):
     outcome: Outcome
     generation: int
@@ -721,7 +726,7 @@ class AnchorGraphResult(BaseModel):
     links: list[AnchorLink]
     producers: list[AnchorProducer]
     producersOpen: bool
-    producerStops: list[str]
+    producerStops: list[AnchorProducerStop]
     origins: list[AnchorOrigin]
     terminals: list[AnchorTerminal]
     counts: AnchorCounts

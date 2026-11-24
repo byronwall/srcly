@@ -130,3 +130,36 @@ export function SeededFromCall() {
   const [made] = createStore(makeNote());
   return <p>{made.title}</p>; // @trace fpl-made backward made.title
 }
+
+// A nested field written later: its first value is found, but it is not the answer (open).
+export function NestedWrite() {
+  const doc = { note: { title: "OLD" } }; // @produces fpl-nested-write none proven
+  doc.note.title = "NEW";
+  return <p>{doc.note.title}</p>; // @trace fpl-nested-write backward doc.note.title @produces-open fpl-nested-write
+}
+
+// A destructured parameter, or one with a default, holds a value the evidence does not name exactly.
+function readPayload({ payload }: { payload: { title: string }; title: string }) {
+  return payload.title; // @trace fpl-destructured backward payload.title @no-produces fpl-destructured @produces-open fpl-destructured
+}
+export function Destructured() {
+  return <p>{readPayload({ payload: { title: "INNER" }, title: "OUTER" })}</p>;
+}
+function show(note: { title: string } = { title: "DEFAULT" }) {
+  return note.title; // @trace fpl-default backward note.title @no-produces fpl-default @produces-open fpl-default
+}
+export function Defaulted() {
+  return <p>{show({ title: "GIVEN" })}</p>;
+}
+
+// A getter read without its call reads the function, not the signal's value.
+export function Arity() {
+  const [get] = createSignal({ length: 100 });
+  return <p>{get.length}</p>; // @trace fpl-arity backward get.length @no-produces fpl-arity
+}
+
+// A later computed member at an inner level keeps that level open.
+export function InnerComputed(props: { key: string }) {
+  const obj = { nested: { title: "OLD" }, [props.key]: { title: "NEW" } };
+  return <p>{obj.nested.title}</p>; // @trace fpl-inner-computed backward obj.nested.title @no-produces fpl-inner-computed @produces-open fpl-inner-computed
+}

@@ -31,10 +31,20 @@ export function createCallSiteIndex(tier1: TsTier1) {
     const calls: string[] = [];
     let escapes = false;
     const declarations = new Set(symbol.declarations ?? []);
+    // An import under another name (`import { id as renamed }`) calls it by that name too.
+    const names = new Set([name]);
     for (const file of files) {
       if (!file.text.includes(name)) continue;
+      const aliases = (node: TypeScript.Node) => {
+        if (ts.isImportSpecifier(node) && node.propertyName?.text === name && resolve(checker.getSymbolAtLocation(node.name)) === symbol) names.add(node.name.text);
+        ts.forEachChild(node, aliases);
+      };
+      aliases(file);
+    }
+    for (const file of files) {
+      if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {
-        if (ts.isIdentifier(node) && node.text === name && resolve(checker.getSymbolAtLocation(node)) === symbol) {
+        if (ts.isIdentifier(node) && names.has(node.text) && resolve(checker.getSymbolAtLocation(node)) === symbol) {
           const parent = node.parent;
           const isDeclarationName = declarations.has(parent as TypeScript.Declaration);
           const isImport = ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isExportSpecifier(parent);

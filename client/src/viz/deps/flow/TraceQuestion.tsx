@@ -1,5 +1,8 @@
 import { For, Match, Show, Switch } from "solid-js";
+import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { AnchorQuestion, FieldProducerAnswer, HandoffKind, NamedWitness, TraceWitness, routeQuestion } from "./traceQuestionModel";
+
+type StopReason = AnchorGraphResult["producerStops"][number]["reason"];
 
 const DIRECTIONS = { backward: "Where it comes from", forward: "Where it goes", both: "Where it comes from and goes" };
 
@@ -21,7 +24,7 @@ function Witness(props: { witness: TraceWitness; onOpen: (path: string, line: nu
 function Named(props: { witness: NamedWitness; onOpen: (path: string, line: number) => void; label?: string }) {
   return (
     <div>
-      <code class="break-all">{props.witness.text}</code>
+      <code class="whitespace-pre-wrap break-all">{props.witness.text}</code>
       <Witness witness={props.witness} onOpen={props.onOpen} label={props.label ?? "Open"} />
     </div>
   );
@@ -31,6 +34,7 @@ const HANDOFF: Record<HandoffKind, (field: string) => string> = {
   initialization: (field) => `Initialization: the store's first value holds ${field}. Later writes may replace it.`,
   return: (field) => `Returned: the object a call returns holds ${field}, and this read takes it.`,
   field: (field) => `Field: the object built here holds ${field}, and this read takes it.`,
+  mixed: (field) => `Several handoffs carry this ${field} to the read: returned on one path, a store's first value or an object's field on another.`,
 };
 
 function Producer(props: { answer: FieldProducerAnswer; onOpen: (path: string, line: number) => void }) {
@@ -55,6 +59,20 @@ function Producer(props: { answer: FieldProducerAnswer; onOpen: (path: string, l
     </>
   );
 }
+
+const STOP_WORDS: Record<StopReason, string> = {
+  "no-return": "No source in the analysis returns a value into this call, so the field's value past it is not known.",
+  "dead-end": "The field's path ends here: its value comes from outside what the analysis can follow.",
+  widened: "Here the value is reshaped (a library call, an array), so the field is no longer one the path can name.",
+  "unnamed-member": "A spread or computed key here may hold the field, so the named one is not certain.",
+  operand: "Here the value is an operator's or a condition's result, not one of its inputs.",
+  callers: "More than one call reaches this function, so which call's value it holds is not known.",
+  binding: "A destructured or defaulted name holds this value; the analysis does not name which part, or whether the default applies.",
+  accessor: "This reads the getter function itself, not the value it returns.",
+  factory: "The state starts from its factory's own logic (a reducer), not an initial value the analysis can name.",
+  write: "A write lands on this field directly, so its first value may not be what the read sees.",
+  budget: "The walk ran out of work before every path ended.",
+};
 
 export function TraceQuestion(props: {
   anchor: AnchorQuestion | null;
@@ -88,14 +106,14 @@ export function TraceQuestion(props: {
                   </div>
                 </Show>
                 <Show when={a().boundary}>{(call) => (
-                  <div data-trace-boundary={call().call ? "call" : "other"}>
-                    <p class="mt-2 font-semibold">{call().call ? "Stops at a call" : "Stops here"}</p>
-                    <p class="text-[var(--plc-on-muted)]">{call().call ? "No source in the analysis returns a value into this call, so the field's value past it is not known." : "The field's path ends here without a producer: a spread, an operand or a value from outside."}</p>
+                  <div data-trace-boundary={call().reason}>
+                    <p class="mt-2 font-semibold">{call().reason === "no-return" ? "Stops at a call" : "Stops here"}</p>
+                    <p class="text-[var(--plc-on-muted)]">{STOP_WORDS[call().reason]}</p>
                     <Named witness={call()} onOpen={props.onOpen} />
                   </div>
                 )}</Show>
                 <Show when={a().producer}>
-                  <p class="mt-2 text-[10.5px] text-[var(--plc-on-disabled)]" data-trace-scope>Scope: static source relationship. No runtime value history.</p>
+                  <p class="mt-2 text-[10.5px] text-[var(--plc-on-disabled)]" data-trace-scope>Scope: static source relationship. No runtime value history. Writes through another name for the object are not tracked.</p>
                 </Show>
                 <Show when={a().context}>{(context) => (
                   <details class="mt-1" data-trace-context>

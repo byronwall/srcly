@@ -5,6 +5,7 @@ import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
 import { builtinTsModel } from "../analysis/library-models";
+import { cellCall } from "../analysis/cells";
 import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { BindingState, HostCandidate, LanguageHost } from "./host";
@@ -46,6 +47,25 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     textAt(file, span) {
       const at = nodeAt(file, span);
       return at ? at.node.getText(at.sourceFile) : null;
+    },
+    unsureBinding(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return true;
+      // The element may sit on the name or on its whole declaration.
+      const node = ts.isIdentifier(at.node) ? at.node.parent : at.node;
+      // A state pair's `[value, setter]` is modelled; an object pattern, a rest or a default is not one value the evidence names.
+      if (ts.isBindingElement(node)) return ts.isObjectBindingPattern(node.parent) || !!node.initializer || !!node.dotDotDotToken;
+      if (ts.isParameter(node)) return !!node.initializer || !ts.isIdentifier(node.name);
+      if (ts.isVariableDeclaration(node)) return ts.isObjectBindingPattern(node.name);
+      return false;
+    },
+    callable(file, span) {
+      const at = nodeAt(file, span);
+      return !!at && checker.getTypeAtLocation(at.node).getCallSignatures().length > 0;
+    },
+    stateFactory(file, span) {
+      const at = nodeAt(file, span);
+      return !!at && ts.isCallExpression(at.node) && cellCall(ts, checker, at.node) !== null;
     },
     objectMembers(file, span) {
       const at = nodeAt(file, span);

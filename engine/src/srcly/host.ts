@@ -47,6 +47,16 @@ export interface LanguageHost {
    * cannot tell.
    */
   objectMembers?(file: string, span: Span): (string | null)[] | null;
+  /**
+   * Whether the binding at this span holds a value the evidence may not
+   * name exactly: a destructured name (`{ payload }`, `...rest`) or one with a
+   * default (`note = fallback`). True when the host cannot tell.
+   */
+  unsureBinding?(file: string, span: Span): boolean;
+  /** Whether the value at this span is a function (a signal's getter), so a field read on it reads the function. */
+  callable?(file: string, span: Span): boolean;
+  /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
+  stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */
   typeTextAt(file: string, span: Span): string | null;
   /**

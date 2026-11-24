@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "9cc161be21e39948",
+ "programHash": "07755d7e688e4e71",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -2115,8 +2115,14 @@
  "producers": [],
  "producersOpen": true,
  "producerStops": [
-  "program-element:iq12ha",
-  "program-element:e9divp"
+  {
+   "nodeId": "program-element:iq12ha",
+   "reason": "widened"
+  },
+  {
+   "nodeId": "program-element:e9divp",
+   "reason": "dead-end"
+  }
  ],
  "origins": [
   {

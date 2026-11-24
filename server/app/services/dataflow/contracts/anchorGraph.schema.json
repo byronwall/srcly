@@ -554,7 +554,33 @@
     "producerStops": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "no-return",
+              "dead-end",
+              "widened",
+              "unnamed-member",
+              "operand",
+              "callers",
+              "binding",
+              "accessor",
+              "factory",
+              "write",
+              "budget"
+            ]
+          }
+        },
+        "required": [
+          "nodeId",
+          "reason"
+        ],
+        "additionalProperties": false
       }
     },
     "origins": {

@@ -9,7 +9,7 @@ export type TraceWitness = { file: string; absPath: string; span: SourceSpan };
 export type NamedWitness = TraceWitness & { text: string };
 
 /** How the producer's value reaches the read: as a store's first value, out of a call's return, or as an object's field. */
-export type HandoffKind = "initialization" | "return" | "field";
+export type HandoffKind = "initialization" | "return" | "field" | "mixed";
 
 export type FieldProducerAnswer = {
   field: string;
@@ -32,8 +32,8 @@ export type AnchorQuestion = {
   alternatives: NamedWitness[];
   /** Two or more call sites pass the value the producer reads: the earlier value depends on which one. */
   callers: NamedWitness[];
-  /** Where the field's trail ends with no producer (`producerStops`): a call nothing returns into, a spread. */
-  boundary: (NamedWitness & { call: boolean }) | null;
+  /** Where the field's trail ends with no producer (`producerStops`), and why. */
+  boundary: (NamedWitness & { reason: AnchorGraphResult["producerStops"][number]["reason"] }) | null;
 };
 
 function sameSpan(a: SourceSpan, b: SourceSpan) {
@@ -101,22 +101,29 @@ function producerAnswer(graph: AnchorGraphResult): Pick<AnchorQuestion, "produce
   // A write met only past a first value (another state that seeded this one) can still be that first value.
   const firstState = (via: readonly string[]) => via.find((step) => step !== "return") ?? null;
   const writes = found.filter((p) => firstState(p.via) === "write");
-  // One expression reached by two handoffs is one producer.
-  const first = [...new Map(found.filter((p) => firstState(p.via) !== "write").map((p) => [p.nodeId, p])).values()];
+  const handoffOf = (via: readonly string[]): HandoffKind => (via.includes("initialization") ? "initialization" : via.includes("return") ? "return" : "field");
+  // One expression reached by several handoffs is one producer; its handoff is named only when they agree.
+  const byValue = new Map<string, (typeof found)[number] & { kinds: Set<HandoffKind> }>();
+  for (const p of found.filter((item) => firstState(item.via) !== "write")) {
+    const seen = byValue.get(p.nodeId);
+    if (seen) seen.kinds.add(handoffOf(p.via));
+    else byValue.set(p.nodeId, { ...p, kinds: new Set([handoffOf(p.via)]) });
+  }
+  const first = [...byValue.values()];
   const none = { producer: null, alternatives: [], callers: [], boundary: null };
-  const stopAt = graph.producerStops.map((id) => nodes.get(id)).find((node): node is AnchorNode => !!node);
-  const boundary = stopAt ? { ...witness(stopAt), call: stopAt.elementKind === "call" } : null;
+  const stopAt = graph.producerStops.map((stop) => ({ stop, node: nodes.get(stop.nodeId) })).find((item) => !!item.node);
+  const boundary = stopAt ? { ...witness(stopAt.node!), reason: stopAt.stop.reason } : null;
   if (first.length === 0) return { ...none, boundary };
   if (first.length > 1 || graph.producersOpen) return { ...none, alternatives: first.map((p) => witness(p.value, p.text)), boundary };
   const [only] = first;
   if (only.status !== "proven") return none;
-  const kind: HandoffKind = only.via.includes("initialization") ? "initialization" : only.via.includes("return") ? "return" : "field";
+  const kind: HandoffKind = only.kinds.size === 1 ? [...only.kinds][0] : "mixed";
   return {
     producer: {
       field: only.field,
       producer: witness(only.value, only.text),
       handoff: { kind, object: witness(only.object, only.packText) },
-      laterWrites: kind === "initialization" ? writes.map((p) => witness(p.value, p.text)) : [],
+      laterWrites: only.kinds.has("initialization") ? writes.map((p) => witness(p.value, p.text)) : [],
     },
     alternatives: [],
     callers: only.value.elementKind === "field-read" ? callersOf(graph, only.value) : [],
@@ -132,6 +139,8 @@ function callersOf(graph: AnchorGraphResult, producer: AnchorNode): NamedWitness
   const queue = [producer.id];
   while (queue.length) {
     const id = queue.shift()!;
+    // An operand or a condition (`flag ? a : b`) is no receiver of the producer's value.
+    if (["selection", "derived"].includes(nodes.get(id)?.elementKind ?? "")) continue;
     for (const edge of graph.edges) {
       if (edge.target !== id || edge.status === "structural") continue;
       const source = nodes.get(edge.source);
