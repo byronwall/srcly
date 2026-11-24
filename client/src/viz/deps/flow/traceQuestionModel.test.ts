@@ -114,5 +114,7 @@ describe("the field's producer on the question card", () => {
     graph.producers = [{ ...graph.producers[0], status: "partial" }];
     expect(anchorQuestion(graph).producer).toBeNull();
     expect(anchorQuestion({ ...graphOf(returned), direction: "forward" }).producer).toBeNull();
+    // One producer beside a path the engine could not finish (an opaque branch) is no answer either.
+    expect(anchorQuestion({ ...graphOf(returned), producersOpen: true })).toMatchObject({ producer: null, alternatives: [{ text: '"LOADED_TITLE"' }] });
   });
 });

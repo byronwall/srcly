@@ -26,6 +26,7 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 //   @no-path <ids> "from" "to"                   it has none
 //   @produces <ids> <via|none|*> [status]        a field producer on this line (`producers`)
 //   @no-produces <ids>                           the trace names no field producer
+//   @produces-open <ids>                         a path that may fill the field ends with no producer (`producersOpen`)
 //
 // `@reaches` and `@stop` are exhaustive: a trace's every terminal and origin must be
 // claimed by a `@reaches`, and its every frontier and boundary by a `@stop`.
@@ -34,7 +35,8 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 // `!x` anything but `x`.
 //
 // `@produces` is exhaustive once a trace has one: every producer the graph
-// names must be claimed. `via` is one of the producer's ways to the read
+// names must be claimed, and its `producersOpen` must be false unless
+// `@produces-open` claims it. `via` is one of the producer's ways to the read
 // (`initialization`, `write`, `return`), or `none` for a producer with none.
 //
 // `@path` and `@no-path` catch a wrong route to an end a trace may reach. Each
@@ -47,7 +49,7 @@ const example = (name: string) => fileURLToPath(new URL(`../../examples/${name}`
 // `value-flow-basics` is typed; `value-flow-js` is actual JavaScript, kept apart so a `.ts` twin cannot stand in for a `.js` file.
 // `value-flow-loose` has a jsconfig with `strictNullChecks` off, and `value-flow-bare` has no config at all.
 const ROOTS = ["value-flow-basics", "value-flow-js", "value-flow-loose", "value-flow-bare"];
-const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path", "produces", "no-produces"] as const;
+const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path", "produces", "no-produces", "produces-open"] as const;
 type Keyword = (typeof KEYWORDS)[number];
 type Annotation = { keyword: Keyword; args: string[]; label?: string; route?: [string, string]; rest: string; file: string; line: number; code: string };
 type Trace = { id: string; file: string; line: number; code: string; direction: string; text: string | null; symbol: string | null; claims: Annotation[] };
@@ -218,6 +220,9 @@ function check(trace: Trace, graph: AnchorGraphResult, source: (file: string) =>
     if (!producers.some((item) => produces(item, claim))) failures.push(`${where(claim)} @produces ${claim.args.join(" ")}: nothing matches here; the trace names ${producers.map(describeProducer).join(", ") || "none"}`);
   }
   if (produced.length) for (const item of producers) if (!produced.some((claim) => produces(item, claim))) failures.push(`${describeProducer(item)}: no @produces claims it`);
+  const openClaim = claims("produces-open").length > 0;
+  if (openClaim && !graph.producersOpen) failures.push(`${trace.file}:${trace.line} @produces-open: every path that names the field ends at a producer`);
+  if (!openClaim && produced.length && graph.producersOpen) failures.push(`${trace.file}:${trace.line} @produces: a path that may fill the field ends with no producer (claim @produces-open)`);
   for (const claim of claims("no-produces")) if (producers.length) failures.push(`${where(claim)} @no-produces: the trace names ${producers.map(describeProducer).join(", ")}`);
   return failures;
 }

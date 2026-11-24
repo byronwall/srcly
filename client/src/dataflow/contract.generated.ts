@@ -355,7 +355,10 @@ export type AnchorGraphResult = {
     field: string;
     via: ("initialization" | "write" | "return")[];
     status: "proven" | "partial";
+    text: string;
+    packText: string;
   }[];
+  producersOpen: boolean;
   origins: {
     nodeId: string;
     label: string;

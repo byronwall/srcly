@@ -1010,7 +1010,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // At a store path, what the updater returns is one value, written at that path.
       const valueId = path ? this.ensureElement(fn, "value", ownerId, { updater: true }, null, null, null, "partial", frameworkState("What the updater returns: the new value at the store path.", this.location(fn))) : stateId;
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
-        this.addRelation(returnId, valueId, "framework-flow", [this.location(fn)], frameworkState("The function's return becomes the state its getter reads; order and time are not proven.", this.location(fn)), "partial");
+        // A lazy initial value (`useState(() => …)`, no setter) is the state's first value; an updater's return is a later write.
+        const words = "The function's return becomes the state its getter reads; order and time are not proven.";
+        this.addRelation(returnId, valueId, "framework-flow", [this.location(fn)], role ? frameworkState(words, this.location(fn)) : stateInitialization(words, this.location(fn)), "partial");
       }
       if (path) this.writeStorePath(node, valueId, stateId, ownerId, this.location(fn));
       // The updater receives the value it replaces: the field at the store path, not the whole store.

@@ -402,6 +402,7 @@
    }
   ],
   "producers": [],
+  "producersOpen": false,
   "origins": [],
   "terminals": [
    {
@@ -835,6 +836,7 @@
    }
   ],
   "producers": [],
+  "producersOpen": false,
   "origins": [],
   "terminals": [
    {
@@ -1048,6 +1050,7 @@
    }
   ],
   "producers": [],
+  "producersOpen": false,
   "origins": [],
   "terminals": [
    {
@@ -1481,6 +1484,7 @@
    }
   ],
   "producers": [],
+  "producersOpen": false,
   "origins": [],
   "terminals": [
    {

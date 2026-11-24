@@ -76,7 +76,7 @@ export function TraceQuestion(props: {
                   <Match when={a().producer}>{(answer) => <Producer answer={answer()} onOpen={props.onOpen} />}</Match>
                   <Match when={a().alternatives.length}>
                     <p class="mt-2 font-semibold" data-trace-ambiguous>No single producer</p>
-                    <p class="text-[var(--plc-on-muted)]">Each of these fills the field. The source does not say which one this read sees.</p>
+                    <p class="text-[var(--plc-on-muted)]">Each of these fills the field on one path. Another path can fill it too, so the source does not prove which value this read sees.</p>
                     <For each={a().alternatives}>{(item) => <Named witness={item} onOpen={props.onOpen} />}</For>
                   </Match>
                 </Switch>

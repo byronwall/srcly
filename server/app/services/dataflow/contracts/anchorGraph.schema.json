@@ -528,6 +528,12 @@
               "proven",
               "partial"
             ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "packText": {
+            "type": "string"
           }
         },
         "required": [
@@ -535,10 +541,15 @@
           "packNodeId",
           "field",
           "via",
-          "status"
+          "status",
+          "text",
+          "packText"
         ],
         "additionalProperties": false
       }
+    },
+    "producersOpen": {
+      "type": "boolean"
     },
     "origins": {
       "type": "array",
@@ -734,6 +745,7 @@
     "edges",
     "links",
     "producers",
+    "producersOpen",
     "origins",
     "terminals",
     "counts",

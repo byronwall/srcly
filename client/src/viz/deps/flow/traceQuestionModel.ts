@@ -49,13 +49,14 @@ export function anchorQuestion(graph: AnchorGraphResult): AnchorQuestion {
     graph.outcome === "partial" ? graph.nodes.find((n) => (n.kind === "frontier" || n.kind === "boundary") && n.status !== "proven" && n.reason)?.reason ?? "some steps are unproven" : null);
   const base = { expression: graph.anchor.text, direction: graph.direction, selection, fieldRead: null, context: null, stop, producer: null, alternatives: [], callers: [], boundary: null };
   if (graph.outcome === "stale" || graph.outcome === "unsupported" || graph.outcome === "not-analyzed" || graph.outcome === "cancelled") return base;
-  if (!subject?.field || subject.elementKind !== "field-read" || subject.status !== "proven") return base;
+  if (!subject || subject.elementKind !== "field-read" || subject.status !== "proven") return base;
+  // A read with no local binding (`load().title`) has no field of its own: its field-input edge names it.
   const field = subject.field;
   // fieldOf in anchor-graph.ts supplies this label from this relation's own
   // field end. Matching a label somewhere else in the slice is insufficient.
   const direct = graph.edges.find((edge) =>
     edge.target === subject.id && edge.kind === "field-input" && edge.status === "proven"
-    && edge.label === field.split(".").at(-1)
+    && (field ? edge.label === field.split(".").at(-1) : !!edge.label)
     && !!edge.proof.length
     && edge.proof.every((p) => p.kind === "property-access" && p.status === "proven")
     && edge.proof.some((p) => p.locations.some((l) => l.file === selection.file && sameSpan(l.span, selection.span))),
@@ -63,7 +64,7 @@ export function anchorQuestion(graph: AnchorGraphResult): AnchorQuestion {
   if (!direct) return base;
 
   const receiver = graph.nodes.find((node) => node.id === direct.source);
-  const isEnclosingCarrier = (node: AnchorNode | undefined) => node?.symbol && node.symbol === subject.symbol &&
+  const isEnclosingCarrier = (node: AnchorNode | undefined) => field && node?.symbol && node.symbol === subject.symbol &&
     (!node.field || field.startsWith(node.field + "."));
   // A component binding into this receiver shows what value enters the prop.
   // Do not treat it as carrying the selected subfield, even when it is proven.
@@ -79,18 +80,15 @@ export function anchorQuestion(graph: AnchorGraphResult): AnchorQuestion {
 
 const byNode = (graph: AnchorGraphResult) => new Map(graph.nodes.map((node) => [node.id, node]));
 
-/** A box's source text: a field read by its receiver and field (`props.note.title`), anything else by its label. */
-function named(node: AnchorNode): NamedWitness {
-  const receiver = node.symbol?.split("@")[0];
-  const text = node.elementKind === "field-read" && receiver && node.field ? `${receiver}.${node.field}` : node.label;
-  return { file: node.file, absPath: node.absPath, span: node.span, text };
-}
+/** A box with its source text: the engine's own text for a producer, else the box's label. */
+const witness = (node: AnchorNode, text = node.label): NamedWitness => ({ file: node.file, absPath: node.absPath, span: node.span, text });
 
 /**
  * The anchor's field producers, from the engine's own field walk
  * (`graph.producers`): the field's value where an object is built, with the
  * handoff that carries it to the read. A store's later writes stay apart
- * from its first value; two first values are no answer.
+ * from its first value; two first values, or one beside a path the walk
+ * could not finish (`producersOpen`), are no answer.
  */
 function producerAnswer(graph: AnchorGraphResult, receiver: AnchorNode | undefined): Pick<AnchorQuestion, "producer" | "alternatives" | "callers" | "boundary"> {
   const nodes = byNode(graph);
@@ -99,56 +97,60 @@ function producerAnswer(graph: AnchorGraphResult, receiver: AnchorNode | undefin
     const object = nodes.get(p.packNodeId);
     return value && object ? [{ ...p, value, object }] : [];
   });
-  const writes = found.filter((p) => p.via.includes("write"));
+  // A later write to the read's own state: its first step back from the read is that write, never through another state's first value.
+  const writes = found.filter((p) => p.via[0] === "write" && !p.via.includes("initialization"));
   const first = found.filter((p) => !p.via.includes("write"));
-  if (first.length === 0) return { producer: null, alternatives: [], callers: [], boundary: receiver ? untracedCall(graph, receiver) : null };
-  if (first.length > 1) return { producer: null, alternatives: first.map((p) => named(p.value)), callers: [], boundary: null };
+  const none = { producer: null, alternatives: [], callers: [], boundary: null };
+  if (first.length === 0) return { ...none, boundary: receiver ? untracedCall(graph, receiver) : null };
+  if (first.length > 1 || graph.producersOpen) return { ...none, alternatives: first.map((p) => witness(p.value, p.text)) };
   const [only] = first;
-  if (only.status !== "proven") return { producer: null, alternatives: [], callers: [], boundary: null };
+  if (only.status !== "proven") return none;
   const kind: HandoffKind = only.via.includes("initialization") ? "initialization" : only.via.includes("return") ? "return" : "field";
   return {
     producer: {
       field: only.field,
-      producer: named(only.value),
-      handoff: { kind, object: named(only.object) },
-      laterWrites: kind === "initialization" ? writes.map((p) => named(p.value)) : [],
+      producer: witness(only.value, only.text),
+      handoff: { kind, object: witness(only.object, only.packText) },
+      laterWrites: kind === "initialization" ? writes.map((p) => witness(p.value, p.text)) : [],
     },
     alternatives: [],
-    callers: callersOf(graph, only.value),
+    callers: only.value.elementKind === "field-read" ? callersOf(graph, only.value) : [],
     boundary: null,
   };
 }
 
-/** The component call sites whose binding the producer reads through (`props.note` ← `note={…}`), when there are two or more. */
+/** The component call sites that bind the prop a field-read producer reads (`props.note.title` ← `note={…}`), when there are two or more. */
 function callersOf(graph: AnchorGraphResult, producer: AnchorNode): NamedWitness[] {
   const nodes = byNode(graph);
-  const into = (id: string) => graph.edges.filter((edge) => edge.target === id && edge.status !== "structural");
-  const sites: NamedWitness[] = [];
-  const seen = new Set<string>();
+  const sites = new Map<string, NamedWitness>();
+  const seen = new Set<string>([producer.id]);
   const queue = [producer.id];
   while (queue.length) {
     const id = queue.shift()!;
-    for (const edge of into(id)) {
+    for (const edge of graph.edges) {
+      if (edge.target !== id || edge.status === "structural") continue;
       const source = nodes.get(edge.source);
       if (!source || seen.has(source.id)) continue;
       seen.add(source.id);
-      if (edge.kind === "component-prop-binding") sites.push(named(source));
-      else if (edge.kind === "field-input" || edge.kind === "references") queue.push(source.id);
+      if (edge.kind === "component-prop-binding") sites.set(`${source.file}:${source.span.startLine}:${source.span.startColumn}`, witness(source));
+      else if (edge.kind === "field-input") queue.push(source.id);
     }
   }
-  return sites.length > 1 ? sites : [];
+  return sites.size > 1 ? [...sites.values()] : [];
 }
 
 /** Back from the read's receiver over its one carried value: a call nothing returns into is where the field's trail ends. */
 function untracedCall(graph: AnchorGraphResult, receiver: AnchorNode): NamedWitness | null {
   const nodes = byNode(graph);
-  let node: AnchorNode | undefined = receiver;
-  for (let step = 0; node && step < 8; step += 1) {
+  const seen = new Set<string>();
+  for (let node: AnchorNode | undefined = receiver; node && !seen.has(node.id); ) {
     const id: string = node.id;
+    seen.add(id);
     const carried = graph.edges.filter((edge) => edge.target === id && edge.status === "proven" && ["references", "return-value", "return-expression"].includes(edge.kind));
-    if (node.elementKind === "call" && carried.length === 0 && !graph.edges.some((edge) => edge.target === id && edge.kind === "return-value")) return named(node);
-    if (carried.length !== 1) return null;
-    node = nodes.get(carried[0].source);
+    const sources = [...new Set(carried.map((edge) => edge.source))];
+    if (node.elementKind === "call" && sources.length === 0 && !graph.edges.some((edge) => edge.target === id && edge.kind === "return-value")) return witness(node, node.label);
+    if (sources.length !== 1) return null;
+    node = nodes.get(sources[0]);
   }
   return null;
 }

@@ -135,7 +135,16 @@ export const anchorGraphResultSchema = z.strictObject({
     field: z.string(),
     via: z.array(z.enum(["initialization", "write", "return"])),
     status: z.enum(["proven", "partial"]),
+    /** The producer's and its object's source text, clipped. */
+    text: z.string(),
+    packText: z.string(),
   })),
+  /**
+   * A path that may still fill the field ended without a producer: a call
+   * nothing returns into, a spread or computed key, a parameter several
+   * calls bind, a parameter no call binds. Then no one producer is the answer.
+   */
+  producersOpen: z.boolean(),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

@@ -121,6 +121,8 @@ class AnchorGraphBuilder {
   private anchorId: string | null = null;
   /** The anchor's field producers found upstream (`fieldProducers`), by element. */
   private producerFacts: FieldProducer[] = [];
+  /** A path that may fill the field ended without a producer (`FieldProducers.open`). */
+  private producersOpen = false;
   /** A declaration anchor's own returns: where a body run hands on to the return's run. */
   private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
@@ -197,7 +199,7 @@ class AnchorGraphBuilder {
       if (run.endsHere) continue;
       const slice = this.slice(run, anchor.text);
       const begun = this.walk(run.seedId, slice, run.side, run.seedSpan);
-      if (run.side === "up" && run.seedId === seed && !isDeclaration) this.producerFacts = fieldProducers(slice, seed);
+      if (run.side === "up" && run.seedId === seed && !isDeclaration) ({ producers: this.producerFacts, open: this.producersOpen } = fieldProducers(slice, seed));
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);
       naturalBySeed.set(run.seedId, (naturalBySeed.get(run.seedId) ?? 0) + natural);
       coverage.elements += slice.elements.length;
@@ -472,6 +474,8 @@ class AnchorGraphBuilder {
       const key = side === "down" ? relation.from : relation.to;
       (next.get(key) ?? next.set(key, []).get(key)!).push(relation);
     }
+    // Bookkeeping repeats the anchor only in the anchor's own file: another file's element can sit at the same span.
+    const seedFile = byId.get(seed)?.location.file ?? this.nodes.get(seed)?.file;
     const visited = new Set<string>([seed]);
     const queue: { id: string; depth: number }[] = [{ id: seed, depth: 0 }];
     /** Elements the walk expanded, and those it went on from. */
@@ -487,7 +491,7 @@ class AnchorGraphBuilder {
         if (!element || otherId === seed || otherId === this.anchorId) continue;
         continued.add(id);
         // Bookkeeping at the anchor's own span (its alias, its call) repeats the anchor.
-        if (sameSpan(element.location.span, seedSpan) && !elementTraits(element.kind).terminal && !element.originRoles.length) {
+        if (element.location.file === seedFile && sameSpan(element.location.span, seedSpan) && !elementTraits(element.kind).terminal && !element.originRoles.length) {
           this.alias.set(otherId, seed);
           if (!visited.has(otherId)) {
             visited.add(otherId);
@@ -843,8 +847,16 @@ class AnchorGraphBuilder {
     for (const fact of this.producerFacts) {
       const nodeId = this.resolve(fact.elementId);
       const packNodeId = this.resolve(fact.packId);
-      if (!this.nodes.has(nodeId) || !this.nodes.has(packNodeId) || out.some((item) => item.nodeId === nodeId && item.packNodeId === packNodeId)) continue;
-      out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status });
+      const value = this.nodes.get(nodeId);
+      const pack = this.nodes.get(packNodeId);
+      // A producer folded into the anchor (or never drawn) is no witness of its own.
+      if (!value || !pack || nodeId === this.anchorId) {
+        this.producersOpen = true;
+        continue;
+      }
+      if (out.some((item) => item.nodeId === nodeId && item.packNodeId === packNodeId && item.via.join() === fact.via.join())) continue;
+      const text = (node: AnchorNode) => clip(this.host.textAt(node.file, node.span) ?? node.label);
+      out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack) });
     }
     return out;
   }
@@ -867,6 +879,7 @@ class AnchorGraphBuilder {
       edges: this.edges,
       links: this.links(nodes),
       producers: this.producers(),
+      producersOpen: this.producersOpen,
       origins: boxes.filter((node) => node.kind === "origin").map((node) => ({ nodeId: node.id, label: node.label, roles: this.originRoles.get(node.id) ?? [], status: node.status })),
       terminals: boxes.filter((node) => node.kind === "terminal").map((node) => ({ nodeId: node.id, label: node.label, roles: this.terminalRoles.get(node.id) ?? [], status: node.status })),
       counts: {

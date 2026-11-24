@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "be12420456cff5e1",
+ "programHash": "d0b024c582d3963c",
  "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -526,9 +526,12 @@
    "packNodeId": "program-element:1v3htpl",
    "field": "owner",
    "via": [],
-   "status": "proven"
+   "status": "proven",
+   "text": "props.owner ?? \"Unknown\"",
+   "packText": "{ owner: props.owner ?? \"Unknown\", card: props.card }"
   }
  ],
+ "producersOpen": false,
  "origins": [],
  "terminals": [],
  "counts": {

@@ -17,7 +17,7 @@ export type FieldPath = readonly string[];
 const MAX_FIELD_PATH = 4;
 // A context hands its provider's value to each reader whole (`context-value`): a field stays that field.
 const KEEPS_IDENTITY = new Set(["references", "argument-binding", "return-expression", "return-value", "framework-flow", "context-value"]);
-const SPREAD = Symbol("spread");
+export const SPREAD = Symbol("spread");
 
 export type PackFieldCache = Map<string, Record<string, string> | null>;
 
@@ -35,7 +35,7 @@ function packFields(pack: ProgramElement, cache: PackFieldCache): Record<string,
 }
 
 /** The field an object pack holds at a property's position (its `fields` attribute), a spread or computed key, or null when the pack names none. */
-function packedField(pack: ProgramElement, relation: ProgramRelation, cache: PackFieldCache): string | typeof SPREAD | null {
+export function packedField(pack: ProgramElement, relation: ProgramRelation, cache: PackFieldCache): string | typeof SPREAD | null {
   const fields = packFields(pack, cache);
   if (!fields) return null;
   const span = relation.proof.locations[0]?.span;

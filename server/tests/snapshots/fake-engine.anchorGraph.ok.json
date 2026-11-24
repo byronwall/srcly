@@ -132,6 +132,7 @@
   "origins": [],
   "outcome": "ok",
   "producers": [],
+  "producersOpen": false,
   "programHash": "hash-1",
   "reason": null,
   "terminals": [

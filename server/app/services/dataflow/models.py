@@ -702,6 +702,8 @@ class AnchorProducer(BaseModel):
     field: str
     via: list[Literal["initialization", "write", "return"]]
     status: Literal["proven", "partial"]
+    text: str
+    packText: str
 
 
 class AnchorGraphResult(BaseModel):
@@ -718,6 +720,7 @@ class AnchorGraphResult(BaseModel):
     edges: list[AnchorEdge]
     links: list[AnchorLink]
     producers: list[AnchorProducer]
+    producersOpen: bool
     origins: list[AnchorOrigin]
     terminals: list[AnchorTerminal]
     counts: AnchorCounts

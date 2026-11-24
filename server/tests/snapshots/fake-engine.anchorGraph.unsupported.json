@@ -95,6 +95,7 @@
   "origins": [],
   "outcome": "unsupported",
   "producers": [],
+  "producersOpen": false,
   "programHash": "hash-1",
   "reason": "no-evidence-element",
   "terminals": [],
