@@ -37,6 +37,8 @@ interface CodeModalProps {
   revisionSide?: "base" | "head";
   /** Scan root for live source; the exact Git worktree root for a historical revision. */
   rootPath?: string;
+  /** Open another file of the scan at a line (a ledger row elsewhere); the viewer keeps its ledger. */
+  onOpenSource?: (absPath: string, line: number) => void;
 }
 
 const coerceLine = (v: unknown): number | null => {
@@ -453,7 +455,7 @@ export default function CodeModal(props: CodeModalProps) {
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
           />
 
-          <main class="relative flex flex-1 overflow-hidden bg-[var(--plc-surface)]">
+          <main class="relative flex flex-1 overflow-hidden bg-[var(--plc-surface)]" data-code-file={props.filePath ?? undefined}>
             <MetricsSidebar
               fileNode={props.fileNode}
               scopeNode={selectedScopeNode()}
@@ -496,6 +498,12 @@ export default function CodeModal(props: CodeModalProps) {
                         }
                       }}
                       onJump={jumpToLedgerRow}
+                      onOpen={props.onOpenSource && ((absPath, line) => {
+                        props.onOpenSource!(absPath, line);
+                        setLedgerMarked(true);
+                        setActiveMetric(null);
+                        queueMicrotask(() => setCursorLine(line));
+                      })}
                       onClose={() => {
                         inspector.clear();
                         setLedgerMarked(false);

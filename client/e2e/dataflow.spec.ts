@@ -55,6 +55,16 @@ test("Inspect value flow opens the NoteView title ledger from the source menu", 
   const ledger = dialog.getByRole("region", { name: "Value flow" });
   await expect(ledger).toContainText("props.note.title");
   await expect(ledger.getByRole("listitem").first()).toContainText("Input");
+
+  // A witness in another file opens that file at its line, and the ledger stays.
+  const elsewhere = ledger.locator('[data-ledger-row][data-row-file$="/src/server/notes.ts"]').first();
+  await expect(elsewhere).toBeEnabled();
+  const rowLine = Number(await elsewhere.getAttribute("data-row-line"));
+  await elsewhere.click();
+  await expect(dialog.locator("[data-code-file]")).toHaveAttribute("data-code-file", /\/src\/server\/notes\.ts$/);
+  await expect(dialog.locator(`span.line.metric-hit-current[data-line="${rowLine}"]`)).toBeVisible();
+  await expect(ledger).toContainText("props.note.title");
+  await shot(page, "ledger-cross-file-witness");
 });
 
 test.describe("Flow across folders", () => {

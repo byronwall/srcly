@@ -123,6 +123,7 @@ export function CodePane(props: CodePaneProps) {
       lines.forEach((el, i) => {
         const line = start + i;
         const d = deco?.get(line);
+        el.dataset.line = String(line);
         el.classList.toggle("metric-hit", Boolean(d));
         el.classList.toggle("metric-hit-current", d !== undefined && cursor !== null && isInHit(overlay!.hits, cursor, line));
         if (d?.first && d.note) el.dataset.note = d.note;
