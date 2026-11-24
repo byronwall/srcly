@@ -70,6 +70,7 @@ export type ProgramProofKind =
   | "external-call"
   | "standard-library"
   | "framework-state"
+  | "state-initialization"
   | "shared-instance"
   | "computed-key"
   | "type-signature";

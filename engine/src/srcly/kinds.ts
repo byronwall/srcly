@@ -138,7 +138,13 @@ export const ELEMENT_TRAITS: Record<ProgramElementKind, ElementTraits> = {
  */
 export type ProofStrength = "proven" | "modelled" | "assumed";
 
-export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }> = {
+/**
+ * `state`: a step through a framework's state (a cell's seed, a setter's
+ * write, a getter's read), whose order and time are not proven.
+ */
+export type ProofTraits = { strength: ProofStrength; state?: true };
+
+export const PROOF_TRAITS: Record<ProgramProofKind, ProofTraits> = {
   "ast-node": { strength: "proven" },
   "compiler-symbol": { strength: "proven" },
   "argument-binding": { strength: "proven" },
@@ -189,7 +195,9 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "http-bridge": { strength: "modelled" },
   "external-call": { strength: "assumed" },
   "standard-library": { strength: "modelled" },
-  "framework-state": { strength: "modelled" },
+  "framework-state": { strength: "modelled", state: true },
+  // A state pair's initial value as it seeds the state (`createStore({ title })`): the state's first value, kept apart from later writes.
+  "state-initialization": { strength: "modelled", state: true },
   // A closure or field of a factory or class with more than one call or `new` site: the walk does not tell its instances apart (`InstanceSites`).
   "shared-instance": { strength: "assumed" },
   // A keyed store's write and read where a key is computed (`["items", props.id]`): the walk cannot prove it is the other call's key (`keyed-stores.ts`).
@@ -212,7 +220,12 @@ export function elementTraits(kind: string): ElementTraits {
 
 /** A proof kind's strength, or null for a kind the analysis does not declare. */
 export function proofStrength(kind: string | undefined): ProofStrength | null {
-  return kind ? (PROOF_TRAITS as Record<string, { strength: ProofStrength }>)[kind]?.strength ?? null : null;
+  return kind ? (PROOF_TRAITS as Record<string, ProofTraits>)[kind]?.strength ?? null : null;
+}
+
+/** Whether a proof kind is a step through a framework's state (`ProofTraits.state`). */
+export function throughState(kind: string | undefined): boolean {
+  return !!kind && (PROOF_TRAITS as Record<string, ProofTraits>)[kind]?.state === true;
 }
 
 /** Evidence elements a selection may start from, most specific first. */

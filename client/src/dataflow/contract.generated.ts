@@ -349,6 +349,13 @@ export type AnchorGraphResult = {
     target: string;
     kind: "calls" | "reads" | "writes";
   }[];
+  producers: {
+    nodeId: string;
+    packNodeId: string;
+    field: string;
+    via: ("initialization" | "write" | "return")[];
+    status: "proven" | "partial";
+  }[];
   origins: {
     nodeId: string;
     label: string;

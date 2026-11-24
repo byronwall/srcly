@@ -39,6 +39,11 @@ function frameworkState(detail: string, location: ProgramEvidenceLocation) {
   return proof("framework-state", detail, [location]);
 }
 
+/** A state pair's initial value: the state's first value, which later writes may replace. */
+function stateInitialization(detail: string, location: ProgramEvidenceLocation) {
+  return proof("state-initialization", detail, [location]);
+}
+
 export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollectorDeclarations {
   private readonly expressionContext: ProgramEvidenceExpressionContext = {
     ts: this.ts,
@@ -69,10 +74,10 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const symbolId = this.symbolId(getter);
       if (symbolId) this.stateBySymbol.set(symbolId, stateId);
       // The factory's call (its arguments, the initial value among them) seeds the state.
-      this.addRelation(initializerId ?? aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
+      this.addRelation(initializerId ?? aliasId, stateId, "references", [this.location(initializer)], stateInitialization("The factory's initial value seeds the state its getter reads; later writes may replace it.", this.location(initializer)), "partial");
       // An initial value taken as it is seeds the state whole, field by field, not through the call (`seedArgument`).
       const seed = this.ts.isCallExpression(initializer) ? seedArgument(this.ts, this.checker, initializer) : null;
-      if (seed) this.addRelation(this.expression(seed, ownerId), stateId, "references", [this.location(seed)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(seed)), "partial");
+      if (seed) this.addRelation(this.expression(seed, ownerId), stateId, "references", [this.location(seed)], stateInitialization("The factory's initial value seeds the state its getter reads; later writes may replace it.", this.location(seed)), "partial");
     }
     // A state pair's `[getter, setter]` binds two functions, not the value: the value goes through the state.
     // A call with no value binds nothing.

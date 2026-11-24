@@ -24,12 +24,18 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 //   @no-edge <ids> <kind|*> <status|*> [proofKind]  no edge matches
 //   @path <ids> "from" "to"                      the graph has a route from one box to the other
 //   @no-path <ids> "from" "to"                   it has none
+//   @produces <ids> <via|none|*> [status]        a field producer on this line (`producers`)
+//   @no-produces <ids>                           the trace names no field producer
 //
 // `@reaches` and `@stop` are exhaustive: a trace's every terminal and origin must be
 // claimed by a `@reaches`, and its every frontier and boundary by a `@stop`.
 // A trace with neither claims none. A claim about a box takes an optional
 // `"label"`, last, the box must carry. In a pattern, `*` matches anything and
 // `!x` anything but `x`.
+//
+// `@produces` is exhaustive once a trace has one: every producer the graph
+// names must be claimed. `via` is one of the producer's ways to the read
+// (`initialization`, `write`, `return`), or `none` for a producer with none.
 //
 // `@path` and `@no-path` catch a wrong route to an end a trace may reach. Each
 // label is a box's exact label. A label on several lines is read on the
@@ -41,7 +47,7 @@ const example = (name: string) => fileURLToPath(new URL(`../../examples/${name}`
 // `value-flow-basics` is typed; `value-flow-js` is actual JavaScript, kept apart so a `.ts` twin cannot stand in for a `.js` file.
 // `value-flow-loose` has a jsconfig with `strictNullChecks` off, and `value-flow-bare` has no config at all.
 const ROOTS = ["value-flow-basics", "value-flow-js", "value-flow-loose", "value-flow-bare"];
-const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path"] as const;
+const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path", "produces", "no-produces"] as const;
 type Keyword = (typeof KEYWORDS)[number];
 type Annotation = { keyword: Keyword; args: string[]; label?: string; route?: [string, string]; rest: string; file: string; line: number; code: string };
 type Trace = { id: string; file: string; line: number; code: string; direction: string; text: string | null; symbol: string | null; claims: Annotation[] };
@@ -202,6 +208,17 @@ function check(trace: Trace, graph: AnchorGraphResult, source: (file: string) =>
     if (hit.length) failures.push(`${where(claim)} @no-edge ${claim.args.join(" ")}: ${hit.map((edge) => `${edge.kind}/${edge.status}`).join(", ")} matches`);
   }
   failures.push(...checkRoutes([...claims("path"), ...claims("no-path")], graph, source));
+  const producers = graph.producers.map((item) => ({ ...item, node: graph.nodes.find((node) => node.id === item.nodeId)! }));
+  type Produced = (typeof producers)[number];
+  const describeProducer = (item: Produced) => `${at(item.node)} ${item.field} via ${item.via.join(",") || "none"} ${item.status} "${item.node.label}"`;
+  const viaFits = (item: Produced, pattern: string | undefined) => !pattern || pattern === "*" || (pattern === "none" ? item.via.length === 0 : item.via.includes(pattern as Produced["via"][number]));
+  const produces = (item: Produced, claim: Annotation) => sameLine(item.node, claim) && viaFits(item, claim.args[0]) && fits(item.status, claim.args[1]);
+  const produced = claims("produces");
+  for (const claim of produced) {
+    if (!producers.some((item) => produces(item, claim))) failures.push(`${where(claim)} @produces ${claim.args.join(" ")}: nothing matches here; the trace names ${producers.map(describeProducer).join(", ") || "none"}`);
+  }
+  if (produced.length) for (const item of producers) if (!produced.some((claim) => produces(item, claim))) failures.push(`${describeProducer(item)}: no @produces claims it`);
+  for (const claim of claims("no-produces")) if (producers.length) failures.push(`${where(claim)} @no-produces: the trace names ${producers.map(describeProducer).join(", ")}`);
   return failures;
 }
 

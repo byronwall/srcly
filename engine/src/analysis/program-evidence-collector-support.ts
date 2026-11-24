@@ -1,4 +1,5 @@
 import { typeSignaturePaths, type TypePath } from "./type-signature";
+import { throughState } from "../srcly/kinds";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import * as TypeScript from "typescript";
@@ -509,7 +510,7 @@ export class ProgramEvidenceCollectorSupport {
     }
     if (!from || !to || from === to) return;
     // A step through the state of a cell inside a function is that call's state (`cellInstances`).
-    const cell = proofValue.kind === "framework-state" && !proofValue.instance ? this.cellInstances.get(to) ?? this.cellInstances.get(from) : undefined;
+    const cell = throughState(proofValue.kind) && !proofValue.instance ? this.cellInstances.get(to) ?? this.cellInstances.get(from) : undefined;
     if (cell) proofValue = { ...proofValue, instance: cell };
     if (instrumented) {
       this.collectionStats.relation.acceptedCandidates += 1;

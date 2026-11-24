@@ -497,6 +497,49 @@
         "additionalProperties": false
       }
     },
+    "producers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "packNodeId": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "initialization",
+                "write",
+                "return"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial"
+            ]
+          }
+        },
+        "required": [
+          "nodeId",
+          "packNodeId",
+          "field",
+          "via",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
     "origins": {
       "type": "array",
       "items": {
@@ -690,6 +733,7 @@
     "nodes",
     "edges",
     "links",
+    "producers",
     "origins",
     "terminals",
     "counts",

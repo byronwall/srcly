@@ -21,6 +21,11 @@ const SPREAD = Symbol("spread");
 
 export type PackFieldCache = Map<string, Record<string, string> | null>;
 
+/** Whether a relation keeps a value's identity, so a field path survives it. */
+export function keepsIdentity(kind: string): boolean {
+  return KEEPS_IDENTITY.has(kind);
+}
+
 function packFields(pack: ProgramElement, cache: PackFieldCache): Record<string, string> | null {
   if (!cache.has(pack.id)) {
     const raw = pack.attributes?.fields;

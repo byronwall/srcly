@@ -1,7 +1,7 @@
 {
  "outcome": "partial",
  "generation": 1,
- "programHash": "924728315c43efa0",
+ "programHash": "e76863553526f2ef",
  "tsconfig": "/fixture/symbol-graph/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -131,7 +131,7 @@
    "note": null
   },
   {
-   "id": "program-element:147nt2v",
+   "id": "program-element:vmyei2",
    "kind": "value",
    "label": "createResource(() => params.id, (id) => fetchNote(id))",
    "detail": "alias",
@@ -1535,7 +1535,7 @@
    "note": null
   },
   {
-   "id": "program-element:ku0qog",
+   "id": "program-element:izipkv",
    "kind": "value",
    "label": "createResource(() => params.id, (id) => fetchNote(id))",
    "detail": "call",
@@ -2264,7 +2264,7 @@
    "note": null
   },
   {
-   "id": "program-element:1ra6d5g",
+   "id": "program-element:1wqmniz",
    "kind": "value",
    "label": "Match",
    "detail": "JSX occurrence",
@@ -2291,7 +2291,7 @@
    "note": null
   },
   {
-   "id": "program-element:16zndiz",
+   "id": "program-element:9enxau",
    "kind": "control",
    "label": "<Match when={note()}>",
    "detail": "Show value",
@@ -2345,7 +2345,7 @@
    "note": null
   },
   {
-   "id": "program-element:u84za4",
+   "id": "program-element:9h4jrt",
    "kind": "value",
    "label": "note.error",
    "detail": "field consumer",
@@ -2372,7 +2372,7 @@
    "note": null
   },
   {
-   "id": "program-element:ybcxt4",
+   "id": "program-element:4q7hnr",
    "kind": "value",
    "label": "Match",
    "detail": "JSX occurrence",
@@ -2454,7 +2454,7 @@
   },
   {
    "id": "program-element:1xi7w7e",
-   "kind": "terminal",
+   "kind": "value",
    "label": "return",
    "detail": "return",
    "parent": "scope:src/lib/notes.ts:7:60",
@@ -2635,6 +2635,33 @@
    "typeText": "string[]",
    "reason": null,
    "symbol": "tags@src/lib/notes.ts:389",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:y9fthu",
+   "kind": "terminal",
+   "label": "(tag) => tag.length > 0",
+   "detail": "decides a branch",
+   "parent": "scope:src/lib/notes.ts:7:60",
+   "file": "src/lib/notes.ts",
+   "absPath": "/fixture/symbol-graph/src/lib/notes.ts",
+   "line": 7,
+   "span": {
+    "startLine": 7,
+    "startColumn": 60,
+    "endLine": 7,
+    "endColumn": 83
+   },
+   "status": "proven",
+   "side": "down",
+   "elementKind": "branch-condition",
+   "typeText": "(tag: string) => boolean",
+   "reason": null,
+   "symbol": null,
    "field": null,
    "operation": null,
    "state": null,
@@ -3344,7 +3371,7 @@
    "note": null
   },
   {
-   "id": "program-element:1unud6x",
+   "id": "program-element:1tyqeyg",
    "kind": "value",
    "label": "Show",
    "detail": "JSX occurrence",
@@ -3371,7 +3398,7 @@
    "note": null
   },
   {
-   "id": "program-element:1muola9",
+   "id": "program-element:dlwirs",
    "kind": "value",
    "label": "n().sourceId",
    "detail": "field consumer",
@@ -3425,7 +3452,7 @@
    "note": null
   },
   {
-   "id": "program-element:1fkxfot",
+   "id": "program-element:1vg0ukm",
    "kind": "value",
    "label": "props.note",
    "detail": "field consumer",
@@ -3560,34 +3587,7 @@
    "note": null
   },
   {
-   "id": "program-element:piqiha",
-   "kind": "terminal",
-   "label": "props.note.tags",
-   "detail": "DOM attribute",
-   "parent": "scope:src/components/NoteView.tsx:6:1",
-   "file": "src/components/NoteView.tsx",
-   "absPath": "/fixture/symbol-graph/src/components/NoteView.tsx",
-   "line": 17,
-   "span": {
-    "startLine": 17,
-    "startColumn": 20,
-    "endLine": 17,
-    "endColumn": 35
-   },
-   "status": "proven",
-   "side": "down",
-   "elementKind": "dom-terminal",
-   "typeText": "string[]",
-   "reason": null,
-   "symbol": "props@src/components/NoteView.tsx:221",
-   "field": "note.tags",
-   "operation": null,
-   "state": null,
-   "role": null,
-   "note": null
-  },
-  {
-   "id": "program-element:hszyc",
+   "id": "program-element:w5vvbz",
    "kind": "value",
    "label": "props.note.tags",
    "detail": "field consumer",
@@ -3614,7 +3614,7 @@
    "note": null
   },
   {
-   "id": "program-element:46dta4",
+   "id": "program-element:19l2yr9",
    "kind": "control",
    "label": "<For each={props.note.tags}>",
    "detail": "For item",
@@ -3641,7 +3641,7 @@
    "note": null
   },
   {
-   "id": "program-element:1i9imzf",
+   "id": "program-element:egqfcs",
    "kind": "value",
    "label": "For",
    "detail": "JSX occurrence",
@@ -4370,7 +4370,7 @@
    "note": null
   },
   {
-   "id": "program-element:14qfuab",
+   "id": "program-element:9b7d9o",
    "kind": "value",
    "label": "draft.title",
    "detail": "field consumer",
@@ -4397,7 +4397,7 @@
    "note": null
   },
   {
-   "id": "program-element:n3py47",
+   "id": "program-element:5b2q80",
    "kind": "value",
    "label": "input",
    "detail": "JSX occurrence",
@@ -4802,7 +4802,7 @@
    "note": null
   },
   {
-   "id": "program-element:1na4cpu",
+   "id": "program-element:weu43b",
    "kind": "value",
    "label": "createMemo(() => formatTags(props.note.tags))",
    "detail": "call",
@@ -4930,9 +4930,9 @@
    "label": null
   },
   {
-   "id": "state:program-element:147nt2v",
+   "id": "state:program-element:vmyei2",
    "source": "program-element:1xymv1d",
-   "target": "program-element:147nt2v",
+   "target": "program-element:vmyei2",
    "kind": "state",
    "status": "structural",
    "proof": [],
@@ -6344,9 +6344,9 @@
    "label": null
   },
   {
-   "id": "program-relation:15so6ro",
+   "id": "program-relation:1vta7la",
    "source": "program-element:1utsyh",
-   "target": "program-element:ku0qog",
+   "target": "program-element:izipkv",
    "kind": "framework-flow",
    "status": "proven",
    "proof": [
@@ -6506,8 +6506,8 @@
    "label": "trim"
   },
   {
-   "id": "program-relation:abapj0",
-   "source": "program-element:ku0qog",
+   "id": "program-relation:okiopq",
+   "source": "program-element:izipkv",
    "target": "program-element:5h6fge",
    "kind": "input-call",
    "status": "proven",
@@ -6534,8 +6534,8 @@
    "label": null
   },
   {
-   "id": "program-relation:19k8o3p",
-   "source": "program-element:ku0qog",
+   "id": "program-relation:1bq542n",
+   "source": "program-element:izipkv",
    "target": "program-element:e79drv",
    "kind": "references",
    "status": "proven",
@@ -7264,9 +7264,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1lw14xq",
+   "id": "program-relation:1mqckz1",
    "source": "program-element:19ze7xj",
-   "target": "program-element:1ra6d5g",
+   "target": "program-element:1wqmniz",
    "kind": "render-terminal",
    "status": "partial",
    "proof": [
@@ -7292,15 +7292,15 @@
    "label": null
   },
   {
-   "id": "program-relation:c8k6rs",
+   "id": "program-relation:629uuz",
    "source": "program-element:19ze7xj",
-   "target": "program-element:16zndiz",
+   "target": "program-element:9enxau",
    "kind": "show-when",
    "status": "proven",
    "proof": [
     {
      "kind": "solid-show-when",
-     "detail": "This exact call is the when expression of the resolved solid-js Show occurrence.",
+     "detail": "This exact value is the when expression of the resolved solid-js Match occurrence.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -7359,9 +7359,9 @@
    "label": null
   },
   {
-   "id": "program-relation:11foceu",
+   "id": "program-relation:1d5yk1z",
    "source": "program-element:hi90g0",
-   "target": "program-element:u84za4",
+   "target": "program-element:9h4jrt",
    "kind": "consumer-value",
    "status": "proven",
    "proof": [
@@ -7398,9 +7398,9 @@
    "label": null
   },
   {
-   "id": "program-relation:b60jwf",
+   "id": "program-relation:52v5f7",
    "source": "program-element:hi90g0",
-   "target": "program-element:ybcxt4",
+   "target": "program-element:4q7hnr",
    "kind": "render-terminal",
    "status": "partial",
    "proof": [
@@ -7595,15 +7595,15 @@
    "label": null
   },
   {
-   "id": "program-relation:1tbve16",
-   "source": "program-element:16zndiz",
+   "id": "program-relation:15eeshe",
+   "source": "program-element:9enxau",
    "target": "program-element:j2hyqw",
    "kind": "show-render-parameter",
    "status": "proven",
    "proof": [
     {
      "kind": "solid-show-render-parameter",
-     "detail": "The resolved Show binding supplies its exact direct render callback parameter.",
+     "detail": "The resolved Match binding supplies its render callback's parameter.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -7681,6 +7681,34 @@
         "startColumn": 49,
         "endLine": 12,
         "endColumn": 53
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1v9p45r",
+   "source": "program-element:1xi7w7e",
+   "target": "program-element:y9fthu",
+   "kind": "predicate-return",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "standard-library",
+     "detail": "The standard library: raw.map((tag) => tag.trim().toLowerCase()).filter tests each element with what this function returns; the value is not kept.",
+     "locations": [
+      {
+       "file": "src/lib/notes.ts",
+       "line": 7,
+       "column": 60,
+       "span": {
+        "startLine": 7,
+        "startColumn": 60,
+        "endLine": 7,
+        "endColumn": 83
        }
       }
      ],
@@ -7813,7 +7841,7 @@
    "label": null
   },
   {
-   "id": "program-relation:xawh60",
+   "id": "program-relation:1ggxowk",
    "source": "program-element:j2hyqw",
    "target": "program-element:f94cmi",
    "kind": "accessor-call",
@@ -7821,7 +7849,7 @@
    "proof": [
     {
      "kind": "accessor-call",
-     "detail": "The compiler resolves this exact accessor call to the Show render callback parameter.",
+     "detail": "The compiler resolves this exact accessor call to the Match render callback's parameter.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -7880,7 +7908,7 @@
    "label": null
   },
   {
-   "id": "program-relation:oluu1a",
+   "id": "program-relation:6461k6",
    "source": "program-element:j2hyqw",
    "target": "program-element:1jmflha",
    "kind": "accessor-call",
@@ -7888,7 +7916,7 @@
    "proof": [
     {
      "kind": "accessor-call",
-     "detail": "The compiler resolves this exact accessor call to the Show render callback parameter.",
+     "detail": "The compiler resolves this exact accessor call to the Match render callback's parameter.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -7947,7 +7975,7 @@
    "label": null
   },
   {
-   "id": "program-relation:1uz8l0g",
+   "id": "program-relation:bsfl8c",
    "source": "program-element:j2hyqw",
    "target": "program-element:hrrgs7",
    "kind": "accessor-call",
@@ -7955,7 +7983,7 @@
    "proof": [
     {
      "kind": "accessor-call",
-     "detail": "The compiler resolves this exact accessor call to the Show render callback parameter.",
+     "detail": "The compiler resolves this exact accessor call to the Match render callback's parameter.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -8014,7 +8042,7 @@
    "label": null
   },
   {
-   "id": "program-relation:1lvsuv4",
+   "id": "program-relation:3mrkt8",
    "source": "program-element:j2hyqw",
    "target": "program-element:yrlj29",
    "kind": "accessor-call",
@@ -8022,7 +8050,7 @@
    "proof": [
     {
      "kind": "accessor-call",
-     "detail": "The compiler resolves this exact accessor call to the Show render callback parameter.",
+     "detail": "The compiler resolves this exact accessor call to the Match render callback's parameter.",
      "locations": [
       {
        "file": "src/routes/notes/[id].tsx",
@@ -8761,9 +8789,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1eg54dl",
+   "id": "program-relation:2v5jnk",
    "source": "program-element:vb57ha",
-   "target": "program-element:1unud6x",
+   "target": "program-element:1tyqeyg",
    "kind": "render-terminal",
    "status": "partial",
    "proof": [
@@ -8789,9 +8817,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1ui4oxi",
+   "id": "program-relation:7qg65j",
    "source": "program-element:vb57ha",
-   "target": "program-element:1muola9",
+   "target": "program-element:dlwirs",
    "kind": "consumer-value",
    "status": "proven",
    "proof": [
@@ -8856,9 +8884,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1fgashv",
+   "id": "program-relation:n9jkg1",
    "source": "program-element:kfzlap",
-   "target": "program-element:1fkxfot",
+   "target": "program-element:1vg0ukm",
    "kind": "consumer-value",
    "status": "proven",
    "proof": [
@@ -8996,37 +9024,9 @@
    "label": "tags"
   },
   {
-   "id": "program-relation:ub1b6s",
+   "id": "program-relation:lhh324",
    "source": "program-element:1h4dc8w",
-   "target": "program-element:piqiha",
-   "kind": "render-terminal",
-   "status": "proven",
-   "proof": [
-    {
-     "kind": "jsx-tag",
-     "detail": "The value expression reaches the intrinsic DOM terminal.",
-     "locations": [
-      {
-       "file": "src/components/NoteView.tsx",
-       "line": 17,
-       "column": 20,
-       "span": {
-        "startLine": 17,
-        "startColumn": 20,
-        "endLine": 17,
-        "endColumn": 35
-       }
-      }
-     ],
-     "status": "proven"
-    }
-   ],
-   "label": null
-  },
-  {
-   "id": "program-relation:1rrnpt7",
-   "source": "program-element:1h4dc8w",
-   "target": "program-element:hszyc",
+   "target": "program-element:w5vvbz",
    "kind": "consumer-value",
    "status": "proven",
    "proof": [
@@ -9052,15 +9052,15 @@
    "label": null
   },
   {
-   "id": "program-relation:1wfl7wv",
+   "id": "program-relation:1l9zxw2",
    "source": "program-element:1h4dc8w",
-   "target": "program-element:46dta4",
+   "target": "program-element:19l2yr9",
    "kind": "for-element",
    "status": "proven",
    "proof": [
     {
      "kind": "solid-for-each",
-     "detail": "This exact field value is the each expression of the resolved solid-js For occurrence.",
+     "detail": "This exact value is the each expression of the resolved solid-js For occurrence.",
      "locations": [
       {
        "file": "src/components/NoteView.tsx",
@@ -9091,9 +9091,9 @@
    "label": null
   },
   {
-   "id": "program-relation:has45n",
+   "id": "program-relation:1nog3y9",
    "source": "program-element:1h4dc8w",
-   "target": "program-element:1i9imzf",
+   "target": "program-element:egqfcs",
    "kind": "render-terminal",
    "status": "partial",
    "proof": [
@@ -9225,15 +9225,15 @@
    "label": null
   },
   {
-   "id": "program-relation:c41hoj",
-   "source": "program-element:46dta4",
+   "id": "program-relation:11zpcma",
+   "source": "program-element:19l2yr9",
    "target": "program-element:7ote7n",
    "kind": "for-callback-parameter",
    "status": "proven",
    "proof": [
     {
      "kind": "solid-for-render-parameter",
-     "detail": "The resolved For binding supplies its exact direct render callback parameter.",
+     "detail": "The resolved For binding supplies its render callback's parameter.",
      "locations": [
       {
        "file": "src/components/NoteView.tsx",
@@ -9292,15 +9292,15 @@
    "label": null
   },
   {
-   "id": "program-relation:f1p0ot",
+   "id": "program-relation:1boqdyq",
    "source": "program-element:1l7njf0",
    "target": "program-element:1prf2td",
    "kind": "references",
    "status": "partial",
    "proof": [
     {
-     "kind": "framework-state",
-     "detail": "The factory's initial value seeds the state its getter reads.",
+     "kind": "state-initialization",
+     "detail": "The factory's initial value seeds the state its getter reads; later writes may replace it.",
      "locations": [
       {
        "file": "src/components/NoteView.tsx",
@@ -9790,9 +9790,9 @@
    "label": null
   },
   {
-   "id": "program-relation:35cwy4",
+   "id": "program-relation:1u6xo7i",
    "source": "program-element:10j29xq",
-   "target": "program-element:14qfuab",
+   "target": "program-element:9b7d9o",
    "kind": "consumer-value",
    "status": "proven",
    "proof": [
@@ -9829,9 +9829,9 @@
    "label": null
   },
   {
-   "id": "program-relation:12a84p9",
+   "id": "program-relation:1a7vo1q",
    "source": "program-element:10j29xq",
-   "target": "program-element:n3py47",
+   "target": "program-element:5b2q80",
    "kind": "render-terminal",
    "status": "partial",
    "proof": [
@@ -10313,9 +10313,9 @@
    "label": null
   },
   {
-   "id": "program-relation:14t8fc4",
+   "id": "program-relation:iok9za",
    "source": "program-element:12nw6xx",
-   "target": "program-element:1na4cpu",
+   "target": "program-element:weu43b",
    "kind": "framework-flow",
    "status": "proven",
    "proof": [
@@ -10397,8 +10397,8 @@
    "label": null
   },
   {
-   "id": "program-relation:jijhlw",
-   "source": "program-element:1na4cpu",
+   "id": "program-relation:ckl4rw",
+   "source": "program-element:weu43b",
    "target": "program-element:r7mpx4",
    "kind": "references",
    "status": "proven",
@@ -10537,6 +10537,7 @@
    "kind": "reads"
   }
  ],
+ "producers": [],
  "origins": [],
  "terminals": [
   {
@@ -10572,16 +10573,16 @@
    "status": "proven"
   },
   {
-   "nodeId": "program-element:1xi7w7e",
-   "label": "return",
+   "nodeId": "program-element:lmif9q",
+   "label": "String(note.error)",
    "roles": [
-    "return"
+    "render"
    ],
    "status": "proven"
   },
   {
-   "nodeId": "program-element:lmif9q",
-   "label": "String(note.error)",
+   "nodeId": "program-element:y9fthu",
+   "label": "(tag) => tag.length > 0",
    "roles": [
     "render"
    ],
@@ -10614,14 +10615,6 @@
   {
    "nodeId": "program-element:i8sura",
    "label": "n().sourceId",
-   "roles": [
-    "render"
-   ],
-   "status": "proven"
-  },
-  {
-   "nodeId": "program-element:piqiha",
-   "label": "props.note.tags",
    "roles": [
     "render"
    ],
@@ -10665,16 +10658,16 @@
   "down": 164,
   "scopes": 16,
   "origins": 0,
-  "terminals": 15,
+  "terminals": 14,
   "boundaries": 4,
   "frontiers": 0
  },
  "coverage": {
-  "elements": 256,
-  "relations": 276,
+  "elements": 255,
+  "relations": 275,
   "budget": {
    "limit": 16384,
-   "used": 276,
+   "used": 275,
    "exhausted": false
   }
  }

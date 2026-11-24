@@ -120,6 +120,22 @@ export const anchorGraphResultSchema = z.strictObject({
    * syntax and the checker, never part of the value's proof.
    */
   links: z.array(z.strictObject({ id: z.string(), source: z.string(), target: z.string(), kind: z.enum(["calls", "reads", "writes"]) })),
+  /**
+   * Backward from a field read: the drawn expressions that fill that field
+   * (`src/srcly/field-producers.ts`), nearest first. Each is the value packed
+   * as the field (`packNodeId`) where the walk's field path ends, never a
+   * whole object carried past it. `via` says how it got to the read: as a
+   * state's first value (`initialization`), a later write to that state
+   * (`write`), or out of a call (`return`). Empty when no field path ends
+   * at a pack, or the anchor is not traced backward.
+   */
+  producers: z.array(z.strictObject({
+    nodeId: z.string(),
+    packNodeId: z.string(),
+    field: z.string(),
+    via: z.array(z.enum(["initialization", "write", "return"])),
+    status: z.enum(["proven", "partial"]),
+  })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

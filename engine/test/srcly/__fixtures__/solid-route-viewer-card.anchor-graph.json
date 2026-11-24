@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "ea919e40821c7a82",
+ "programHash": "ccc7b9a19c55a683",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -428,7 +428,7 @@
    "note": null
   },
   {
-   "id": "program-element:13bc7k7",
+   "id": "program-element:t1tovu",
    "kind": "value",
    "label": "createResource(loadViewer)",
    "detail": "call",
@@ -509,7 +509,7 @@
    "note": null
   },
   {
-   "id": "program-element:1xezxcf",
+   "id": "program-element:xw0aok",
    "kind": "value",
    "label": "createResource",
    "detail": "value",
@@ -1530,8 +1530,8 @@
    "label": null
   },
   {
-   "id": "program-relation:zy3nsv",
-   "source": "program-element:13bc7k7",
+   "id": "program-relation:jw0wv4",
+   "source": "program-element:t1tovu",
    "target": "program-element:1c1mvsc",
    "kind": "references",
    "status": "proven",
@@ -1558,9 +1558,9 @@
    "label": null
   },
   {
-   "id": "program-relation:16dr4y4",
+   "id": "program-relation:1sjzduz",
    "source": "program-element:1j37v4t",
-   "target": "program-element:13bc7k7",
+   "target": "program-element:t1tovu",
    "kind": "framework-flow",
    "status": "proven",
    "proof": [
@@ -1586,9 +1586,9 @@
    "label": null
   },
   {
-   "id": "program-relation:oh6sga",
-   "source": "program-element:1xezxcf",
-   "target": "program-element:13bc7k7",
+   "id": "program-relation:1fdd63i",
+   "source": "program-element:xw0aok",
+   "target": "program-element:t1tovu",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -1614,9 +1614,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1t8qr16",
+   "id": "program-relation:17rcg9h",
    "source": "program-element:pnc62j",
-   "target": "program-element:13bc7k7",
+   "target": "program-element:t1tovu",
    "kind": "argument",
    "status": "proven",
    "proof": [
@@ -2367,6 +2367,7 @@
    "kind": "calls"
   }
  ],
+ "producers": [],
  "origins": [
   {
    "nodeId": "program-element:19rl76l",
