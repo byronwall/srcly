@@ -65,6 +65,29 @@ function expressionQuery(root: string, file: string, expression: string, directi
 }
 
 describe("on-demand evidence parity", () => {
+  it("reports progress while a backward trace builds the caller catalog (L01)", () => {
+    // The server's query deadline counts silence: on srcly's own root this build took
+    // 24 s, and without progress the first backward trace timed out at 30 s.
+    const root = fixture({
+      "index.ts": [
+        `export function target(value: string) { return value; }`,
+        `export function caller(input: string) { return target(input); }`,
+      ].join("\n"),
+    });
+    try {
+      const messages: string[] = [];
+      const session = createEngineSession({ root, source: root, tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR }, (update) => messages.push(update.message));
+      const forward = anchorGraphOp(session, { file: "index.ts", name: "value", line: 1, direction: "forward" });
+      expect(forward.nodes.length).toBeGreaterThan(0);
+      expect(messages.some((message) => message.startsWith("Indexing callers"))).toBe(false);
+      const backward = anchorGraphOp(session, { file: "index.ts", name: "value", line: 1, direction: "backward" });
+      expect(backward.nodes.some((node) => node.label.includes("input"))).toBe(true);
+      expect(messages.some((message) => message.startsWith("Indexing callers"))).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves graphs and unresolved stops across direction changes and cancelled collection", () => {
     const root = fixture({
       "index.ts": [

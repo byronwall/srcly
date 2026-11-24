@@ -87,6 +87,18 @@ def test_timeout_cancels_and_drops_the_late_reply(tmp_path):
     engine.close()
 
 
+def test_progress_keeps_a_working_query_alive(tmp_path):
+    # L01: a first backward trace builds the caller catalog (24 s on srcly's own root)
+    # inside a 30 s query. The deadline counts silence, so a build that reports progress
+    # answers; a silent one still times out.
+    engine = process(tmp_path, "--working", "routes=0.6", "--hang", "fileExports")
+    engine.handshake()
+    assert engine.request("routes", timeout=0.2)["routes"] is not None
+    with pytest.raises(EngineTimeout):
+        engine.request("fileExports", timeout=0.2)
+    engine.close()
+
+
 def test_cancelled_reply_after_timeout(tmp_path):
     engine = process(tmp_path, "--hang", "routes")
     engine.handshake()

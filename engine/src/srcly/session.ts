@@ -97,6 +97,26 @@ export function requireTypescript(tier1: Tier1, what: string): TsTier1 {
 }
 
 /**
+ * The caller catalog takes 24 s on srcly's own root, inside a query whose
+ * deadline is 30 s of silence (server `engine.py`). The collector checks its
+ * token before every file and AST unit, so the token reports progress, at most
+ * once a second, and each report restarts the server's deadline (L01).
+ */
+function heartbeat(cancellation: AnalysisCancellationToken | undefined, progress: AnalyzerProgressReporter | undefined, files: number): AnalysisCancellationToken | undefined {
+  if (!progress) return cancellation;
+  let checks = 0;
+  let last = -Infinity;
+  return {
+    throwIfCancelled() {
+      cancellation?.throwIfCancelled();
+      if ((checks++ & 1023) !== 0 || performance.now() - last < 1000) return;
+      last = performance.now();
+      progress({ step: "trace", message: `Indexing callers in ${files} files` });
+    },
+  };
+}
+
+/**
  * Two tiers over one Program (plan section 3.3). Tier 1 builds the Program
  * and route discovery, and answers interactive queries. It never calls
  * `analyzer.report()`: that full legacy report is tier 2 and is built only by
@@ -157,7 +177,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     const providerFor = (all = false, cancellation?: AnalysisCancellationToken) => {
       if (provider?.isPoisoned) { provider = null; complete = false; totality = null; }
       if (all && !complete) {
-        provider = createCompleteProgramEvidenceProvider(ts, program, root, cancellation);
+        provider = createCompleteProgramEvidenceProvider(ts, program, root, heartbeat(cancellation, progress, sourceFiles.length));
         complete = true;
         totality = null;
       }

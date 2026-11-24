@@ -73,6 +73,8 @@ class _Pending:
     done: threading.Event = field(default_factory=threading.Event)
     reply: dict | None = None
     on_progress: Callable[[dict], None] | None = None
+    # When the engine last reported progress on this request: a query's deadline counts from here.
+    progressed: float = field(default_factory=time.monotonic)
 
 
 class EngineProcess:
@@ -229,8 +231,13 @@ class EngineProcess:
 
         override = timeout_override()
         effective = override if override is not None else timeout
-        if not pending.done.wait(effective):
-            return self._timed_out(request_id, pending, effective)
+        # The deadline is for silence, not work: each progress frame (a one-time build,
+        # such as the caller catalog of a first backward trace) restarts it, up to BUILD_TIMEOUT.
+        started = time.monotonic()
+        while not pending.done.wait(max(0.0, pending.progressed + effective - time.monotonic())):
+            now = time.monotonic()
+            if now - pending.progressed >= effective or now - started >= max(effective, BUILD_TIMEOUT):
+                return self._timed_out(request_id, pending, effective)
         self.last_used = time.monotonic()
         return self._result(pending)
 
@@ -318,6 +325,8 @@ class EngineProcess:
                 self.latest_progress = progress
                 with self._lock:
                     pending = self._pending.get(request_id)
+                if pending:
+                    pending.progressed = time.monotonic()
                 if pending and pending.on_progress:
                     pending.on_progress(progress)
             return
