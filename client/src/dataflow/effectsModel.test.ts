@@ -35,6 +35,12 @@ describe("the effects view", () => {
     expect(partial.headline).toBe("Partial analysis: no effects were confirmed");
   });
 
+  it("a callee with no implementation is partial, never Closed", () => {
+    const frontier = { ...(effectsPartial as FunctionEffectsResult).frontiers[0], reason: "implementation-unavailable" };
+    const view = effectsView({ ...(effectsPartial as FunctionEffectsResult), facts: [], frontiers: [frontier] });
+    expect(view.headline).toBe("No confirmed effects · 1 place the analysis could not follow");
+  });
+
   it("words the via chain", () => {
     expect(viaText([])).toBeNull();
     expect(viaText([{ callable: "row", file: "a.tsx", line: 1 }, { callable: "stamp", file: "b.ts", line: 2 }])).toBe("via row › stamp");

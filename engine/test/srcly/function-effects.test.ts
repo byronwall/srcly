@@ -133,6 +133,34 @@ describe("functionEffects on effects-basics", () => {
   });
 });
 
+describe("functionEffects past a callee's declaration (W18)", () => {
+  const session = sessionFor(basics);
+  const effects = (marker: string) => functionEffectsOp(session, { file: "src/opaque-callers.ts", line: lineOf(basics, "src/opaque-callers.ts", marker) });
+
+  it("a declared callee with no body is a named frontier, not Closed, and is not counted as followed", () => {
+    const r = effects("export function callsDeclaredOnly");
+    expect(r).toMatchObject({ outcome: "partial", coverage: "partial", facts: [] });
+    expect(r.frontiers).toEqual([expect.objectContaining({ reason: "implementation-unavailable", label: "obtainExternalNote", witness: expect.objectContaining({ text: "obtainExternalNote(id)" }) })]);
+    expect(r.frontiers[0].detail).toMatch(/^Cannot determine effects past obtainExternalNote; implementation unavailable \(declared at src\/opaque\.ts:\d+\)/);
+    expect(r.counts.callables).toBe(1);
+  });
+
+  it("the same signature with a pure body stays Closed", () => {
+    const r = effects("export function callsPureBody");
+    expect(summary(r)).toEqual({ facts: [], frontiers: [], handling: [] });
+    expect(r).toMatchObject({ outcome: "ok", coverage: "complete-for-supported-scope", counts: { callables: 2 } });
+  });
+
+  it("overload signatures follow the implementation, and an effectful helper's effect shows", () => {
+    expect(summary(effects("export function callsOverloaded"))).toEqual({ facts: ["stdout direct via overloaded"], frontiers: [], handling: [] });
+    expect(summary(effects("export function callsEffectfulHelper"))).toEqual({ facts: ["stdout direct via effectfulHelper"], frontiers: [], handling: [] });
+  });
+
+  it("an interface method is dynamic dispatch", () => {
+    expect(summary(effects("export function callsInterfaceMethod")).frontiers).toEqual(["dynamic-dispatch"]);
+  });
+});
+
 describe.skipIf(!fs.existsSync(path.join(srclyClient, "src/services/scanJobs.ts")))("functionEffects on srcly's own client (M6 acceptance)", () => {
   const session = sessionFor(srclyClient);
 

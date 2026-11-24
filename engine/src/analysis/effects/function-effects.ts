@@ -134,8 +134,10 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
     for (let hops = 0; symbol && hops < 4; hops += 1) {
       if (placeOf(symbol) !== "first-party") return null;
       let next: TypeScript.Symbol | undefined;
+      // An overload signature or a `declare function` has no body: prefer the implementation.
+      const functions = (symbol.declarations ?? []).filter((d): d is TypeScript.SignatureDeclaration => ts.isFunctionLike(d));
+      if (functions.length) return { node: functions.find(hasBody) ?? functions[0], symbol };
       for (const declaration of symbol.declarations ?? []) {
-        if (ts.isFunctionLike(declaration)) return { node: declaration, symbol };
         if (ts.isVariableDeclaration(declaration) && declaration.initializer) {
           const initializer = unparen(ts, declaration.initializer);
           if (ts.isFunctionLike(initializer)) return { node: initializer, symbol };
@@ -254,6 +256,8 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
       // First party: follow it.
       const target = targetOf(call);
       if (!target) return frontier("unresolved-callee", name, `${name} resolves to a value, not a function declaration.`);
+      if (!hasBody(target.node) && (ts.isMethodSignature(target.node) || ts.getCombinedModifierFlags(target.node as TypeScript.Declaration) & ts.ModifierFlags.Abstract)) return frontier("dynamic-dispatch", name, `${name} is an interface or abstract method: the implementation is chosen at run time.`);
+      if (!hasBody(target.node)) return frontier("implementation-unavailable", name, `Cannot determine effects past ${name}; implementation unavailable (declared at ${relativeTo(root, target.node.getSourceFile().fileName)}:${spanOf(target.node.getSourceFile(), target.node).line}).`);
       follow(target.node, name, call, via, depth, out, act);
     };
 
@@ -448,6 +452,11 @@ function nestedActivation(ts: typeof TypeScript, fn: TypeScript.Node, outer: Act
   }
   if (ts.isNewExpression(parent) && ts.isIdentifier(parent.expression) && parent.expression.text === "Promise") return outer;
   return "latent";
+}
+
+/** A declaration with code to walk; an overload signature or a `declare`d function has none. */
+function hasBody(node: TypeScript.SignatureDeclaration): boolean {
+  return (node as TypeScript.FunctionLikeDeclaration).body !== undefined;
 }
 
 function combine(outer: Activation, inner: Activation): Activation {
