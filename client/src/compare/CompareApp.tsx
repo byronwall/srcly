@@ -4,7 +4,10 @@ import { EmptyState, ErrorState } from "../components/feedback/States";
 import { Button } from "../components/ui/Button";
 import {
   cancelCompare,
+  compareRepo,
   fetchCommits,
+  readFilterParam,
+  FILTER_PARAM,
   fetchCompareResult,
   navigateStep,
   prewarm,
@@ -27,7 +30,7 @@ import { CommitStepper } from "./CommitStepper";
 import { ComparePicker } from "./ComparePicker";
 import { activeStep, stepRefs } from "./stepper";
 import { Inspector } from "./Inspector";
-import { buildRows, collectFiles, indexFiles, type FileRow, type RowSort } from "./rows";
+import { ALL_STATUSES, buildRows, collectFiles, filterFiles, indexFiles, type FileRow, type RowSort } from "./rows";
 import { Scorecard } from "./Scorecard";
 import { SummaryStrip } from "./SummaryStrip";
 import type { ComparePayload } from "./types";
@@ -49,6 +52,14 @@ function readParam(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
 }
 
+/*
+ * History rule. A push marks a new review step: picking a compare, stepping a
+ * commit, opening a path from Changes, entering or leaving compare. Everything
+ * inside one review (path filter, sort, view, selected file) is a replace, so
+ * Back and Forward walk review steps, never keystrokes, and each step's URL
+ * still holds the state it was left in. The source overlay is not in the URL:
+ * Close and Escape close it, Back does not.
+ */
 function writeParam(name: string, value: string | null) {
   const url = new URL(window.location.href);
   if (value) url.searchParams.set(name, value);
@@ -60,11 +71,14 @@ function writeParam(name: string, value: string | null) {
 export default function CompareApp() {
   const initial = readCompareParam() ?? { base: "merge-base", head: "WORKTREE" };
   const [refs, setRefs] = createSignal(initial);
+  // The repo the shown result came from; a different `repo` in the URL is a new review.
+  let repo = compareRepo();
   const [snapshot, setSnapshot] = createSignal<CompareSnapshot | null>(null);
   const [payload, setPayload] = createSignal<ComparePayload | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [columns, setColumns] = createSignal(DEFAULT_COMPARE_COLUMNS);
   const [sort, setSort] = createSignal<RowSort>(readParam(SORT_PARAM) ?? "tree");
+  const [filter, setFilter] = createSignal(readFilterParam());
   const [handoff, setHandoff] = createSignal(readPathHandoff());
   const [selected, setSelected] = createSignal<string | null>(readParam(FILE_PARAM));
   const [view, setView] = createSignal<CompareView>((readParam(VIEW_PARAM) as CompareView) ?? "files");
@@ -85,6 +99,7 @@ export default function CompareApp() {
     const running = snapshot();
     if (running) void cancelCompare(running.id).catch(() => {});
     setRefs({ base, head });
+    repo = compareRepo();
     setError(null);
     setPayload(null);
     try {
@@ -114,7 +129,10 @@ export default function CompareApp() {
                 const match = path.touchedOnly ? null : result.files.find((f) => f.path === path.path || Boolean(path.oldPath && f.oldPath === path.oldPath));
                 select(match?.path ?? path.path);
               } else if (!result.files.some((f) => f.path === selected())) {
-                const first = buildRows(collectFiles(result.files, new Map(), false), {
+                // Start inside the URL's path filter, so the inspector shows a visible row.
+                const all = collectFiles(result.files, new Map(), false);
+                const kept = filterFiles(all, { statuses: new Set(ALL_STATUSES), regressionsOnly: false, query: filter() });
+                const first = buildRows(kept.some((f) => f.change) ? kept : all, {
                   showUnchanged: false,
                   sort: "regressed",
                   collapsed: new Set(),
@@ -181,11 +199,20 @@ export default function CompareApp() {
     return pr ? `Whole PR #${pr[1]}` : "Whole range";
   };
 
+  // Back/Forward land on an entry whose URL holds that step's state; read it all back.
   const onPopState = () => {
     setRange(readRangeParam());
     setHandoff(readPathHandoff());
+    setFilter(readFilterParam());
+    setSelected(readParam(FILE_PARAM));
+    setSort(readParam(SORT_PARAM) ?? "tree");
+    setView((readParam(VIEW_PARAM) as CompareView) ?? "files");
     const next = readCompareParam();
-    if (next && (next.base !== refs().base || next.head !== refs().head)) void run(next.base, next.head);
+    if (next && (next.base !== refs().base || next.head !== refs().head || compareRepo() !== repo)) {
+      // Another repo or ref pair: the open source belongs to the old result.
+      setOpenFile(null);
+      void run(next.base, next.head);
+    }
   };
   onMount(() => {
     if (ran()) void run(initial.base, initial.head);
@@ -204,6 +231,10 @@ export default function CompareApp() {
   const changeSort = (next: RowSort) => {
     setSort(next);
     writeParam(SORT_PARAM, next === "tree" ? null : next);
+  };
+  const changeFilter = (next: string) => {
+    setFilter(next);
+    writeParam(FILTER_PARAM, next || null);
   };
   const changeView = (next: CompareView) => {
     setView(next);
@@ -249,7 +280,10 @@ export default function CompareApp() {
   };
 
   return (
-    <div class="plc-app-shell flex h-screen flex-col overflow-hidden">
+    <div
+      class="plc-app-shell flex h-screen flex-col overflow-hidden"
+      data-scan-state={payload() ? "ready" : error() ? "error" : "loading"}
+    >
       <header class="plc-topbar flex items-center gap-4 border-b px-4">
         <h1 class="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
           <img src="/favicon.svg" alt="" class="h-5 w-5" />
@@ -388,6 +422,8 @@ export default function CompareApp() {
                       onColumnsChange={setColumns}
                       sort={sort()}
                       onSortChange={changeSort}
+                      query={filter()}
+                      onQueryChange={changeFilter}
                       selected={selected()}
                       onSelect={select}
                       onOpenFile={(path) => openSide(path)}

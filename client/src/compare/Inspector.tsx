@@ -123,10 +123,10 @@ export function Inspector(props: {
               <p class="plc-data-sm mt-0.5 text-[var(--plc-on-subtle)]">from {breakablePath(f().oldPath!)}</p>
             </Show>
             <div class="mt-2.5 flex gap-2">
-              <Button size="sm" variant="default" disabled={f().status === "added"} onClick={() => props.onOpen("base")}>
+              <Button size="sm" variant="default" disabled={f().status === "added"} data-compare-open="base" onClick={() => props.onOpen("base")}>
                 Open before
               </Button>
-              <Button size="sm" variant="default" disabled={f().status === "removed"} onClick={() => props.onOpen("head")}>
+              <Button size="sm" variant="default" disabled={f().status === "removed"} data-compare-open="head" onClick={() => props.onOpen("head")}>
                 Open after
               </Button>
             </div>

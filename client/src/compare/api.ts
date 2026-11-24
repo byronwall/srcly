@@ -231,11 +231,23 @@ export function readCompareParam(search = window.location.search): { base: strin
   return { base: raw.slice(0, at) || DEFAULT_BASE, head: raw.slice(at + 2) || DEFAULT_HEAD };
 }
 
+/**
+ * The Files path filter (`?cq=models/`). It belongs to one review: the repo and
+ * the exact ref pair in the same URL. `compareHref` drops it, so a new compare,
+ * a commit step, or leaving compare never carries a filter to another ref pair.
+ */
+export const FILTER_PARAM = "cq";
+
+export function readFilterParam(search = window.location.search): string {
+  return new URLSearchParams(search).get(FILTER_PARAM) ?? "";
+}
+
 export function compareHref(base: string | null, head?: string): string {
   const url = new URL(window.location.href);
   url.searchParams.delete(PICK_PARAM);
   url.searchParams.delete(RANGE_PARAM);
   url.searchParams.delete(PATH_HANDOFF_PARAM);
+  url.searchParams.delete(FILTER_PARAM);
   if (base === null) url.searchParams.delete(COMPARE_PARAM);
   else url.searchParams.set(COMPARE_PARAM, `${base}..${head ?? DEFAULT_HEAD}`);
   return url.pathname + url.search;
