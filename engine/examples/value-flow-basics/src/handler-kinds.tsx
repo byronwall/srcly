@@ -1,7 +1,7 @@
 import { createContext, createSignal, useContext } from "solid-js";
 
 // More kinds of handler a caller hands in, and the calls that read them.
-export function Picker(props: { label: string; onPick: (label: string) => void }) { // @stop handler-back untraced parameter
+export function Picker(props: { label: string; onPick: (label: string) => void }) { // @visits handler-back parameter
   return <button onClick={() => props.onPick(props.label)}>pick</button>;
 }
 
@@ -48,6 +48,6 @@ function shout(text: string) { // @trace handler-back backward symbol text
   console.log(text);
 }
 
-export function Loud(props: { word: string }) { // @stop handler-back untraced parameter
+export function Loud(props: { word: string }) { // @visits handler-back parameter
   return <Picker label={props.word} onPick={shout} />;
 }

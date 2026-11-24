@@ -15,10 +15,10 @@ export function twoLabels(aval: string, bval: string) {
   console.warn("B", lb.read()); // @never-reaches two-labels
 }
 
-export function labelsBack(gval: string, hval: string) { // @stop labels-back untraced parameter "gval"
+export function labelsBack(gval: string, hval: string) { // @visits labels-back parameter "gval"
   const lg = makeLabel(gval); // @visits labels-back value "gval"
   const lh = makeLabel(hval); // @never-reaches labels-back
-  console.log("G", lg.read()); // @trace labels-back backward lg.read() @outcome labels-back partial
+  console.log("G", lg.read()); // @trace labels-back backward lg.read() @outcome labels-back ok
   console.warn("H", lh.read());
 }
 
@@ -95,9 +95,9 @@ function exclaim(word: string) {
   return `${echo()}!`;
 }
 
-export function twoExclaims(mval: string, nval: string) { // @stop exclaims-back untraced parameter "mval"
+export function twoExclaims(mval: string, nval: string) { // @visits exclaims-back parameter "mval"
   const em = exclaim(mval); // @trace exclaims forward mval @outcome exclaims ok @visits exclaims-back value "mval"
   const en = exclaim(nval); // @never-reaches exclaims-back
-  console.log("M", em); // @reaches exclaims @trace exclaims-back backward em @outcome exclaims-back partial @no-edge exclaims-back * * shared-instance
+  console.log("M", em); // @reaches exclaims @trace exclaims-back backward em @outcome exclaims-back ok @no-edge exclaims-back * * shared-instance
   console.warn("N", en); // @never-reaches exclaims
 }

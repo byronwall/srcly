@@ -11,7 +11,7 @@ class Box {
   }
 }
 
-export function Trimmed(props: { title: string; data: object }) { // @stop json untraced * "props"
+export function Trimmed(props: { title: string; data: object }) { // @visits json parameter "props"
   const box = new Box(props.title);
   return (
     <p>

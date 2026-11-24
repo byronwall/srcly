@@ -22,7 +22,7 @@ export function Listed(props: { items: string[]; more: string[] }) {
 
 const disk = { readFileSync: (path: string) => path.trim() };
 
-export function NotLoaded(props: { path: string }) { // @stop own-read untraced parameter
+export function NotLoaded(props: { path: string }) { // @visits own-read parameter
   const local = disk.readFileSync(props.path); // @never-reaches own-read file-input
   return <p>{local}</p>; // @trace own-read backward local
 }

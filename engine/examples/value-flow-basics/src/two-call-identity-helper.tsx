@@ -5,7 +5,7 @@ function id(value: string) { // @trace id-param backward value
   return value; // @trace id-return forward value @outcome id-return ok
 }
 
-export function TwoCalls(props: { a: string; b: string }) { // @stop id-param,id-b-back untraced parameter
+export function TwoCalls(props: { a: string; b: string }) { // @visits id-param,id-b-back parameter
   return (
     <div>
       <span>{id(props.a)}</span>{/* @trace id-a forward props.a @outcome id-a ok @reaches id-a,id-return @never-reaches id-b @never-reaches id-b-back field-read @visits id-param field-read "a" */}
