@@ -57,7 +57,18 @@ export function createCallSiteIndex(tier1: TsTier1) {
     const home = symbol.declarations?.[0]?.getSourceFile();
     // Through re-exports too: any namespace-imported module that exports it.
     const exportsIt = (module: TypeScript.Symbol | undefined) => !!module && checker.getExportsOfModule(module).some((exported) => resolve(exported) === symbol);
-    const namespaced = !!home && files.some((file) => file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && exportsIt(checker.getSymbolAtLocation(statement.moduleSpecifier))));
+    // A lazy `import("./views")` gives the whole module too.
+    const dynamicImport = (file: TypeScript.SourceFile) => {
+      let hit = false;
+      const visit = (node: TypeScript.Node) => {
+        if (hit) return;
+        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && exportsIt(checker.getSymbolAtLocation(node.arguments[0]))) hit = true;
+        else ts.forEachChild(node, visit);
+      };
+      if (file.text.includes("import(")) visit(file);
+      return hit;
+    };
+    const namespaced = !!home && files.some((file) => dynamicImport(file) || file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && exportsIt(checker.getSymbolAtLocation(statement.moduleSpecifier))));
     for (const file of files) {
       if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {

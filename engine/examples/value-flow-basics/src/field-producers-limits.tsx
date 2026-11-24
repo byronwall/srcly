@@ -342,3 +342,23 @@ export function Updated() {
   // @trace fpl-updated backward n.title @produces fpl-updated write partial
   return <button onClick={() => setN((prev) => ({ ...prev, title: "NEXT" }))}>{n.title}</button>;
 }
+
+// A class method can be overridden: the receiver's class decides which return runs.
+class Base {
+  load() {
+    return { title: "BASE" };
+  }
+}
+export function Overridden(props: { repo: Base }) {
+  const loaded = props.repo.load();
+  return <p>{loaded.title}</p>; // @trace fpl-override backward loaded.title @no-produces fpl-override @produces-open fpl-override
+}
+
+// An optional call may not run: then the value is undefined.
+function loadSet() {
+  return { title: "SET" };
+}
+export function OptionalCall(props: { repo?: { load: typeof loadSet } }) { // @stop fpl-optional untraced parameter
+  const maybe = props.repo?.load();
+  return <p>{maybe?.title}</p>; // @trace fpl-optional backward maybe?.title @no-produces fpl-optional
+}

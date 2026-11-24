@@ -64,6 +64,8 @@ export interface LanguageHost {
   mutable?(file: string, span: Span): boolean;
   /** Whether the value a return at this span hands back may not be the call's whole value: a yield, a generator, a body whose end is reachable (`undefined`). */
   returnUnsure?(file: string, span: Span): boolean | "async" | "callback";
+  /** Whether the call at this span sits in an optional chain (`a?.b()`), so it may not run. */
+  optionalCall?(file: string, span: Span): boolean;
   /** Whether the call at this span passes arguments. */
   hasArguments?(file: string, span: Span): boolean;
   /** Whether the call at this span is awaited where it is made. */

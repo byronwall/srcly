@@ -214,6 +214,7 @@ class AnchorGraphBuilder {
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
+          optionalCall: (call) => this.host.optionalCall?.(call.location.file, call.location.span) ?? false,
           hasArguments: (call) => this.host.hasArguments?.(call.location.file, call.location.span) ?? true,
         }));
       }

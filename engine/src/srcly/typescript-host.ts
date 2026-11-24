@@ -81,7 +81,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const type = checker.getTypeAtLocation(top);
       if ((type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0)) return false;
       // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
-      if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || (ts.isParameter(up) && up.initializer === top)) return true;
+      if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up)) && up.initializer === top)) return true;
       // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
       if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
       if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
@@ -171,10 +171,21 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // A generator's value is an iterator, not what it returns; a block body whose end can be reached also returns undefined.
       if (fn.asteriskToken) return true;
       if (fn.body && ts.isBlock(fn.body) && !endsAlways(fn.body)) return true;
+      // A class method can be overridden: the receiver's class decides which body runs.
+      if (ts.isMethodDeclaration(fn) && ts.isClassLike(fn.parent) && !(ts.getCombinedModifierFlags(fn) & (ts.ModifierFlags.Static | ts.ModifierFlags.Private))) return true;
       // An async function's call is a promise: what it returns is the field only once awaited.
       if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
       // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
       return ts.isCallExpression(fn.parent) && fn.parent.arguments.includes(fn as unknown as TypeScript.Expression) ? "callback" : false;
+    },
+    optionalCall(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      // `a?.b()`, `a?.()`: the call does not run when the chain short-circuits.
+      for (let node: TypeScript.Node = at.node; ts.isCallExpression(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isNonNullExpression(node); node = (node as TypeScript.CallExpression).expression) {
+        if ((node as TypeScript.CallExpression).questionDotToken) return true;
+      }
+      return false;
     },
     hasArguments(file, span) {
       const at = nodeAt(file, span);

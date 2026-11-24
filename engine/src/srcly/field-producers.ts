@@ -68,6 +68,8 @@ export type ProducerHooks = {
   returnUnsure(ret: ProgramElement): boolean | "async" | "callback";
   /** A call that passes arguments (`LanguageHost.hasArguments`). */
   hasArguments(call: ProgramElement): boolean;
+  /** A call in an optional chain (`LanguageHost.optionalCall`): when it short-circuits, the value is undefined. */
+  optionalCall(call: ProgramElement): boolean;
   /** A call awaited where it is made (`LanguageHost.awaited`). */
   awaited(call: ProgramElement): boolean;
 };
@@ -154,6 +156,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
       // A return reaches the read only out of its own call, or as a state's lazy initial value (an updater's return is a later write, listed apart).
       // Any other way (a library call it was handed to: `.then(f)`) gives the caller what that call makes of it.
+      if (relation.kind === "return-value" && hooks.optionalCall(current)) return at(current.id, "fallthrough");
       const ownCall = relation.kind === "return-value" && unsure !== "callback";
       if (!ownCall && relation.proof.kind !== "state-initialization" && firstStateStep(via) !== "write") return at(target.id, "callback");
     }
