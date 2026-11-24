@@ -206,3 +206,40 @@ export function Assigned() {
   Object.assign(note, { title: "NEW" });
   return <p>{note.title}</p>; // @trace fpl-assigned backward note.title @no-produces fpl-assigned @produces-open fpl-assigned
 }
+
+// A function whose end can be reached returns undefined there too.
+function sometimes(ok: boolean) {
+  if (ok) return { title: "SET" };
+}
+export function FallsThrough(props: { ok: boolean }) {
+  const got = sometimes(props.ok);
+  return <p>{got?.title}</p>; // @trace fpl-fallthrough backward got?.title @no-produces fpl-fallthrough @produces-open fpl-fallthrough
+}
+
+// A generator's call is an iterator: what it yields is no field of it.
+function* pages() {
+  yield { next: 123 };
+}
+export function Iterator() {
+  const it = pages();
+  return <p>{String(it.next)}</p>; // @trace fpl-generator backward it.next @no-produces fpl-generator
+}
+
+// A returned object changed in the caller, through `Object.assign` on a property chain.
+function makeDoc() {
+  return { note: { title: "OLD" } };
+}
+export function AssignedChain() {
+  const doc = makeDoc();
+  Object.assign(doc.note, { title: "NEW" });
+  return <p>{doc.note.title}</p>; // @trace fpl-assign-chain backward doc.note.title @no-produces fpl-assign-chain @produces-open fpl-assign-chain
+}
+
+// An argument after a spread is not at the position its binding names.
+function second(_a: { title: string }, b: { title: string }) {
+  return b.title; // @trace fpl-spread-arg backward b.title @no-produces fpl-spread-arg @produces-open fpl-spread-arg
+}
+export function SpreadArgs() {
+  const pair: [{ title: string }] = [{ title: "ONE" }];
+  return <p>{second(...pair, { title: "TWO" })}</p>;
+}

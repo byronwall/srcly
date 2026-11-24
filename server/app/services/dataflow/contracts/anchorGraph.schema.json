@@ -563,6 +563,7 @@
             "type": "string",
             "enum": [
               "no-return",
+              "fallthrough",
               "dead-end",
               "missing",
               "mutable",

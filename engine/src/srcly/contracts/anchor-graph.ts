@@ -149,7 +149,7 @@ export const anchorGraphResultSchema = z.strictObject({
   producerStops: z.array(z.strictObject({
     nodeId: z.string(),
     /** `ProducerStopReason` in `src/srcly/field-producers.ts`. */
-    reason: z.enum(["no-return", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]),
+    reason: z.enum(["no-return", "fallthrough", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]),
   })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),

@@ -62,6 +62,10 @@ export interface LanguageHost {
    * or handed to another name (`const alias = x`).
    */
   mutable?(file: string, span: Span): boolean;
+  /** Whether the value a return at this span hands back may not be the call's whole value: a yield, a generator, a body whose end is reachable (`undefined`). */
+  returnUnsure?(file: string, span: Span): boolean;
+  /** Whether the binding (a variable or parameter) at this span names an object the code changes, as `mutable` says. */
+  mutatedBinding?(file: string, span: Span): boolean;
   /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
   stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */

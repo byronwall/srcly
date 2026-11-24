@@ -40,7 +40,8 @@ export function createCallSiteIndex(tier1: TsTier1) {
       for (const file of files) {
         if (![...names].some((each) => file.text.includes(each))) continue;
         const aliases = (node: TypeScript.Node) => {
-          if ((ts.isImportSpecifier(node) || ts.isExportSpecifier(node)) && !names.has(node.name.text) && resolve(checker.getSymbolAtLocation(node.name)) === symbol) names.add(node.name.text);
+          const local = ts.isImportSpecifier(node) || ts.isExportSpecifier(node) || ts.isImportClause(node) ? node.name : undefined;
+          if (local && !names.has(local.text) && resolve(checker.getSymbolAtLocation(local)) === symbol) names.add(local.text);
           ts.forEachChild(node, aliases);
         };
         aliases(file);
@@ -50,7 +51,9 @@ export function createCallSiteIndex(tier1: TsTier1) {
     for (const file of files) {
       if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {
-        if (ts.isIdentifier(node) && names.has(node.text) && resolve(checker.getSymbolAtLocation(node)) === symbol) {
+        // A shorthand property (`{ action }`) names the property; its value is the function.
+        const own = ts.isIdentifier(node) && ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : ts.isIdentifier(node) ? checker.getSymbolAtLocation(node) : undefined;
+        if (ts.isIdentifier(node) && names.has(node.text) && resolve(own) === symbol) {
           const parent = node.parent;
           const isDeclarationName = declarations.has(parent as TypeScript.Declaration);
           const isImport = ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isExportSpecifier(parent);

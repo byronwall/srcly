@@ -41,9 +41,10 @@ export type FieldProducers = {
  * call (`accessor`), a state factory with no initial value of its own
  * (`factory`), a write into the read (`write`), an object with no such field
  * (`missing`: the read can be undefined), an object the code changes after it
- * is built (`mutable`).
+ * is built (`mutable`), a function that can end without this return
+ * (`fallthrough`: a branch with no return, a generator).
  */
-export type ProducerStopReason = "no-return" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+export type ProducerStopReason = "no-return" | "fallthrough" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
 export type ProducerStop = { elementId: string; reason: ProducerStopReason };
 
 /** What the walk asks of the language host. */
@@ -60,6 +61,10 @@ export type ProducerHooks = {
   callable(element: ProgramElement): boolean;
   /** An object literal the code changes after building it (`LanguageHost.mutable`): its members are not the field's only value. */
   mutable(pack: ProgramElement): boolean;
+  /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
+  mutatedBinding(binding: ProgramElement): boolean;
+  /** A return that may not be all the call yields (`LanguageHost.returnUnsure`). */
+  returnUnsure(ret: ProgramElement): boolean;
 };
 
 const MAX_WORK = 4000;
@@ -151,6 +156,11 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       continue;
     }
     let continued = false;
+    // A call that no return or modelled result enters (only its arguments and its callee): its value comes from outside.
+    if (named && current.kind === "call" && incoming(item.id).every((relation) => relation.kind === "argument" || (relation.kind === "references" && byId.has(relation.from) && within(byId.get(relation.from)!, current)))) {
+      stop(item, current.id, "no-return");
+      continue;
+    }
     // The read's own field read is where its field comes from; another step into the read (a write to it) may supply it too.
     const atSeed = item.id === seedId && incoming(item.id).some((relation) => relation.kind === "field-input");
     for (const relation of incoming(item.id)) {
@@ -188,8 +198,18 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         continue;
       }
       // A destructured or defaulted binding may hold another field, or the default: the evidence names one value for it.
-      if (named && hooks.unsureBinding(target)) {
+      if (named && (hooks.unsureBinding(target) || (relation.kind === "argument-binding" && hooks.unsureBinding(current)))) {
         stop({ via }, target.id, "binding");
+        continue;
+      }
+      // A binding whose object the code changes holds more than what was bound to it.
+      if (named && (target.kind === "alias" || target.kind === "parameter") && hooks.mutatedBinding(target)) {
+        stop({ via }, target.id, "mutable");
+        continue;
+      }
+      // Into a callee's return: only if that return is all the call can yield.
+      if (named && relation.kind === "return-value" && hooks.returnUnsure(target)) {
+        stop({ via }, target.id, "fallthrough");
         continue;
       }
       // A read out of a state (a getter's call, the store itself) is as sure as the first value it reads: only its time is not proven.
