@@ -94,6 +94,7 @@
   "nullProof": true,
   "origins": [],
   "outcome": "unsupported",
+  "producerStops": [],
   "producers": [],
   "producersOpen": false,
   "programHash": "hash-1",

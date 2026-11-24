@@ -32,8 +32,8 @@ export type AnchorQuestion = {
   alternatives: NamedWitness[];
   /** Two or more call sites pass the value the producer reads: the earlier value depends on which one. */
   callers: NamedWitness[];
-  /** Where the field's trail ends with no producer: a call nothing in the source returns into. */
-  boundary: NamedWitness | null;
+  /** Where the field's trail ends with no producer (`producerStops`): a call nothing returns into, a spread. */
+  boundary: (NamedWitness & { call: boolean }) | null;
 };
 
 function sameSpan(a: SourceSpan, b: SourceSpan) {
@@ -75,7 +75,7 @@ export function anchorQuestion(graph: AnchorGraphResult): AnchorQuestion {
   const caller = binding ? graph.nodes.find((node) => node.id === binding.source) : undefined;
   const context = caller && binding ? witnessAt(binding, caller) : null;
   if (graph.direction === "forward") return { ...base, fieldRead: selection, context };
-  return { ...base, fieldRead: selection, context, ...producerAnswer(graph, receiver) };
+  return { ...base, fieldRead: selection, context, ...producerAnswer(graph) };
 }
 
 const byNode = (graph: AnchorGraphResult) => new Map(graph.nodes.map((node) => [node.id, node]));
@@ -90,19 +90,24 @@ const witness = (node: AnchorNode, text = node.label): NamedWitness => ({ file: 
  * from its first value; two first values, or one beside a path the walk
  * could not finish (`producersOpen`), are no answer.
  */
-function producerAnswer(graph: AnchorGraphResult, receiver: AnchorNode | undefined): Pick<AnchorQuestion, "producer" | "alternatives" | "callers" | "boundary"> {
+function producerAnswer(graph: AnchorGraphResult): Pick<AnchorQuestion, "producer" | "alternatives" | "callers" | "boundary"> {
   const nodes = byNode(graph);
   const found = graph.producers.flatMap((p) => {
     const value = nodes.get(p.nodeId);
     const object = nodes.get(p.packNodeId);
     return value && object ? [{ ...p, value, object }] : [];
   });
-  // A later write to the read's own state: its first step back from the read is that write, never through another state's first value.
-  const writes = found.filter((p) => p.via[0] === "write" && !p.via.includes("initialization"));
-  const first = found.filter((p) => !p.via.includes("write"));
+  // Whose state a path went through first, back from the read: a write there is a later write to the read's own state.
+  // A write met only past a first value (another state that seeded this one) can still be that first value.
+  const firstState = (via: readonly string[]) => via.find((step) => step !== "return") ?? null;
+  const writes = found.filter((p) => firstState(p.via) === "write");
+  // One expression reached by two handoffs is one producer.
+  const first = [...new Map(found.filter((p) => firstState(p.via) !== "write").map((p) => [p.nodeId, p])).values()];
   const none = { producer: null, alternatives: [], callers: [], boundary: null };
-  if (first.length === 0) return { ...none, boundary: receiver ? untracedCall(graph, receiver) : null };
-  if (first.length > 1 || graph.producersOpen) return { ...none, alternatives: first.map((p) => witness(p.value, p.text)) };
+  const stopAt = graph.producerStops.map((id) => nodes.get(id)).find((node): node is AnchorNode => !!node);
+  const boundary = stopAt ? { ...witness(stopAt), call: stopAt.elementKind === "call" } : null;
+  if (first.length === 0) return { ...none, boundary };
+  if (first.length > 1 || graph.producersOpen) return { ...none, alternatives: first.map((p) => witness(p.value, p.text)), boundary };
   const [only] = first;
   if (only.status !== "proven") return none;
   const kind: HandoffKind = only.via.includes("initialization") ? "initialization" : only.via.includes("return") ? "return" : "field";
@@ -133,26 +138,11 @@ function callersOf(graph: AnchorGraphResult, producer: AnchorNode): NamedWitness
       if (!source || seen.has(source.id)) continue;
       seen.add(source.id);
       if (edge.kind === "component-prop-binding") sites.set(`${source.file}:${source.span.startLine}:${source.span.startColumn}`, witness(source));
-      else if (edge.kind === "field-input") queue.push(source.id);
+      // Back along the producer's receiver: its field reads, and a proven alias (`const alias = props.note`).
+      else if (edge.kind === "field-input" || (edge.kind === "references" && edge.status === "proven")) queue.push(source.id);
     }
   }
   return sites.size > 1 ? [...sites.values()] : [];
-}
-
-/** Back from the read's receiver over its one carried value: a call nothing returns into is where the field's trail ends. */
-function untracedCall(graph: AnchorGraphResult, receiver: AnchorNode): NamedWitness | null {
-  const nodes = byNode(graph);
-  const seen = new Set<string>();
-  for (let node: AnchorNode | undefined = receiver; node && !seen.has(node.id); ) {
-    const id: string = node.id;
-    seen.add(id);
-    const carried = graph.edges.filter((edge) => edge.target === id && edge.status === "proven" && ["references", "return-value", "return-expression"].includes(edge.kind));
-    const sources = [...new Set(carried.map((edge) => edge.source))];
-    if (node.elementKind === "call" && sources.length === 0 && !graph.edges.some((edge) => edge.target === id && edge.kind === "return-value")) return witness(node, node.label);
-    if (sources.length !== 1) return null;
-    node = nodes.get(sources[0]);
-  }
-  return null;
 }
 
 function witnessAt(edge: AnchorEdge, node: AnchorNode): TraceWitness | null {

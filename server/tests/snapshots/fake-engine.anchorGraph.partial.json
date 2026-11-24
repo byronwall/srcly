@@ -167,6 +167,7 @@
   "nullProof": true,
   "origins": [],
   "outcome": "partial",
+  "producerStops": [],
   "producers": [],
   "producersOpen": false,
   "programHash": "hash-1",

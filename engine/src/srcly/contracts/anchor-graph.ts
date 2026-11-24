@@ -145,6 +145,8 @@ export const anchorGraphResultSchema = z.strictObject({
    * calls bind, a parameter no call binds. Then no one producer is the answer.
    */
   producersOpen: z.boolean(),
+  /** The drawn boxes where those open paths end (a call nothing returns into, a spread), for the card to open. */
+  producerStops: z.array(z.string()),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

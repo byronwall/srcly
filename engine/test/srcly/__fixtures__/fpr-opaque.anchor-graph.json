@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "d0b024c582d3963c",
+ "programHash": "b6a80c0dcb47b8b0",
  "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -302,6 +302,9 @@
  "links": [],
  "producers": [],
  "producersOpen": true,
+ "producerStops": [
+  "program-element:1ff04ei"
+ ],
  "origins": [],
  "terminals": [],
  "counts": {

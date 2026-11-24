@@ -29,9 +29,10 @@ export function SpreadAfter() {
   return <p>{note.title}</p>; // @trace fpl-spread-after backward note.title @no-produces fpl-spread-after
 }
 
+// A later named member replaces the spread before it: "NEW", never "OLD".
 export function SpreadBefore() {
-  const note = { ...{ title: "OLD" }, title: "NEW" };
-  return <p>{note.title}</p>; // @trace fpl-spread-before backward note.title @no-produces fpl-spread-before
+  const note = { ...{ title: "OLD" }, title: "NEW" }; // @produces fpl-spread-before none proven
+  return <p>{note.title}</p>; // @trace fpl-spread-before backward note.title
 }
 
 function maybeNote(p: boolean): Note {
@@ -79,4 +80,53 @@ export function ReusedSeed() {
   const [s, setS] = createStore(v);
   setS(v);
   return <p>{s.title}</p>; // @trace fpl-reused backward s.title
+}
+
+// One helper, two calls on two branches: the walk cannot tell which call's argument the parameter holds.
+function twice(p: boolean) {
+  if (p) return id({ title: "A" });
+  return id({ title: "B" });
+}
+export function TwoBranchesOneHelper(props: { p: boolean }) {
+  const got = twice(props.p);
+  return <p>{got.title}</p>; // @trace fpl-helper backward got.title @no-produces fpl-helper @produces-open fpl-helper
+}
+
+// An operand is no field of the result: a template's length, a ternary's condition.
+export function Operands(props: { guard: { title: string } | null; a: Note; b: Note }) { // @stop fpl-ternary untraced parameter
+  const text = `${{ length: 100 }}`;
+  const chosen = props.guard ? props.a : props.b;
+  return <p>{text.length} {chosen.title}</p>; // @trace fpl-template backward text.length @no-produces fpl-template @trace fpl-ternary backward chosen.title @no-produces fpl-ternary
+}
+
+// A later named member replaces a spread before it.
+export function SpreadThenNamed(props: { defaults: Note }) {
+  const note = { ...props.defaults, title: "FINAL" }; // @produces fpl-final none proven
+  return <p>{note.title}</p>; // @trace fpl-final backward note.title
+}
+
+// One branch widens through an array: the other branch's field is not the answer.
+function lengthy(p: boolean) {
+  if (p) return ["x"];
+  return { length: 99 }; // @produces fpl-widen return proven
+}
+export function Widened(props: { p: boolean }) {
+  const result = lengthy(props.p);
+  return <p>{result.length}</p>; // @trace fpl-widen backward result.length @produces-open fpl-widen
+}
+
+// A setter of another field keeps the first value proven.
+export function OtherField() {
+  const [store, setStore] = createStore({ title: "FIRST", other: 0 }); // @produces fpl-other-field initialization proven
+  setStore("other", 1);
+  return <p>{store.title}</p>; // @trace fpl-other-field backward store.title
+}
+
+// A store seeded from a call: that call's returned object is the first value.
+function makeNote(): Note {
+  return { id: "m", title: "MADE", tags: [] }; // @produces fpl-made initialization proven
+}
+export function SeededFromCall() {
+  const [made] = createStore(makeNote());
+  return <p>{made.title}</p>; // @trace fpl-made backward made.title
 }

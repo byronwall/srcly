@@ -121,8 +121,9 @@ class AnchorGraphBuilder {
   private anchorId: string | null = null;
   /** The anchor's field producers found upstream (`fieldProducers`), by element. */
   private producerFacts: FieldProducer[] = [];
-  /** A path that may fill the field ended without a producer (`FieldProducers.open`). */
+  /** A path that may fill the field ended without a producer (`FieldProducers.open`), and where. */
   private producersOpen = false;
+  private producerStopFacts: string[] = [];
   /** A declaration anchor's own returns: where a body run hands on to the return's run. */
   private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
@@ -199,7 +200,12 @@ class AnchorGraphBuilder {
       if (run.endsHere) continue;
       const slice = this.slice(run, anchor.text);
       const begun = this.walk(run.seedId, slice, run.side, run.seedSpan);
-      if (run.side === "up" && run.seedId === seed && !isDeclaration) ({ producers: this.producerFacts, open: this.producersOpen } = fieldProducers(slice, seed));
+      if (run.side === "up" && run.seedId === seed && !isDeclaration) {
+        ({ producers: this.producerFacts, open: this.producersOpen, stops: this.producerStopFacts } = fieldProducers(slice, seed, {
+          members: (pack) => this.host.objectMembers?.(pack.location.file, pack.location.span) ?? null,
+          oneCaller: (parameter) => singleCall(this.host.callSitesOf(parameter).sites),
+        }));
+      }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);
       naturalBySeed.set(run.seedId, (naturalBySeed.get(run.seedId) ?? 0) + natural);
       coverage.elements += slice.elements.length;
@@ -855,7 +861,11 @@ class AnchorGraphBuilder {
         continue;
       }
       if (out.some((item) => item.nodeId === nodeId && item.packNodeId === packNodeId && item.via.join() === fact.via.join())) continue;
-      const text = (node: AnchorNode) => clip(this.host.textAt(node.file, node.span) ?? node.label);
+      // The source's own characters, cut at a length: a witness never changes a literal's text.
+      const text = (node: AnchorNode) => {
+        const source = this.host.textAt(node.file, node.span) ?? node.label;
+        return source.length > 160 ? `${source.slice(0, 159)}…` : source;
+      };
       out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack) });
     }
     return out;
@@ -880,6 +890,7 @@ class AnchorGraphBuilder {
       links: this.links(nodes),
       producers: this.producers(),
       producersOpen: this.producersOpen,
+      producerStops: [...new Set(this.producerStopFacts.map((id) => this.resolve(id)))].filter((id) => this.nodes.has(id) && id !== this.anchorId),
       origins: boxes.filter((node) => node.kind === "origin").map((node) => ({ nodeId: node.id, label: node.label, roles: this.originRoles.get(node.id) ?? [], status: node.status })),
       terminals: boxes.filter((node) => node.kind === "terminal").map((node) => ({ nodeId: node.id, label: node.label, roles: this.terminalRoles.get(node.id) ?? [], status: node.status })),
       counts: {

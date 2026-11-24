@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "515261b55aef39b0",
+ "programHash": "9cc161be21e39948",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -2369,6 +2369,7 @@
  ],
  "producers": [],
  "producersOpen": false,
+ "producerStops": [],
  "origins": [
   {
    "nodeId": "program-element:19rl76l",

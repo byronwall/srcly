@@ -47,6 +47,14 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       return at ? at.node.getText(at.sourceFile) : null;
     },
+    objectMembers(file, span) {
+      const at = nodeAt(file, span);
+      if (!at || !ts.isObjectLiteralExpression(at.node)) return null;
+      return at.node.properties.map((member) => {
+        if (ts.isSpreadAssignment(member) || !member.name || ts.isComputedPropertyName(member.name)) return null;
+        return ts.isIdentifier(member.name) || ts.isStringLiteral(member.name) || ts.isNumericLiteral(member.name) || ts.isPrivateIdentifier(member.name) ? member.name.text : null;
+      });
+    },
     typeTextAt(file, span) {
       const at = nodeAt(file, span);
       if (!at) return null;

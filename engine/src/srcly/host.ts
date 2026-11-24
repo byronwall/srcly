@@ -40,6 +40,13 @@ export interface LanguageHost {
   /** The identifier `name` on `line`: its declaration first, else the first use, with fallback spans. */
   identifierOnLine(file: string, name: string, line: number): HostCandidate | null;
   textAt(file: string, span: Span): string | null;
+  /**
+   * The members of the object literal at exactly this span, in source order:
+   * each one's field name, or null where the name is not known (a spread, a
+   * computed key). Null when the span is no object literal, or the host
+   * cannot tell.
+   */
+  objectMembers?(file: string, span: Span): (string | null)[] | null;
   /** The checked type at exactly this span. */
   typeTextAt(file: string, span: Span): string | null;
   /**

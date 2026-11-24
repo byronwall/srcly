@@ -359,6 +359,7 @@ export type AnchorGraphResult = {
     packText: string;
   }[];
   producersOpen: boolean;
+  producerStops: string[];
   origins: {
     nodeId: string;
     label: string;

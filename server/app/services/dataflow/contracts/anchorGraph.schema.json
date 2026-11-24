@@ -551,6 +551,12 @@
     "producersOpen": {
       "type": "boolean"
     },
+    "producerStops": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "origins": {
       "type": "array",
       "items": {
@@ -746,6 +752,7 @@
     "links",
     "producers",
     "producersOpen",
+    "producerStops",
     "origins",
     "terminals",
     "counts",

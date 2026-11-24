@@ -131,6 +131,7 @@
   "nullProof": true,
   "origins": [],
   "outcome": "ok",
+  "producerStops": [],
   "producers": [],
   "producersOpen": false,
   "programHash": "hash-1",

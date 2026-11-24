@@ -6,7 +6,7 @@ import {
   constructorExpressionElementEvidence,
   type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
-import { asyncCellCall, asyncCellFlow, cellHas, cellYields, holdsState, lazyCellAnchor, pairCall, reducerArgument, reducerOf, seedArgument, writesByName } from "./cells";
+import { asyncCellCall, asyncCellFlow, cellCall, cellHas, cellYields, holdsState, lazyCellAnchor, pairCall, reducerArgument, reducerOf, seedArgument, writesByName } from "./cells";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, frameworkRow, makesAccessor, makesPredicate, primaryOption, promiseChannels, rowFlow, rowPaths, standardCallback, watchedFunction, yieldsOnlyCallback, type Flow, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel, type LibraryModelRow } from "./library-models";
@@ -984,6 +984,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!getter) return handled;
     const dispatches = role && reducerOf(this.ts, this.checker, getter);
     const stateId = this.stateElement(getter);
+    const factoryRow = role ? null : cellCall(this.ts, this.checker, node)?.row ?? null;
     // A store path's last argument is its value; a function before it is a predicate that picks items, and what it returns is a test, never stored.
     const path = role && node.arguments.length > 1;
     for (const [index, argument] of node.arguments.entries()) {
@@ -1010,9 +1011,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // At a store path, what the updater returns is one value, written at that path.
       const valueId = path ? this.ensureElement(fn, "value", ownerId, { updater: true }, null, null, null, "partial", frameworkState("What the updater returns: the new value at the store path.", this.location(fn))) : stateId;
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
-        // A lazy initial value (`useState(() => …)`, no setter) is the state's first value; an updater's return is a later write.
+        // A lazy initial value (`useState(() => …)`, the argument the row names as calling its initial value) is the state's first value;
+        // an updater's or a reducer's return is a later write.
         const words = "The function's return becomes the state its getter reads; order and time are not proven.";
-        this.addRelation(returnId, valueId, "framework-flow", [this.location(fn)], role ? frameworkState(words, this.location(fn)) : stateInitialization(words, this.location(fn)), "partial");
+        const lazy = !role && !!factoryRow && cellHas(factoryRow, "init", `Argument[${index}].ReturnValue`);
+        this.addRelation(returnId, valueId, "framework-flow", [this.location(fn)], lazy ? stateInitialization(words, this.location(fn)) : frameworkState(words, this.location(fn)), "partial");
       }
       if (path) this.writeStorePath(node, valueId, stateId, ownerId, this.location(fn));
       // The updater receives the value it replaces: the field at the store path, not the whole store.

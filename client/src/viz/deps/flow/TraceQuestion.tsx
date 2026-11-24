@@ -88,9 +88,9 @@ export function TraceQuestion(props: {
                   </div>
                 </Show>
                 <Show when={a().boundary}>{(call) => (
-                  <div data-trace-boundary>
-                    <p class="mt-2 font-semibold">Stops at a call</p>
-                    <p class="text-[var(--plc-on-muted)]">No source in the analysis returns a value into this call, so the field has no producer to show.</p>
+                  <div data-trace-boundary={call().call ? "call" : "other"}>
+                    <p class="mt-2 font-semibold">{call().call ? "Stops at a call" : "Stops here"}</p>
+                    <p class="text-[var(--plc-on-muted)]">{call().call ? "No source in the analysis returns a value into this call, so the field's value past it is not known." : "The field's path ends here without a producer: a spread, an operand or a value from outside."}</p>
                     <Named witness={call()} onOpen={props.onOpen} />
                   </div>
                 )}</Show>

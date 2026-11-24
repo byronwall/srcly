@@ -721,6 +721,7 @@ class AnchorGraphResult(BaseModel):
     links: list[AnchorLink]
     producers: list[AnchorProducer]
     producersOpen: bool
+    producerStops: list[str]
     origins: list[AnchorOrigin]
     terminals: list[AnchorTerminal]
     counts: AnchorCounts
