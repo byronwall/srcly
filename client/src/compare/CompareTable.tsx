@@ -119,13 +119,14 @@ export function CompareTable(props: {
   onColumnsChange: (columns: string[]) => void;
   sort: RowSort;
   onSortChange: (sort: RowSort) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
   selected: string | null;
   onSelect: (path: string) => void;
   onOpenFile: (path: string) => void;
 }) {
   const [showUnchanged, setShowUnchanged] = createSignal(false);
   const [regressionsOnly, setRegressionsOnly] = createSignal(false);
-  const [query, setQuery] = createSignal("");
   const [statuses, setStatuses] = createSignal<Set<ChangeStatus>>(new Set(ALL_STATUSES));
   const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set());
 
@@ -134,7 +135,7 @@ export function CompareTable(props: {
     filterFiles(collectFiles(props.payload.files, headFiles(), showUnchanged()), {
       statuses: statuses(),
       regressionsOnly: regressionsOnly(),
-      query: query(),
+      query: props.query,
     })
   );
   const rows = createMemo(() =>
@@ -205,8 +206,9 @@ export function CompareTable(props: {
             type="search"
             placeholder="Filter paths"
             aria-label="Filter paths"
-            value={query()}
-            onInput={(e) => setQuery(e.currentTarget.value)}
+            data-compare-filter
+            value={props.query}
+            onInput={(e) => props.onQueryChange(e.currentTarget.value)}
             class="h-7 w-52 rounded-md border border-[var(--plc-border-strong)] bg-[var(--plc-surface)] pl-7 pr-2 text-[12px] outline-none transition-colors placeholder:text-[var(--plc-on-disabled)] focus:border-[var(--plc-border-focus)]"
           />
         </label>
@@ -385,6 +387,9 @@ export function CompareTable(props: {
                             !file().change && "text-[var(--plc-on-subtle)]"
                           )}
                           style={{ "grid-template-columns": grid(), height: `${ROW_H}px` }}
+                          data-compare-file={file().path}
+                          data-changed={file().change ? "" : undefined}
+                          aria-current={isSelected() ? "true" : undefined}
                           onClick={() => {
                             if (file().change) props.onSelect(file().path);
                           }}
