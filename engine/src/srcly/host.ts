@@ -55,6 +55,13 @@ export interface LanguageHost {
   unsureBinding?(file: string, span: Span): boolean;
   /** Whether the value at this span is a function (a signal's getter), so a field read on it reads the function. */
   callable?(file: string, span: Span): boolean;
+  /**
+   * Whether the object literal at this span can change after it is built:
+   * the binding that holds it (or an object holding it) is written through
+   * (`x.a = …`, `x["a"] = …`, `x.n++`, `delete x.a`, `Object.assign(x, …)`)
+   * or handed to another name (`const alias = x`).
+   */
+  mutable?(file: string, span: Span): boolean;
   /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
   stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */

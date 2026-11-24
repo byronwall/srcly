@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "70074ffe7c1d37a8",
+ "programHash": "248129aeec98bf4d",
  "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -305,7 +305,7 @@
  "producerStops": [
   {
    "nodeId": "program-element:1ff04ei",
-   "reason": "widened"
+   "reason": "no-return"
   }
  ],
  "origins": [],

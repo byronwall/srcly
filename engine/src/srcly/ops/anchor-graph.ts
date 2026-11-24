@@ -203,10 +203,14 @@ class AnchorGraphBuilder {
       if (run.side === "up" && run.seedId === seed && !isDeclaration) {
         ({ producers: this.producerFacts, open: this.producersOpen, stops: this.producerStopFacts } = fieldProducers(slice, seed, {
           members: (pack) => this.host.objectMembers?.(pack.location.file, pack.location.span) ?? null,
-          oneCaller: (parameter) => singleCall(this.host.callSitesOf(parameter).sites),
+          oneCaller: (parameter) => {
+            const { sites } = this.host.callSitesOf(parameter);
+            return singleCall(sites) && !sites?.handedToPage;
+          },
           unsureBinding: (element) => this.host.unsureBinding?.(element.location.file, element.location.span) ?? false,
           stateFactory: (element) => this.host.stateFactory?.(element.location.file, element.location.span) ?? false,
           callable: (element) => this.host.callable?.(element.location.file, element.location.span) ?? false,
+          mutable: (pack) => this.host.mutable?.(pack.location.file, pack.location.span) ?? false,
         }));
       }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);

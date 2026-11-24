@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "07755d7e688e4e71",
+ "programHash": "fc984aa7642d0381",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,

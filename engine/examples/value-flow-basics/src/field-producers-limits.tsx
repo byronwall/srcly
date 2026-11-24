@@ -131,11 +131,11 @@ export function SeededFromCall() {
   return <p>{made.title}</p>; // @trace fpl-made backward made.title
 }
 
-// A nested field written later: its first value is found, but it is not the answer (open).
+// A nested field written later: the object changes after it is built, so its first value is not the answer.
 export function NestedWrite() {
-  const doc = { note: { title: "OLD" } }; // @produces fpl-nested-write none proven
+  const doc = { note: { title: "OLD" } };
   doc.note.title = "NEW";
-  return <p>{doc.note.title}</p>; // @trace fpl-nested-write backward doc.note.title @produces-open fpl-nested-write
+  return <p>{doc.note.title}</p>; // @trace fpl-nested-write backward doc.note.title @no-produces fpl-nested-write @produces-open fpl-nested-write
 }
 
 // A destructured parameter, or one with a default, holds a value the evidence does not name exactly.
@@ -162,4 +162,47 @@ export function Arity() {
 export function InnerComputed(props: { key: string }) {
   const obj = { nested: { title: "OLD" }, [props.key]: { title: "NEW" } };
   return <p>{obj.nested.title}</p>; // @trace fpl-inner-computed backward obj.nested.title @no-produces fpl-inner-computed @produces-open fpl-inner-computed
+}
+
+// A rest parameter is an array of the arguments, not the first one.
+function total(...parts: { length: number }[]) {
+  return parts.length; // @trace fpl-rest backward parts.length @no-produces fpl-rest @produces-open fpl-rest
+}
+export function Rest() {
+  return <p>{total({ length: 100 }, { length: 200 })}</p>;
+}
+
+// A branch whose object has no such field leaves the read undefined there.
+function maybeTitle(flag: boolean) {
+  if (flag) return { title: "SET" }; // @produces fpl-missing return proven
+  return {};
+}
+export function Missing(props: { flag: boolean }) {
+  const loaded = maybeTitle(props.flag);
+  return <p>{(loaded as { title?: string }).title}</p>;
+}
+export function MissingRead(props: { flag: boolean }) {
+  const loaded: { title?: string } = maybeTitle(props.flag);
+  return <p>{loaded.title}</p>; // @trace fpl-missing backward loaded.title @produces-open fpl-missing
+}
+
+// A handler the page calls with its own event: its one explicit call's argument is not the only value.
+function onAction(evt: { type: string }) {
+  return evt.type; // @trace fpl-handler backward evt.type @no-produces fpl-handler @produces-open fpl-handler
+}
+export function Handler() {
+  onAction({ type: "manual" });
+  return <button onClick={onAction}>go</button>;
+}
+
+// An object changed after it is built, however the write is spelled.
+export function Mutated() {
+  const doc = { note: { title: "OLD" } };
+  doc.note["title"] = "NEW";
+  return <p>{doc.note.title}</p>; // @trace fpl-mutated backward doc.note.title @no-produces fpl-mutated @produces-open fpl-mutated
+}
+export function Assigned() {
+  const note = { title: "OLD" };
+  Object.assign(note, { title: "NEW" });
+  return <p>{note.title}</p>; // @trace fpl-assigned backward note.title @no-produces fpl-assigned @produces-open fpl-assigned
 }

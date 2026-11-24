@@ -63,13 +63,15 @@ function Producer(props: { answer: FieldProducerAnswer; onOpen: (path: string, l
 const STOP_WORDS: Record<StopReason, string> = {
   "no-return": "No source in the analysis returns a value into this call, so the field's value past it is not known.",
   "dead-end": "The field's path ends here: its value comes from outside what the analysis can follow.",
+  missing: "This object has no such field, so on this path the read is undefined.",
+  mutable: "The code changes this object after building it, so the value written here may not be what the read sees.",
   widened: "Here the value is reshaped (a library call, an array), so the field is no longer one the path can name.",
   "unnamed-member": "A spread or computed key here may hold the field, so the named one is not certain.",
   operand: "Here the value is an operator's or a condition's result, not one of its inputs.",
   callers: "More than one call reaches this function, so which call's value it holds is not known.",
   binding: "A destructured or defaulted name holds this value; the analysis does not name which part, or whether the default applies.",
   accessor: "This reads the getter function itself, not the value it returns.",
-  factory: "The state starts from its factory's own logic (a reducer), not an initial value the analysis can name.",
+  factory: "The state starts from its factory's call; the analysis does not name an initial value for this field there.",
   write: "A write lands on this field directly, so its first value may not be what the read sees.",
   budget: "The walk ran out of work before every path ended.",
 };

@@ -39,9 +39,11 @@ export type FieldProducers = {
  * (`operand`), a function more than one call reaches (`callers`), a
  * destructured or defaulted binding (`binding`), a function read without its
  * call (`accessor`), a state factory with no initial value of its own
- * (`factory`), a write into the read (`write`).
+ * (`factory`), a write into the read (`write`), an object with no such field
+ * (`missing`: the read can be undefined), an object the code changes after it
+ * is built (`mutable`).
  */
-export type ProducerStopReason = "no-return" | "dead-end" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+export type ProducerStopReason = "no-return" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
 export type ProducerStop = { elementId: string; reason: ProducerStopReason };
 
 /** What the walk asks of the language host. */
@@ -56,6 +58,8 @@ export type ProducerHooks = {
   stateFactory(element: ProgramElement): boolean;
   /** A function value (`LanguageHost.callable`): a signal's getter, whose own fields are not its state's. */
   callable(element: ProgramElement): boolean;
+  /** An object literal the code changes after building it (`LanguageHost.mutable`): its members are not the field's only value. */
+  mutable(pack: ProgramElement): boolean;
 };
 
 const MAX_WORK = 4000;
@@ -147,9 +151,15 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       continue;
     }
     let continued = false;
+    // The read's own field read is where its field comes from; another step into the read (a write to it) may supply it too.
+    const atSeed = item.id === seedId && incoming(item.id).some((relation) => relation.kind === "field-input");
     for (const relation of incoming(item.id)) {
       const target = byId.get(relation.from);
       if (!target) continue;
+      if (atSeed && relation.kind !== "field-input") {
+        stop(item, current.id, "write");
+        continue;
+      }
       // Before any field is named, only a step that keeps the value, or a field read, goes on; anything else (a member's write into the read) may supply it.
       if (!named && relation.kind !== "field-input" && !keepsIdentity(relation.kind)) {
         stop(item, current.id, "write");
@@ -204,6 +214,10 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
           continue;
         }
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
+          if (hooks.mutable(current)) {
+            stop({ via }, current.id, "mutable");
+            continue;
+          }
           const key = `${target.id}|${current.id}|${via.join(",")}`;
           if (!found.has(key)) found.set(key, { elementId: target.id, packId: current.id, field, via, status: partial ? "partial" : "proven" });
           continue;
@@ -211,7 +225,9 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       }
       // A step that is not the field's own widened the path to the whole value: it no longer names the field.
       if (path.length === 0 && named) {
-        stop({ via }, current.id, "widened");
+        // A call's argument is no return: a call nothing returns into is where the value comes from outside.
+        const noReturn = current.kind === "call" && relation.kind === "argument" && !incoming(item.id).some((other) => other.kind === "return-value" || keepsIdentity(other.kind));
+        stop({ via }, current.id, noReturn ? "no-return" : "widened");
         continue;
       }
       const key = `${target.id}|${path.join(".")}|${via.join(",")}`;
@@ -219,9 +235,9 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       seen.add(key);
       queue.push({ id: target.id, path, via, partial });
     }
-    // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside,
-    // unless this is an object whose members are all named and none is the field.
-    if (named && !continued && !lacks(current, item.path[item.path.length - 1])) stop(item, current.id, current.kind === "call" ? "no-return" : "dead-end");
+    // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside;
+    // an object with no such field leaves the read undefined on this path.
+    if (named && !continued) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
   }
   return { producers: [...found.values()], open, stops: [...stops.values()] };
 }

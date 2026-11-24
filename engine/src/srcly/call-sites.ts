@@ -7,6 +7,8 @@ export type CallSites = {
   calls: string[];
   /** The function is also referenced as a value (passed, stored), so its callers are not all visible. */
   escapes: boolean;
+  /** The page calls it too, as a DOM event handler (`<button onClick={f}>`): with its own event, not an argument the program names. */
+  handedToPage?: true;
 };
 
 /**
@@ -31,16 +33,20 @@ export function createCallSiteIndex(tier1: TsTier1) {
     const calls: string[] = [];
     let escapes = false;
     const declarations = new Set(symbol.declarations ?? []);
-    // An import under another name (`import { id as renamed }`) calls it by that name too.
+    // An import or re-export under another name (`import { id as renamed }`, `export { id as seed }`) calls it by that name too.
     const names = new Set([name]);
-    for (const file of files) {
-      if (!file.text.includes(name)) continue;
-      const aliases = (node: TypeScript.Node) => {
-        if (ts.isImportSpecifier(node) && node.propertyName?.text === name && resolve(checker.getSymbolAtLocation(node.name)) === symbol) names.add(node.name.text);
-        ts.forEachChild(node, aliases);
-      };
-      aliases(file);
+    for (let size = 0; size !== names.size; ) {
+      size = names.size;
+      for (const file of files) {
+        if (![...names].some((each) => file.text.includes(each))) continue;
+        const aliases = (node: TypeScript.Node) => {
+          if ((ts.isImportSpecifier(node) || ts.isExportSpecifier(node)) && !names.has(node.name.text) && resolve(checker.getSymbolAtLocation(node.name)) === symbol) names.add(node.name.text);
+          ts.forEachChild(node, aliases);
+        };
+        aliases(file);
+      }
     }
+    let handed = false;
     for (const file of files) {
       if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {
@@ -52,13 +58,16 @@ export function createCallSiteIndex(tier1: TsTier1) {
           if (callee) {
             const point = file.getLineAndCharacterOfPosition(node.getStart(file));
             calls.push(`${path.relative(root, file.fileName).split(path.sep).join("/")}:${point.line + 1}`);
-          } else if (!isDeclarationName && !isImport && !handedToPage(ts, node)) escapes = true;
+          } else if (!isDeclarationName && !isImport) {
+            if (handedToPage(ts, node)) handed = true;
+            else escapes = true;
+          }
         }
         ts.forEachChild(node, visit);
       };
       visit(file);
     }
-    const result = { calls, escapes };
+    const result: CallSites = { calls, escapes, ...(handed ? { handedToPage: true as const } : {}) };
     cache.set(symbol, result);
     return result;
   };

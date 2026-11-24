@@ -564,6 +564,8 @@
             "enum": [
               "no-return",
               "dead-end",
+              "missing",
+              "mutable",
               "widened",
               "unnamed-member",
               "operand",

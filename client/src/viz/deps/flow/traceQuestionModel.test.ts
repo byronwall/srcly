@@ -100,7 +100,7 @@ describe("the field's producer on the question card", () => {
   it("stops at a signature-only call by name, with no producer", () => {
     const q = anchorQuestion(graphOf(opaque));
     expect(q.producer).toBeNull();
-    expect(q.boundary).toMatchObject({ text: 'externalNote("KEY")', span: { startLine: 22 } });
+    expect(q.boundary).toMatchObject({ text: 'externalNote("KEY")', span: { startLine: 22 }, reason: "no-return" });
   });
 
   it("names a fallback packed as the field, with no other handoff", () => {

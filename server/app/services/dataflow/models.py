@@ -708,7 +708,7 @@ class AnchorProducer(BaseModel):
 
 class AnchorProducerStop(BaseModel):
     nodeId: str
-    reason: Literal["no-return", "dead-end", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
+    reason: Literal["no-return", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
 
 
 class AnchorGraphResult(BaseModel):
