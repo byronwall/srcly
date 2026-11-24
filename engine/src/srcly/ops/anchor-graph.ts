@@ -205,7 +205,7 @@ class AnchorGraphBuilder {
           members: (pack) => this.host.objectMembers?.(pack.location.file, pack.location.span) ?? null,
           oneCaller: (parameter) => {
             const { sites } = this.host.callSitesOf(parameter);
-            return singleCall(sites) && !sites?.handedToPage;
+            return singleCall(sites) && !sites?.handedToPage && !sites?.namespaced;
           },
           unsureBinding: (element) => this.host.unsureBinding?.(element.location.file, element.location.span) ?? false,
           stateFactory: (element) => this.host.stateFactory?.(element.location.file, element.location.span) ?? false,
@@ -214,6 +214,7 @@ class AnchorGraphBuilder {
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
+          hasArguments: (call) => this.host.hasArguments?.(call.location.file, call.location.span) ?? true,
         }));
       }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);

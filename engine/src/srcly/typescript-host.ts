@@ -42,6 +42,11 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
     if (ts.isBlock(statement)) return endsAlways(statement.statements.at(-1));
     if (ts.isIfStatement(statement)) return !!statement.elseStatement && endsAlways(statement.thenStatement) && endsAlways(statement.elseStatement);
+    // A switch with a default, whose every clause with statements ends (an empty clause falls into the next).
+    if (ts.isSwitchStatement(statement)) {
+      const clauses = statement.caseBlock.clauses;
+      return clauses.some((clause) => ts.isDefaultClause(clause)) && clauses.every((clause, index) => clause.statements.length === 0 ? index < clauses.length - 1 : endsAlways(clause.statements.at(-1)));
+    }
     return false;
   };
   const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
@@ -64,7 +69,15 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const assigned = ts.isBinaryExpression(up) && up.left === top && up.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && up.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
       const stepped = (ts.isPrefixUnaryExpression(up) || ts.isPostfixUnaryExpression(up)) && (up.operator === ts.SyntaxKind.PlusPlusToken || up.operator === ts.SyntaxKind.MinusMinusToken);
       const whole = top === unwrap(use);
-      if (!whole && (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top))) return true;
+      // Written (`x.a = …`, `x = …`, `[x.a] = …`, `({ x } = …)`, `for (x of …)`).
+      if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
+      // A primitive (`console.log(n.title)`) carries no object to change.
+      const type = checker.getTypeAtLocation(top);
+      if (!(type.flags & ts.TypeFlags.Any) && !(type.flags & ts.TypeFlags.Unknown) && !(type.flags & ts.TypeFlags.Object) && !(type.flags & ts.TypeFlags.Union) && !(type.flags & ts.TypeFlags.Intersection) && !(type.flags & ts.TypeFlags.TypeParameter)) return false;
+      // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
+      if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
+      if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
+      if (ts.isConditionalExpression(up) && up.condition !== top) return true;
       // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
       if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
       if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
@@ -75,7 +88,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (found) return;
       // `export { state }` hands it to every importer, which may change it.
       if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
-      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && checker.getSymbolAtLocation(node) === symbol && changes(node)) found = true;
+      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
       else ts.forEachChild(node, visit);
     };
     // A local binding is used only in its own file; an exported one may be changed anywhere.
@@ -149,10 +162,15 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const fn = node as TypeScript.SignatureDeclaration & { body?: TypeScript.Node; asteriskToken?: TypeScript.AsteriskToken };
       // A generator's value is an iterator, not what it returns; a block body whose end can be reached also returns undefined.
       if (fn.asteriskToken) return true;
+      if (fn.body && ts.isBlock(fn.body) && !endsAlways(fn.body)) return true;
       // An async function's call is a promise: what it returns is the field only once awaited.
       if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
-      if (!fn.body || !ts.isBlock(fn.body)) return false;
-      return !endsAlways(fn.body);
+      // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
+      return ts.isCallExpression(fn.parent) && fn.parent.arguments.includes(fn as unknown as TypeScript.Expression) ? "callback" : false;
+    },
+    hasArguments(file, span) {
+      const at = nodeAt(file, span);
+      return !!at && ts.isCallExpression(at.node) && at.node.arguments.length > 0;
     },
     awaited(file, span) {
       const at = nodeAt(file, span);

@@ -64,7 +64,9 @@ export type ProducerHooks = {
   /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
   mutatedBinding(binding: ProgramElement): boolean;
   /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
-  returnUnsure(ret: ProgramElement): boolean | "async";
+  returnUnsure(ret: ProgramElement): boolean | "async" | "callback";
+  /** A call that passes arguments (`LanguageHost.hasArguments`). */
+  hasArguments(call: ProgramElement): boolean;
   /** A call awaited where it is made (`LanguageHost.awaited`). */
   awaited(call: ProgramElement): boolean;
 };
@@ -149,10 +151,12 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (target.kind === "return") {
       const unsure = hooks.returnUnsure(target);
       if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
+      // A callback's return is the field only where the model seeds a state with it (a lazy initial value).
+      if (unsure === "callback" && relation.proof.kind !== "state-initialization") return at(target.id, "fallthrough");
     }
     if (isState(target.id) && throughState(relation.proof.kind)) {
       // A getter read without its call (`get.length`) reads the function; a store hook called with a selector reads what the selector picks.
-      if (current.kind === "call" && incoming(current.id).some((other) => other.kind === "argument")) return at(current.id, "accessor");
+      if (current.kind === "call" && hooks.hasArguments(current)) return at(current.id, "accessor");
     }
     if (current.kind !== "call" && isState(target.id) && hooks.callable(target)) return at(current.id, "accessor");
     return null;

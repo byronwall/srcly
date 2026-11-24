@@ -9,6 +9,8 @@ export type CallSites = {
   escapes: boolean;
   /** The page calls it too, as a DOM event handler (`<button onClick={f}>`): with its own event, not an argument the program names. */
   handedToPage?: true;
+  /** Its module is imported as a namespace somewhere (`import * as views`), which can call it by a computed key (`views[name](…)`). */
+  namespaced?: true;
 };
 
 /**
@@ -51,6 +53,9 @@ export function createCallSiteIndex(tier1: TsTier1) {
       }
     }
     let handed = false;
+    // A namespace import of its module (`views[name](…)`) can call it by a key the index cannot read.
+    const home = symbol.declarations?.[0]?.getSourceFile();
+    const namespaced = !!home && files.some((file) => file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && checker.getSymbolAtLocation(statement.moduleSpecifier)?.valueDeclaration === home));
     for (const file of files) {
       if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {
@@ -73,7 +78,7 @@ export function createCallSiteIndex(tier1: TsTier1) {
       };
       visit(file);
     }
-    const result: CallSites = { calls, escapes, ...(handed ? { handedToPage: true as const } : {}) };
+    const result: CallSites = { calls, escapes, ...(handed ? { handedToPage: true as const } : {}), ...(namespaced ? { namespaced: true as const } : {}) };
     cache.set(symbol, result);
     return result;
   };

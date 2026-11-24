@@ -280,3 +280,35 @@ export function ObjectSeed() {
   // @trace fpl-object-seed backward draft.title @produces fpl-object-seed write partial
   return <input value={draft.title} onInput={() => setDraft({ title: "NEXT" })} />;
 }
+
+// An async function that can end without returning: awaited, it still yields undefined there.
+async function loadMaybe(ok: boolean) {
+  if (ok) return { title: "SET" };
+}
+export async function AwaitedMaybe(props: { ok: boolean }) {
+  const maybe = await loadMaybe(props.ok);
+  return maybe?.title; // @trace fpl-await-maybe backward maybe?.title @no-produces fpl-await-maybe @produces-open fpl-await-maybe
+}
+
+// Written through a fallback that may be this object.
+export function ThroughFallback(props: { incoming?: { title: string } }) {
+  const fallback = { title: "OLD" };
+  const chosen = props.incoming ?? fallback;
+  chosen.title = "NEW";
+  return <p>{fallback.title}</p>; // @trace fpl-fallback-write backward fallback.title @no-produces fpl-fallback-write @produces-open fpl-fallback-write
+}
+
+// Every switch clause returns: no fallthrough.
+function byStatus(status: string) {
+  switch (status) {
+    case "active":
+      return { title: "ACTIVE" }; // @produces fpl-switch return proven
+    default:
+      return { title: "OTHER" }; // @produces fpl-switch return proven
+  }
+}
+export function Switched(props: { status: string }) {
+  const shown = byStatus(props.status);
+  console.log(shown.title);
+  return <p>{shown.title}</p>; // @trace fpl-switch backward shown.title
+}
