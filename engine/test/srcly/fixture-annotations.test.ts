@@ -208,7 +208,7 @@ function check(trace: Trace, graph: AnchorGraphResult, source: (file: string) =>
     if (hit.length) failures.push(`${where(claim)} @no-edge ${claim.args.join(" ")}: ${hit.map((edge) => `${edge.kind}/${edge.status}`).join(", ")} matches`);
   }
   failures.push(...checkRoutes([...claims("path"), ...claims("no-path")], graph, source));
-  const producers = graph.producers.map((item) => ({ ...item, node: graph.nodes.find((node) => node.id === item.nodeId)! }));
+  const producers = (graph.producers ?? []).map((item) => ({ ...item, node: graph.nodes.find((node) => node.id === item.nodeId)! }));
   type Produced = (typeof producers)[number];
   const describeProducer = (item: Produced) => `${at(item.node)} ${item.field} via ${item.via.join(",") || "none"} ${item.status} "${item.node.label}"`;
   const viaFits = (item: Produced, pattern: string | undefined) => !pattern || pattern === "*" || (pattern === "none" ? item.via.length === 0 : item.via.includes(pattern as Produced["via"][number]));
