@@ -215,6 +215,7 @@ class AnchorGraphBuilder {
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
           optionalCall: (call) => this.host.optionalCall?.(call.location.file, call.location.span) ?? false,
+          calleeReplaced: (call) => this.host.calleeReplaced?.(call.location.file, call.location.span) ?? false,
           hasArguments: (call) => this.host.hasArguments?.(call.location.file, call.location.span) ?? true,
         }));
       }

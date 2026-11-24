@@ -55,6 +55,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     }
     return false;
   };
+  /** A value that carries no object to change: every member of its type is a primitive. */
+  const isPrimitive = (type: TypeScript.Type) => (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0);
   const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
     if (!ts.isIdentifier(declaration.name)) return true;
     const name = declaration.name;
@@ -79,7 +81,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
       // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
       const type = checker.getTypeAtLocation(top);
-      if ((type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0)) return false;
+      if (isPrimitive(type)) return false;
       // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
       if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
       // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
@@ -88,6 +90,10 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
       if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
       if (ts.isConditionalExpression(up) && up.condition !== top) return true;
+      // Its own method called (`state.apply(patch)`), which may write it through `this`.
+      if (ts.isPropertyAccessExpression(top) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
+      // Handed to a component (`<Editor note={note} />`), which may write it through its props.
+      if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && /^[A-Z]/.test(up.parent.parent.parent.tagName.getText())) return true;
       // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
       if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
       if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
@@ -188,6 +194,16 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
         if ((node as TypeScript.CallExpression).questionDotToken) return true;
       }
       return false;
+    },
+    calleeReplaced(file, span) {
+      const at = nodeAt(file, span);
+      if (!at || !ts.isCallExpression(at.node)) return false;
+      // The callee's root binding (`f`, `service` in `service.load()`): a reassigned `let`, or an object whose property is written, may run another body.
+      let root: TypeScript.Node = at.node.expression;
+      while (ts.isPropertyAccessExpression(root) || ts.isElementAccessExpression(root) || ts.isNonNullExpression(root) || ts.isParenthesizedExpression(root)) root = root.expression;
+      if (!ts.isIdentifier(root)) return false;
+      const declaration = checker.getSymbolAtLocation(root)?.valueDeclaration;
+      return !!declaration && (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration);
     },
     hasArguments(file, span) {
       const at = nodeAt(file, span);
