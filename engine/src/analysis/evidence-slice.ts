@@ -405,6 +405,25 @@ export function queryEvidenceSlice(
   let unpinned = false;
 
   /**
+   * The functions a call enters: its `invokes` target, or for a call through
+   * a function handed in (`props.onEdit(id, text)`, no `invokes`), the
+   * functions whose parameters its arguments bind.
+   */
+  const enteredBy = (callId: string): string[] => {
+    const invoked = invokedBy(callId);
+    if (invoked) return [invoked];
+    const entered = new Set<string>();
+    for (const passed of provider.getRelations(callId, "backward", cancellation)) {
+      if (passed.kind !== "argument" || passed.to !== callId) continue;
+      for (const bound of provider.getRelations(passed.from, "forward", cancellation)) {
+        const owner = bound.kind === "argument-binding" && bound.from === passed.from ? indexed.elementFor(bound.to)?.ownerId : null;
+        if (owner) entered.add(owner);
+      }
+    }
+    return [...entered];
+  };
+
+  /**
    * The invocation stack after following `relation` from `calls`, or null when
    * the relation crosses to another call than the one the walk came through.
    */
@@ -480,7 +499,9 @@ export function queryEvidenceSlice(
         const popped = calls.filter((_, index) => index !== callIndex);
         const returning = indexed.elementFor(relation.from)?.ownerId;
         const entered = invokedBy(top);
-        if (!returning || !entered || returning === entered) return null;
+        // A callback written inside a handler handed in (`list.map((t) => …)` inside `props.onEdit`'s function): the call has no `invokes`, and the callback's return goes to its own call.
+        if (!entered) return returning && enteredBy(top).some((owner) => returning !== owner && nestedIn(returning, owner)) ? calls : null;
+        if (!returning || returning === entered) return null;
         // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through the calls of the closures that call made.
         if (nestedIn(returning, entered)) {
           if (!tag?.closure) return calls;

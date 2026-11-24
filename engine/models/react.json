@@ -55,12 +55,42 @@
     {
       "language": "ts",
       "module": "react",
+      "name": "useRef",
+      "model": "passes-through",
+      "flows": [
+        "Argument[0] -> ReturnValue.Member[current]"
+      ],
+      "note": "A ref object: its `current` field holds the initial value until the program writes another."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "cloneElement",
+      "model": "passes-through",
+      "flows": [
+        "Argument[0..] -> ReturnValue"
+      ],
+      "note": "The copy holds the element and the props and children it is given."
+    },
+    {
+      "language": "ts",
+      "module": "react",
       "name": "useDeferredValue",
       "model": "passes-through",
       "flows": [
         "Argument[0] -> ReturnValue"
       ],
       "note": "The deferred value is the value it is given."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useSyncExternalStore",
+      "model": "calls-back",
+      "flows": [
+        "Argument[1].ReturnValue -> ReturnValue"
+      ],
+      "note": "The store's value is what its `getSnapshot` (`Argument[1]`) returns. `subscribe` only tells React when to read it again; nothing it is given or returns is the value."
     },
     {
       "language": "ts",
@@ -300,6 +330,22 @@
     },
     {
       "language": "ts",
+      "module": "next",
+      "member": "AppRouterInstance.push",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "`useRouter().push(href)` sends the page to that URL: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "next",
+      "member": "AppRouterInstance.replace",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "`useRouter().replace(href)` sends the page to that URL in place of the current history entry: the value leaves the program."
+    },
+    {
+      "language": "ts",
       "module": "zustand",
       "name": "create",
       "model": "cell",
@@ -325,13 +371,6 @@
         "ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue"
       ],
       "note": "One store per call: what its function returns and what its set (or setState) receives are the store; an updater's draft writes it. The hook's call, its selector's parameter, getState(), get() and a subscriber read it; a selector's return is the hook call's value."
-    },
-    {
-      "language": "ts",
-      "module": "react",
-      "name": "useRef",
-      "model": "consumes",
-      "note": "A framework call, not an effect: the ref's `current` starts as the argument (no path yet)."
     },
     {
       "language": "ts",

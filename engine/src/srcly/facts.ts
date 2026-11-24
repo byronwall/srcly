@@ -4,7 +4,7 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
-import { yieldsOnlyCallback } from "../analysis/framework-flows";
+import { hasNoValue, wrappedPosition, yieldsOnlyCallback } from "../analysis/framework-flows";
 import { browserMember, importedCallee, isBoundHandlerPair, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
@@ -128,7 +128,22 @@ export function beginsHere(tier1: Tier1, element: Pick<ProgramElement, "location
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
-  return !!node && (isEmptyLiteral(ts, node) || libraryFilledParameter(ts, tier1.program.getTypeChecker(), node));
+  return !!node && (isEmptyLiteral(ts, node) || libraryFilledParameter(ts, tier1.program.getTypeChecker(), node) || apiParameter(tier1, sourceFile!, node));
+}
+
+/**
+ * Whether the node is (or names) a parameter of an exported function that
+ * nothing in the program calls or reads (`exportedDeclaration`): its caller
+ * is outside the program, so a value read from the parameter begins at the
+ * module's API, as one handed to such a function ends there.
+ */
+function apiParameter(tier1: Tier1 & { language: "typescript" }, sourceFile: TypeScript.SourceFile, node: TypeScript.Node): boolean {
+  const { ts } = tier1;
+  const parameter = ts.isIdentifier(node) && ts.isParameter(node.parent) ? node.parent : node;
+  if (!ts.isParameter(parameter)) return false;
+  const fn = parameter.parent;
+  const name = ts.isFunctionDeclaration(fn) ? fn.name : (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) ? fn.parent.name : undefined;
+  return !!name && ts.isIdentifier(name) && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, name, programEvidenceCandidateIndex(ts, tier1.program, tier1.root));
 }
 
 function isEmptyLiteral(ts: typeof TypeScript, node: TypeScript.Node): boolean {
@@ -164,6 +179,8 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
   }
   // A parameter of a function written as an argument to a library call (`handleSubmit((values) => …)`) is filled by that library: it begins there.
   if (libraryFilledParameter(ts, tier1.program.getTypeChecker(), node)) return true;
+  // A parameter of an exported function nothing in the program calls begins at the module's API (`apiParameter`).
+  if (apiParameter(tier1, sourceFile, node)) return true;
   // A global the program does not declare (`JSON`, `document`, `window`) begins outside it, as an external import does.
   if (ts.isIdentifier(node)) {
     const declarations = tier1.program.getTypeChecker().getSymbolAtLocation(node)?.declarations ?? [];
@@ -274,10 +291,11 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   // `Promise.reject(reason)` throws it too, for a handler the code may not show.
   if (ts.isCallExpression(parent) && parent.arguments[0] === node && standardMemberModel(builtinLibraryModels(), browserMember(ts, tier1.program.getTypeChecker(), parent.expression))?.settles === "reject") return "throw";
-  // An argument of a hook whose row says its value is what a callback returns (a dependency list, a query's options): the hook keeps it, and the result does not hold it.
+  // An argument of a hook whose row says its value is what a callback returns (a dependency list, a query's options), or that has no value (an effect's dependency list), or an argument after the function a wrapper returns (`useCallback`'s dependency list): the hook keeps it, and the result does not hold it.
   if (ts.isCallExpression(parent) && parent.arguments.includes(node as TypeScript.Expression) && !ts.isFunctionLike(node)) {
     const imported = importedCallee(ts, tier1.program.getTypeChecker(), parent.expression);
-    if (imported && yieldsOnlyCallback(imported.module, imported.name)) return "hook-input";
+    const wrapped = imported ? wrappedPosition(imported.module, imported.name) : null;
+    if (imported && (yieldsOnlyCallback(imported.module, imported.name) || hasNoValue(imported.module, imported.name) || (wrapped !== null && parent.arguments.indexOf(node as TypeScript.Expression) > wrapped))) return "hook-input";
   }
   const candidates = programEvidenceCandidateIndex(ts, tier1.program, tier1.root);
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
