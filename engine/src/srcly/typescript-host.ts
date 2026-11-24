@@ -80,6 +80,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
       const type = checker.getTypeAtLocation(top);
       if ((type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0)) return false;
+      // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
+      if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
       // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
       if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up)) && up.initializer === top)) return true;
       // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
@@ -171,8 +173,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // A generator's value is an iterator, not what it returns; a block body whose end can be reached also returns undefined.
       if (fn.asteriskToken) return true;
       if (fn.body && ts.isBlock(fn.body) && !endsAlways(fn.body)) return true;
-      // A class method can be overridden: the receiver's class decides which body runs.
-      if (ts.isMethodDeclaration(fn) && ts.isClassLike(fn.parent) && !(ts.getCombinedModifierFlags(fn) & (ts.ModifierFlags.Static | ts.ModifierFlags.Private))) return true;
+      // A method (of a class or an object, or a function-valued property) runs on whatever receiver the call has: another object's method of the same name may run.
+      if (ts.isMethodDeclaration(fn) || ts.isPropertyAssignment(fn.parent) || ts.isPropertyDeclaration(fn.parent)) return true;
       // An async function's call is a promise: what it returns is the field only once awaited.
       if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
       // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
