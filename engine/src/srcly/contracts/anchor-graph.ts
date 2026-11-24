@@ -120,6 +120,37 @@ export const anchorGraphResultSchema = z.strictObject({
    * syntax and the checker, never part of the value's proof.
    */
   links: z.array(z.strictObject({ id: z.string(), source: z.string(), target: z.string(), kind: z.enum(["calls", "reads", "writes"]) })),
+  /**
+   * Backward from a field read: the drawn expressions that fill that field
+   * (`src/srcly/field-producers.ts`), nearest first. Each is the value packed
+   * as the field (`packNodeId`) where the walk's field path ends, never a
+   * whole object carried past it. `via` says how it got to the read: as a
+   * state's first value (`initialization`), a later write to that state
+   * (`write`), or out of a call (`return`). Empty when no field path ends
+   * at a pack, or the anchor is not traced backward.
+   */
+  producers: z.array(z.strictObject({
+    nodeId: z.string(),
+    packNodeId: z.string(),
+    field: z.string(),
+    via: z.array(z.enum(["initialization", "write", "return"])),
+    status: z.enum(["proven", "partial"]),
+    /** The producer's and its object's source text, clipped. */
+    text: z.string(),
+    packText: z.string(),
+  })),
+  /**
+   * A path that may still fill the field ended without a producer: a call
+   * nothing returns into, a spread or computed key, a parameter several
+   * calls bind, a parameter no call binds. Then no one producer is the answer.
+   */
+  producersOpen: z.boolean(),
+  /** The drawn boxes where those open paths end (a call nothing returns into, a spread), for the card to open. */
+  producerStops: z.array(z.strictObject({
+    nodeId: z.string(),
+    /** `ProducerStopReason` in `src/srcly/field-producers.ts`. */
+    reason: z.enum(["no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]),
+  })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

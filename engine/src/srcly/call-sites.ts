@@ -7,6 +7,10 @@ export type CallSites = {
   calls: string[];
   /** The function is also referenced as a value (passed, stored), so its callers are not all visible. */
   escapes: boolean;
+  /** The page calls it too, as a DOM event handler (`<button onClick={f}>`): with its own event, not an argument the program names. */
+  handedToPage?: true;
+  /** Its module is imported as a namespace somewhere (`import * as views`), which can call it by a computed key (`views[name](…)`). */
+  namespaced?: true;
 };
 
 /**
@@ -31,10 +35,46 @@ export function createCallSiteIndex(tier1: TsTier1) {
     const calls: string[] = [];
     let escapes = false;
     const declarations = new Set(symbol.declarations ?? []);
-    for (const file of files) {
-      if (!file.text.includes(name)) continue;
+    // An import or re-export under another name (`import { id as renamed }`, `export { id as seed }`) calls it by that name too.
+    const names = new Set([name]);
+    for (let size = 0; size !== names.size; ) {
+      size = names.size;
+      // Every file's imports and exports: an importer may name it only by its alias (`import choose from "./barrel"`).
+      for (const file of files) {
+        for (const statement of file.statements) {
+          if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+          const aliases = (node: TypeScript.Node) => {
+            const local = ts.isImportSpecifier(node) || ts.isExportSpecifier(node) || ts.isImportClause(node) ? node.name : undefined;
+            if (local && !names.has(local.text) && resolve(checker.getSymbolAtLocation(local)) === symbol) names.add(local.text);
+            ts.forEachChild(node, aliases);
+          };
+          aliases(statement);
+        }
+      }
+    }
+    let handed = false;
+    // A namespace import of its module (`views[name](…)`) can call it by a key the index cannot read.
+    const home = symbol.declarations?.[0]?.getSourceFile();
+    // Through re-exports too: any namespace-imported module that exports it.
+    const exportsIt = (module: TypeScript.Symbol | undefined) => !!module && checker.getExportsOfModule(module).some((exported) => resolve(exported) === symbol);
+    // A lazy `import("./views")` gives the whole module too.
+    const dynamicImport = (file: TypeScript.SourceFile) => {
+      let hit = false;
       const visit = (node: TypeScript.Node) => {
-        if (ts.isIdentifier(node) && node.text === name && resolve(checker.getSymbolAtLocation(node)) === symbol) {
+        if (hit) return;
+        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && exportsIt(checker.getSymbolAtLocation(node.arguments[0]))) hit = true;
+        else ts.forEachChild(node, visit);
+      };
+      if (file.text.includes("import(")) visit(file);
+      return hit;
+    };
+    const namespaced = !!home && files.some((file) => dynamicImport(file) || file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && exportsIt(checker.getSymbolAtLocation(statement.moduleSpecifier))));
+    for (const file of files) {
+      if (![...names].some((each) => file.text.includes(each))) continue;
+      const visit = (node: TypeScript.Node) => {
+        // A shorthand property (`{ action }`) names the property; its value is the function.
+        const own = ts.isIdentifier(node) && ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : ts.isIdentifier(node) ? checker.getSymbolAtLocation(node) : undefined;
+        if (ts.isIdentifier(node) && names.has(node.text) && resolve(own) === symbol) {
           const parent = node.parent;
           const isDeclarationName = declarations.has(parent as TypeScript.Declaration);
           const isImport = ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isExportSpecifier(parent);
@@ -42,13 +82,16 @@ export function createCallSiteIndex(tier1: TsTier1) {
           if (callee) {
             const point = file.getLineAndCharacterOfPosition(node.getStart(file));
             calls.push(`${path.relative(root, file.fileName).split(path.sep).join("/")}:${point.line + 1}`);
-          } else if (!isDeclarationName && !isImport && !handedToPage(ts, node)) escapes = true;
+          } else if (!isDeclarationName && !isImport) {
+            if (handedToPage(ts, node)) handed = true;
+            else escapes = true;
+          }
         }
         ts.forEachChild(node, visit);
       };
       visit(file);
     }
-    const result = { calls, escapes };
+    const result: CallSites = { calls, escapes, ...(handed ? { handedToPage: true as const } : {}), ...(namespaced ? { namespaced: true as const } : {}) };
     cache.set(symbol, result);
     return result;
   };

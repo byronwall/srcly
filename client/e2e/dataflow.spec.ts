@@ -648,3 +648,42 @@ test.describe("Symbol view on symbol-graph", () => {
     await shot(page, "symbol-view-depth");
   });
 });
+
+test.describe("the trace question names a field's producer", () => {
+  const basics = path.resolve(here, "../../engine/examples/value-flow-basics");
+  const notesRepo = path.resolve(here, "../../engine/examples/symbol-graph");
+  const question = (page: Page) => page.getByRole("region", { name: "Trace question" });
+
+  test("a returned literal: read, producer, handoff and scope, each opening its source", async ({ page }) => {
+    await page.goto(url({ repo: basics, view: "graph", anchor: "src/field-producers.tsx:16:15-16:25", dir: "backward" }));
+    const card = question(page);
+    await expect(card.locator("[data-trace-producer]")).toContainText('"LOADED_TITLE"', { timeout: 60_000 });
+    await expect(card.locator('[data-trace-handoff="return"]')).toContainText("field-producers.tsx:12");
+    await expect(card.locator("[data-trace-scope]")).toContainText("No runtime value history");
+    await shot(page, "trace-question-returned-producer");
+    await card.locator("[data-trace-producer] [data-trace-witness]").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator("span.line").filter({ hasText: "LOADED_TITLE" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(card.locator("[data-trace-producer]")).toBeVisible();
+  });
+
+  test("the Notes draft title: its initializer, kept apart from the onInput write", async ({ page }) => {
+    await page.goto(url({ repo: notesRepo, view: "graph", anchor: "src/components/NoteView.tsx:14:21-14:32", dir: "backward" }));
+    const card = question(page);
+    await expect(card.locator("[data-trace-producer]")).toContainText("props.note.title", { timeout: 60_000 });
+    await expect(card.locator('[data-trace-handoff="initialization"]')).toContainText("NoteView.tsx:7");
+    await expect(card.locator("[data-trace-later-write]")).toContainText("event.currentTarget.value");
+    await expect(card.locator("[data-trace-producer]")).not.toContainText("tags");
+    await shot(page, "trace-question-store-initialization");
+  });
+
+  test("S12: the rendered accent's first screen names its fallback producer", async ({ page }) => {
+    const shell = path.resolve(here, "../../engine/examples/bad-ish-solid");
+    await page.goto(url({ repo: shell, view: "graph", anchor: "src/DashboardShell.tsx:132:31-132:44", dir: "backward" }));
+    const card = question(page);
+    await expect(card.locator("[data-trace-producer]")).toContainText('props.preferences.accentColor ?? "#3f7f6f"', { timeout: 60_000 });
+    await expect(card.locator('[data-trace-handoff="field"]')).toBeVisible();
+    await shot(page, "trace-question-s12-accent");
+  });
+});

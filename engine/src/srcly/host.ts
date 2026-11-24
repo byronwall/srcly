@@ -40,6 +40,40 @@ export interface LanguageHost {
   /** The identifier `name` on `line`: its declaration first, else the first use, with fallback spans. */
   identifierOnLine(file: string, name: string, line: number): HostCandidate | null;
   textAt(file: string, span: Span): string | null;
+  /**
+   * The members of the object literal at exactly this span, in source order:
+   * each one's field name, or null where the name is not known (a spread, a
+   * computed key). Null when the span is no object literal, or the host
+   * cannot tell.
+   */
+  objectMembers?(file: string, span: Span): (string | null)[] | null;
+  /**
+   * Whether the binding at this span holds a value the evidence may not
+   * name exactly: a destructured name (`{ payload }`, `...rest`) or one with a
+   * default (`note = fallback`). True when the host cannot tell.
+   */
+  unsureBinding?(file: string, span: Span): boolean;
+  /** Whether the value at this span is a function (a signal's getter), so a field read on it reads the function. */
+  callable?(file: string, span: Span): boolean;
+  /**
+   * Whether the object literal at this span can change after it is built:
+   * the binding that holds it (or an object holding it) is written through
+   * (`x.a = …`, `x["a"] = …`, `x.n++`, `delete x.a`, `Object.assign(x, …)`)
+   * or handed to another name (`const alias = x`).
+   */
+  mutable?(file: string, span: Span): boolean;
+  /** Whether the value a return at this span hands back may not be the call's whole value: a yield, a generator, a body whose end is reachable (`undefined`). */
+  returnUnsure?(file: string, span: Span): boolean | "async" | "callback";
+  /** Whether the call at this span sits in an optional chain (`a?.b()`), so it may not run. */
+  optionalCall?(file: string, span: Span): boolean;
+  /** Whether the call at this span passes arguments. */
+  hasArguments?(file: string, span: Span): boolean;
+  /** Whether the call at this span is awaited where it is made. */
+  awaited?(file: string, span: Span): boolean;
+  /** Whether the binding (a variable or parameter) at this span names an object the code changes, as `mutable` says. */
+  mutatedBinding?(file: string, span: Span): boolean;
+  /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
+  stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */
   typeTextAt(file: string, span: Span): string | null;
   /**

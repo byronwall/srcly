@@ -696,6 +696,21 @@ class AnchorLink(BaseModel):
     kind: Literal["calls", "reads", "writes"]
 
 
+class AnchorProducer(BaseModel):
+    nodeId: str
+    packNodeId: str
+    field: str
+    via: list[Literal["initialization", "write", "return"]]
+    status: Literal["proven", "partial"]
+    text: str
+    packText: str
+
+
+class AnchorProducerStop(BaseModel):
+    nodeId: str
+    reason: Literal["no-return", "fallthrough", "callback", "dead-end", "missing", "mutable", "widened", "unnamed-member", "operand", "callers", "binding", "accessor", "factory", "write", "budget"]
+
+
 class AnchorGraphResult(BaseModel):
     outcome: Outcome
     generation: int
@@ -709,6 +724,9 @@ class AnchorGraphResult(BaseModel):
     nodes: list[AnchorNode]
     edges: list[AnchorEdge]
     links: list[AnchorLink]
+    producers: list[AnchorProducer]
+    producersOpen: bool
+    producerStops: list[AnchorProducerStop]
     origins: list[AnchorOrigin]
     terminals: list[AnchorTerminal]
     counts: AnchorCounts

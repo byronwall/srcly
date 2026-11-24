@@ -1,0 +1,556 @@
+{
+ "outcome": "ok",
+ "generation": 1,
+ "programHash": "b607e7de8349b697",
+ "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
+ "typescript": "5.9.3",
+ "nullProof": true,
+ "reason": null,
+ "anchor": {
+  "file": "src/field-producers.tsx",
+  "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+  "span": {
+   "startLine": 57,
+   "startColumn": 14,
+   "endLine": 57,
+   "endColumn": 27
+  },
+  "text": "summary.owner",
+  "kind": "PropertyAccessExpression",
+  "elementId": "program-element:1db0ifu",
+  "typeText": "string"
+ },
+ "direction": "backward",
+ "nodes": [
+  {
+   "id": "scope:src/field-producers.tsx:55:1",
+   "kind": "scope",
+   "label": "Summary",
+   "detail": "field-producers.tsx",
+   "parent": null,
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 55,
+   "span": {
+    "startLine": 55,
+    "startColumn": 1,
+    "endLine": 58,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "component",
+   "note": null
+  },
+  {
+   "id": "program-element:1db0ifu",
+   "kind": "anchor",
+   "label": "summary.owner",
+   "detail": "property read",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 57,
+   "span": {
+    "startLine": 57,
+    "startColumn": 14,
+    "endLine": 57,
+    "endColumn": 27
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "summary@src/field-producers.tsx:3004",
+   "field": "owner",
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:p9kow1",
+   "kind": "value",
+   "label": "summary",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 57,
+   "span": {
+    "startLine": 57,
+    "startColumn": 14,
+    "endLine": 57,
+    "endColumn": 21
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ owner: string; card: Note; }",
+   "reason": null,
+   "symbol": "summary@src/field-producers.tsx:3004",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:mjpnln",
+   "kind": "value",
+   "label": "summary",
+   "detail": "alias",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 9,
+    "endLine": 56,
+    "endColumn": 72
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "{ owner: string; card: Note; }",
+   "reason": null,
+   "symbol": "summary@src/field-producers.tsx:3004",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1v3htpl",
+   "kind": "transform",
+   "label": "{ owner: props.owner ?? \"Unknown\", card: props.card }",
+   "detail": "object",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 19,
+    "endLine": 56,
+    "endColumn": 72
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "{ owner: string; card: Note; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "object-pack",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1abdmjw",
+   "kind": "transform",
+   "label": "props.owner ?? \"Unknown\"",
+   "detail": "selection",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 28,
+    "endLine": 56,
+    "endColumn": 52
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "selection",
+   "typeText": "string",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "selection",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:ottvpx",
+   "kind": "value",
+   "label": "owner",
+   "detail": "field read",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 28,
+    "endLine": 56,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:2919",
+   "field": "owner",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1lfr952",
+   "kind": "value",
+   "label": "\"Unknown\"",
+   "detail": "literal",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 43,
+    "endLine": 56,
+    "endColumn": 52
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "literal",
+   "typeText": "\"Unknown\"",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1c0hhv3",
+   "kind": "value",
+   "label": "props",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 56,
+   "span": {
+    "startLine": 56,
+    "startColumn": 28,
+    "endLine": 56,
+    "endColumn": 33
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ owner: string; card: Note; }",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:2919",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:5xqd47",
+   "kind": "value",
+   "label": "props",
+   "detail": "parameter",
+   "parent": "scope:src/field-producers.tsx:55:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 55,
+   "span": {
+    "startLine": 55,
+    "startColumn": 25,
+    "endLine": 55,
+    "endColumn": 30
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "parameter",
+   "typeText": "{ owner: string; card: Note; }",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:2919",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  }
+ ],
+ "edges": [
+  {
+   "id": "program-relation:ppoaek",
+   "source": "program-element:p9kow1",
+   "target": "program-element:1db0ifu",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 57,
+       "column": 14,
+       "span": {
+        "startLine": 57,
+        "startColumn": 14,
+        "endLine": 57,
+        "endColumn": 27
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "owner"
+  },
+  {
+   "id": "program-relation:1qjqx5q",
+   "source": "program-element:mjpnln",
+   "target": "program-element:p9kow1",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 57,
+       "column": 14,
+       "span": {
+        "startLine": 57,
+        "startColumn": 14,
+        "endLine": 57,
+        "endColumn": 21
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:106ybw5",
+   "source": "program-element:1v3htpl",
+   "target": "program-element:mjpnln",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The variable initializer is assigned to the declared binding.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 9,
+       "span": {
+        "startLine": 56,
+        "startColumn": 9,
+        "endLine": 56,
+        "endColumn": 72
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:12f2523",
+   "source": "program-element:1abdmjw",
+   "target": "program-element:1v3htpl",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 21,
+       "span": {
+        "startLine": 56,
+        "startColumn": 21,
+        "endLine": 56,
+        "endColumn": 52
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "owner"
+  },
+  {
+   "id": "program-relation:1160v8r",
+   "source": "program-element:ottvpx",
+   "target": "program-element:1abdmjw",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The branch expression contributes to the selection.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 28,
+       "span": {
+        "startLine": 56,
+        "startColumn": 28,
+        "endLine": 56,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:ytxhf4",
+   "source": "program-element:1lfr952",
+   "target": "program-element:1abdmjw",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The branch expression contributes to the selection.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 43,
+       "span": {
+        "startLine": 56,
+        "startColumn": 43,
+        "endLine": 56,
+        "endColumn": 52
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1x7dlm6",
+   "source": "program-element:1c0hhv3",
+   "target": "program-element:ottvpx",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 28,
+       "span": {
+        "startLine": 56,
+        "startColumn": 28,
+        "endLine": 56,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "owner"
+  },
+  {
+   "id": "program-relation:13cch4v",
+   "source": "program-element:5xqd47",
+   "target": "program-element:1c0hhv3",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The value occurrence resolves to a function parameter.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 56,
+       "column": 28,
+       "span": {
+        "startLine": 56,
+        "startColumn": 28,
+        "endLine": 56,
+        "endColumn": 33
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  }
+ ],
+ "links": [],
+ "producers": [
+  {
+   "nodeId": "program-element:1abdmjw",
+   "packNodeId": "program-element:1v3htpl",
+   "field": "owner",
+   "via": [],
+   "status": "proven",
+   "text": "props.owner ?? \"Unknown\"",
+   "packText": "{ owner: props.owner ?? \"Unknown\", card: props.card }"
+  }
+ ],
+ "producersOpen": false,
+ "producerStops": [],
+ "origins": [],
+ "terminals": [],
+ "counts": {
+  "up": 8,
+  "down": 0,
+  "scopes": 1,
+  "origins": 0,
+  "terminals": 0,
+  "boundaries": 0,
+  "frontiers": 0
+ },
+ "coverage": {
+  "elements": 9,
+  "relations": 8,
+  "budget": {
+   "limit": 4096,
+   "used": 8,
+   "exhausted": false
+  }
+ }
+}

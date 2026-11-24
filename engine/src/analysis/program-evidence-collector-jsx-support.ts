@@ -866,7 +866,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         const at = this.cells.creatorOf(creator).find((owner) => owner.site.node === site.node)?.at;
         if (!info || !cellHas(site.row, "init", `Argument[${at}].ReturnValue`)) continue;
         const detail = creator === creators[0] ? "The store starts as what its function returns; order and time are not proven." : "A slice called with the store's set, get and api adds what it returns to the store.";
-        for (const returnId of this.returnsByFunction.get(info.id) ?? []) this.storeWrite(stateId, returnId, creator, detail);
+        for (const returnId of this.returnsByFunction.get(info.id) ?? []) this.storeWrite(stateId, returnId, creator, detail, "state-initialization");
       }
     }
     if (active.size === 0) return;
@@ -902,7 +902,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
   }
 
-  private storeWrite(stateId: string, fromId: string, at: TypeScript.Node, detail: string, kind: "framework-state" | "shared-instance" = "framework-state"): void {
+  private storeWrite(stateId: string, fromId: string, at: TypeScript.Node, detail: string, kind: "framework-state" | "shared-instance" | "state-initialization" = "framework-state"): void {
     const words = kind === "shared-instance" ? `Assumed: the function is a slice of more than one store, and the walk cannot tell which store's call ran it. ${detail}` : detail;
     this.addRelation(fromId, stateId, "framework-flow", [this.location(at)], proof(kind, words, [this.location(at)]), "partial");
   }

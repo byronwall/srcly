@@ -39,3 +39,24 @@ write("solid-route-viewer-card.anchor-graph.json", { file, name: "ViewerCard", l
   fs.writeFileSync(target, `${out}\n`);
   process.stdout.write(`wrote ${path.relative(engineRoot, target)} (${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.outcome})\n`);
 }
+
+// Field producers (value-flow-basics/src/field-producers.tsx), traced backward: the client's trace question reads them.
+{
+  const exampleRoot = path.join(engineRoot, "examples/value-flow-basics");
+  const example = createEngineSession({ root: exampleRoot, source: path.join(exampleRoot, "src"), tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });
+  const fixture = "src/field-producers.tsx";
+  const fixtureLines = fs.readFileSync(path.join(exampleRoot, fixture), "utf8").split("\n");
+  // The anchor is the `text` on the line that declares `@trace <id>`.
+  const cases: [string, string][] = [["fpr-returned", "note.title"], ["fpr-opaque", "note.title"], ["fpr-title", "draft.title"], ["fpr-tags", "draft.title"], ["fpr-shared", "draft.title"], ["fpr-owner", "summary.owner"]];
+  for (const [id, anchorText] of cases) {
+    const declared = fixtureLines.findIndex((line) => line.includes(`@trace ${id} `));
+    // A comment alone on its line is about the next line of code.
+    const line = fixtureLines[declared].trim().startsWith("//") ? declared + 1 : declared;
+    const col = fixtureLines[line].indexOf(anchorText) + 1;
+    const graph = anchorGraphOp(example, { file: fixture, text: anchorText, span: { startLine: line + 1, startColumn: col, endLine: line + 1, endColumn: col + anchorText.length }, direction: "backward" });
+    const out = JSON.stringify(graph, null, 1).replaceAll(exampleRoot, "/fixture/value-flow-basics").replaceAll(ENGINE_PACKAGE_DIR, "/fixture/engine");
+    const target = path.join(engineRoot, `test/srcly/__fixtures__/${id}.anchor-graph.json`);
+    fs.writeFileSync(target, `${out}\n`);
+    process.stdout.write(`wrote ${path.relative(engineRoot, target)} (${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.producers.length} producers, ${graph.outcome})\n`);
+  }
+}

@@ -401,6 +401,9 @@
     "kind": "calls"
    }
   ],
+  "producers": [],
+  "producersOpen": false,
+  "producerStops": [],
   "origins": [],
   "terminals": [
    {
@@ -833,6 +836,9 @@
     "kind": "calls"
    }
   ],
+  "producers": [],
+  "producersOpen": false,
+  "producerStops": [],
   "origins": [],
   "terminals": [
    {
@@ -1045,6 +1051,9 @@
     "kind": "calls"
    }
   ],
+  "producers": [],
+  "producersOpen": false,
+  "producerStops": [],
   "origins": [],
   "terminals": [
    {
@@ -1477,6 +1486,9 @@
     "kind": "calls"
    }
   ],
+  "producers": [],
+  "producersOpen": false,
+  "producerStops": [],
   "origins": [],
   "terminals": [
    {

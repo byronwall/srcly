@@ -1,0 +1,942 @@
+{
+ "outcome": "ok",
+ "generation": 1,
+ "programHash": "b607e7de8349b697",
+ "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
+ "typescript": "5.9.3",
+ "nullProof": true,
+ "reason": null,
+ "anchor": {
+  "file": "src/field-producers.tsx",
+  "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+  "span": {
+   "startLine": 30,
+   "startColumn": 24,
+   "endLine": 30,
+   "endColumn": 35
+  },
+  "text": "draft.title",
+  "kind": "PropertyAccessExpression",
+  "elementId": "program-element:b9kvds",
+  "typeText": "string"
+ },
+ "direction": "backward",
+ "nodes": [
+  {
+   "id": "scope:src/field-producers.tsx:27:1",
+   "kind": "scope",
+   "label": "TitleDraft",
+   "detail": "field-producers.tsx",
+   "parent": null,
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 27,
+   "span": {
+    "startLine": 27,
+    "startColumn": 1,
+    "endLine": 31,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "component",
+   "note": null
+  },
+  {
+   "id": "program-element:b9kvds",
+   "kind": "anchor",
+   "label": "draft.title",
+   "detail": "property read",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 24,
+    "endLine": 30,
+    "endColumn": 35
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "draft@src/field-producers.tsx:1311",
+   "field": "title",
+   "operation": null,
+   "state": "store",
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1r0tdv1",
+   "kind": "value",
+   "label": "draft",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 24,
+    "endLine": 30,
+    "endColumn": 29
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ title: string; }",
+   "reason": null,
+   "symbol": "draft@src/field-producers.tsx:1311",
+   "field": null,
+   "operation": null,
+   "state": "store",
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:155pkv5",
+   "kind": "value",
+   "label": "draft",
+   "detail": "alias",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 10,
+    "endLine": 28,
+    "endColumn": 15
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "{ title: string; }",
+   "reason": null,
+   "symbol": "draft@src/field-producers.tsx:1311",
+   "field": null,
+   "operation": null,
+   "state": "store",
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1mzbxgo",
+   "kind": "value",
+   "label": "createStore({ title: props.note.title })",
+   "detail": "call",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 29,
+    "endLine": 28,
+    "endColumn": 69
+   },
+   "status": "partial",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "StoreReturn<{ title: string; }>",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:hixi5o",
+   "kind": "transform",
+   "label": "{ title: props.note.title }",
+   "detail": "object",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 41,
+    "endLine": 28,
+    "endColumn": 68
+   },
+   "status": "partial",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "{ title: string; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "object-pack",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "scope:src/field-producers.tsx:30:46",
+   "kind": "scope",
+   "label": "onInput on <input>",
+   "detail": "field-producers.tsx",
+   "parent": null,
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 46,
+    "endLine": 30,
+    "endColumn": 101
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "handler",
+   "note": null
+  },
+  {
+   "id": "program-element:c4xv8n",
+   "kind": "transform",
+   "label": "\"title\"",
+   "detail": "object",
+   "parent": "scope:src/field-producers.tsx:30:46",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 66,
+    "endLine": 30,
+    "endColumn": 73
+   },
+   "status": "partial",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "\"title\"",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:5krknw",
+   "kind": "value",
+   "label": "createStore",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 29,
+    "endLine": 28,
+    "endColumn": 40
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "<T extends object = {}>(...[store, options]: {} extends T ? [store?: T | undefined, options?: { name?: string | undefined; } | undefined] : [store: T, options?…",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:53iwo9",
+   "kind": "transform",
+   "label": "title",
+   "detail": "field read",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 50,
+    "endLine": 28,
+    "endColumn": 66
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:1277",
+   "field": "note.title",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1hng1uk",
+   "kind": "transform",
+   "label": "value",
+   "detail": "field read",
+   "parent": "scope:src/field-producers.tsx:30:46",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 75,
+    "endLine": 30,
+    "endColumn": 100
+   },
+   "status": "partial",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "event@src/field-producers.tsx:1641",
+   "field": "currentTarget.value",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:dz5bn0",
+   "kind": "value",
+   "label": "note",
+   "detail": "field read",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 50,
+    "endLine": 28,
+    "endColumn": 60
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "Note",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:1277",
+   "field": "note",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1vlmdve",
+   "kind": "value",
+   "label": "currentTarget",
+   "detail": "field read",
+   "parent": "scope:src/field-producers.tsx:30:46",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 75,
+    "endLine": 30,
+    "endColumn": 94
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "EventTarget & HTMLInputElement",
+   "reason": null,
+   "symbol": "event@src/field-producers.tsx:1641",
+   "field": "currentTarget",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1o9dnox",
+   "kind": "value",
+   "label": "props",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 50,
+    "endLine": 28,
+    "endColumn": 55
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ note: Note; }",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:1277",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1tpbr00",
+   "kind": "value",
+   "label": "event",
+   "detail": "value",
+   "parent": "scope:src/field-producers.tsx:30:46",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 75,
+    "endLine": 30,
+    "endColumn": 80
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "InputEvent & { currentTarget: HTMLInputElement; target: HTMLInputElement; }",
+   "reason": null,
+   "symbol": "event@src/field-producers.tsx:1641",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:yzri6o",
+   "kind": "value",
+   "label": "props",
+   "detail": "parameter",
+   "parent": "scope:src/field-producers.tsx:27:1",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 27,
+   "span": {
+    "startLine": 27,
+    "startColumn": 28,
+    "endLine": 27,
+    "endColumn": 33
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "parameter",
+   "typeText": "{ note: Note; }",
+   "reason": null,
+   "symbol": "props@src/field-producers.tsx:1277",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:bcb84e",
+   "kind": "origin",
+   "label": "event",
+   "detail": "parameter",
+   "parent": "scope:src/field-producers.tsx:30:46",
+   "file": "src/field-producers.tsx",
+   "absPath": "/fixture/value-flow-basics/src/field-producers.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 47,
+    "endLine": 30,
+    "endColumn": 52
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "parameter",
+   "typeText": "InputEvent & { currentTarget: HTMLInputElement; target: HTMLInputElement; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  }
+ ],
+ "edges": [
+  {
+   "id": "program-relation:5950x8",
+   "source": "program-element:1r0tdv1",
+   "target": "program-element:b9kvds",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 24,
+       "span": {
+        "startLine": 30,
+        "startColumn": 24,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "title"
+  },
+  {
+   "id": "program-relation:rq23be",
+   "source": "program-element:155pkv5",
+   "target": "program-element:1r0tdv1",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 24,
+       "span": {
+        "startLine": 30,
+        "startColumn": 24,
+        "endLine": 30,
+        "endColumn": 29
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1s9nw8",
+   "source": "program-element:1mzbxgo",
+   "target": "program-element:155pkv5",
+   "kind": "references",
+   "status": "partial",
+   "proof": [
+    {
+     "kind": "state-initialization",
+     "detail": "The factory's initial value seeds the state its getter reads; later writes may replace it.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 29,
+       "span": {
+        "startLine": 28,
+        "startColumn": 29,
+        "endLine": 28,
+        "endColumn": 69
+       }
+      }
+     ],
+     "status": "partial"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:scm1cb",
+   "source": "program-element:hixi5o",
+   "target": "program-element:155pkv5",
+   "kind": "references",
+   "status": "partial",
+   "proof": [
+    {
+     "kind": "state-initialization",
+     "detail": "The factory's initial value seeds the state its getter reads; later writes may replace it.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 41,
+       "span": {
+        "startLine": 28,
+        "startColumn": 41,
+        "endLine": 28,
+        "endColumn": 68
+       }
+      }
+     ],
+     "status": "partial"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:3ce4s8",
+   "source": "program-element:c4xv8n",
+   "target": "program-element:155pkv5",
+   "kind": "references",
+   "status": "partial",
+   "proof": [
+    {
+     "kind": "framework-state",
+     "detail": "The setter's value becomes the state its getter reads; order and time are not proven.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 75,
+       "span": {
+        "startLine": 30,
+        "startColumn": 75,
+        "endLine": 30,
+        "endColumn": 100
+       }
+      }
+     ],
+     "status": "partial"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:ajaknr",
+   "source": "program-element:5krknw",
+   "target": "program-element:1mzbxgo",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The callee has no in-project body: its receiver or function value is consumed by this call.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 29,
+       "span": {
+        "startLine": 28,
+        "startColumn": 29,
+        "endLine": 28,
+        "endColumn": 40
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1m2c1ih",
+   "source": "program-element:53iwo9",
+   "target": "program-element:hixi5o",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 43,
+       "span": {
+        "startLine": 28,
+        "startColumn": 43,
+        "endLine": 28,
+        "endColumn": 66
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "title"
+  },
+  {
+   "id": "program-relation:7pxr49",
+   "source": "program-element:1hng1uk",
+   "target": "program-element:c4xv8n",
+   "kind": "pack-field",
+   "status": "partial",
+   "proof": [
+    {
+     "kind": "framework-state",
+     "detail": "The setter writes this field of the store; order and time are not proven.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 66,
+       "span": {
+        "startLine": 30,
+        "startColumn": 66,
+        "endLine": 30,
+        "endColumn": 73
+       }
+      }
+     ],
+     "status": "partial"
+    }
+   ],
+   "label": "title"
+  },
+  {
+   "id": "program-relation:1jnv3so",
+   "source": "program-element:dz5bn0",
+   "target": "program-element:53iwo9",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 50,
+       "span": {
+        "startLine": 28,
+        "startColumn": 50,
+        "endLine": 28,
+        "endColumn": 66
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "title"
+  },
+  {
+   "id": "program-relation:1kxcbv1",
+   "source": "program-element:1vlmdve",
+   "target": "program-element:1hng1uk",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 75,
+       "span": {
+        "startLine": 30,
+        "startColumn": 75,
+        "endLine": 30,
+        "endColumn": 100
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "value"
+  },
+  {
+   "id": "program-relation:m8q3fg",
+   "source": "program-element:1o9dnox",
+   "target": "program-element:dz5bn0",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 50,
+       "span": {
+        "startLine": 28,
+        "startColumn": 50,
+        "endLine": 28,
+        "endColumn": 60
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "note"
+  },
+  {
+   "id": "program-relation:1vumkx4",
+   "source": "program-element:1tpbr00",
+   "target": "program-element:1vlmdve",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 75,
+       "span": {
+        "startLine": 30,
+        "startColumn": 75,
+        "endLine": 30,
+        "endColumn": 94
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "currentTarget"
+  },
+  {
+   "id": "program-relation:13wsyff",
+   "source": "program-element:yzri6o",
+   "target": "program-element:1o9dnox",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The value occurrence resolves to a function parameter.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 28,
+       "column": 50,
+       "span": {
+        "startLine": 28,
+        "startColumn": 50,
+        "endLine": 28,
+        "endColumn": 55
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1a291xe",
+   "source": "program-element:bcb84e",
+   "target": "program-element:1tpbr00",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The value occurrence resolves to a function parameter.",
+     "locations": [
+      {
+       "file": "src/field-producers.tsx",
+       "line": 30,
+       "column": 75,
+       "span": {
+        "startLine": 30,
+        "startColumn": 75,
+        "endLine": 30,
+        "endColumn": 80
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  }
+ ],
+ "links": [
+  {
+   "id": "writes:scope:src/field-producers.tsx:30:46>program-element:b9kvds",
+   "source": "scope:src/field-producers.tsx:30:46",
+   "target": "program-element:b9kvds",
+   "kind": "writes"
+  }
+ ],
+ "producers": [
+  {
+   "nodeId": "program-element:53iwo9",
+   "packNodeId": "program-element:hixi5o",
+   "field": "title",
+   "via": [
+    "initialization"
+   ],
+   "status": "proven",
+   "text": "props.note.title",
+   "packText": "{ title: props.note.title }"
+  },
+  {
+   "nodeId": "program-element:1hng1uk",
+   "packNodeId": "program-element:c4xv8n",
+   "field": "title",
+   "via": [
+    "write"
+   ],
+   "status": "partial",
+   "text": "event.currentTarget.value",
+   "packText": "\"title\""
+  }
+ ],
+ "producersOpen": false,
+ "producerStops": [],
+ "origins": [
+  {
+   "nodeId": "program-element:bcb84e",
+   "label": "event",
+   "roles": [
+    "event"
+   ],
+   "status": "proven"
+  }
+ ],
+ "terminals": [],
+ "counts": {
+  "up": 14,
+  "down": 0,
+  "scopes": 2,
+  "origins": 1,
+  "terminals": 0,
+  "boundaries": 0,
+  "frontiers": 0
+ },
+ "coverage": {
+  "elements": 15,
+  "relations": 14,
+  "budget": {
+   "limit": 4096,
+   "used": 14,
+   "exhausted": false
+  }
+ }
+}

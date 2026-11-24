@@ -6,6 +6,6 @@ import { useState } from "react";
 export function Clicked(props: { initial: string; picked: string }) {
   const [label, setLabel] = useState(props.initial); // @trace initial forward props.initial
   const pick = () => setLabel(props.picked); // @trace picked forward props.picked
-  // @outcome initial,picked ok @edge initial,picked * partial framework-state @no-edge initial,picked * * external-call
+  // @outcome initial,picked ok @edge initial * partial state-initialization @edge picked * partial framework-state @no-edge initial,picked * * external-call
   return <button onClick={pick}>{label}</button>; // @reaches initial,picked render-terminal
 }

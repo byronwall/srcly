@@ -5,6 +5,7 @@ import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
 import { builtinTsModel } from "../analysis/library-models";
+import { cellCall } from "../analysis/cells";
 import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { BindingState, HostCandidate, LanguageHost } from "./host";
@@ -23,6 +24,86 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     const found = sourceFile(file);
     const node = found ? nodeAtSpan(ts, found, span) : null;
     return node && found ? { node, sourceFile: found } : null;
+  };
+  /**
+   * Whether the code changes the object a binding names after it is bound:
+   * written through any access chain (`=`, compound, `++`, `delete`), passed
+   * as `Object.assign`'s target, handed whole to another name, or exported.
+   */
+  /** A target inside a destructuring assignment's pattern (`[doc.note.title] = …`). */
+  const destructuredTarget = (target: TypeScript.Node) => {
+    let node = target;
+    while (ts.isArrayLiteralExpression(node.parent) || ts.isObjectLiteralExpression(node.parent) || ts.isPropertyAssignment(node.parent) || ts.isShorthandPropertyAssignment(node.parent) || ts.isSpreadElement(node.parent) || ts.isSpreadAssignment(node.parent)) node = node.parent;
+    return node !== target && ts.isBinaryExpression(node.parent) && node.parent.left === node && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+  };
+  /** Whether a `break` in this statement can leave the switch it sits in (not one inside a nested loop, switch or function). */
+  const breaks = (node: TypeScript.Node): boolean => {
+    if (ts.isBreakStatement(node)) return !node.label;
+    if (ts.isIterationStatement(node, false) || ts.isSwitchStatement(node) || ts.isFunctionLike(node)) return false;
+    return !!ts.forEachChild(node, (child) => breaks(child) || undefined);
+  };
+  /** Whether running every statement in order always returns or throws. */
+  const endsAlways = (statement: TypeScript.Statement | undefined): boolean => {
+    if (!statement) return false;
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+    if (ts.isBlock(statement)) return endsAlways(statement.statements.at(-1));
+    if (ts.isIfStatement(statement)) return !!statement.elseStatement && endsAlways(statement.thenStatement) && endsAlways(statement.elseStatement);
+    // A switch with a default, whose every clause with statements ends (an empty clause falls into the next).
+    if (ts.isSwitchStatement(statement)) {
+      const clauses = statement.caseBlock.clauses;
+      return clauses.some((clause) => ts.isDefaultClause(clause)) && clauses.every((clause, index) => clause.statements.length === 0 ? index < clauses.length - 1 : !clause.statements.some(breaks) && endsAlways(clause.statements.at(-1)));
+    }
+    return false;
+  };
+  const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
+    if (!ts.isIdentifier(declaration.name)) return true;
+    const name = declaration.name;
+    const symbol = checker.getSymbolAtLocation(name);
+    if (!symbol) return true;
+    if (ts.isVariableDeclaration(declaration) && (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0) return true;
+    const unwrap = (node: TypeScript.Node) => {
+      let top = node;
+      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent)) top = top.parent;
+      return top;
+    };
+    const changes = (use: TypeScript.Identifier) => {
+      if (ts.isExportAssignment(use.parent)) return true;
+      // `x.a.b`, `x["a"]`: the access chain that starts at this use.
+      let top: TypeScript.Node = unwrap(use);
+      while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
+      const up = top.parent;
+      const assigned = ts.isBinaryExpression(up) && up.left === top && up.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && up.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+      const stepped = (ts.isPrefixUnaryExpression(up) || ts.isPostfixUnaryExpression(up)) && (up.operator === ts.SyntaxKind.PlusPlusToken || up.operator === ts.SyntaxKind.MinusMinusToken);
+      const whole = top === unwrap(use);
+      // Written (`x.a = …`, `x = …`, `[x.a] = …`, `({ x } = …)`, `for (x of …)`).
+      if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
+      // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
+      const type = checker.getTypeAtLocation(top);
+      if ((type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0)) return false;
+      // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
+      if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
+      // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
+      if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up)) && up.initializer === top)) return true;
+      // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
+      if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
+      if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
+      if (ts.isConditionalExpression(up) && up.condition !== top) return true;
+      // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
+      if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
+      if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
+      return ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+    };
+    let found = false;
+    const visit = (node: TypeScript.Node) => {
+      if (found) return;
+      // `export { state }` hands it to every importer, which may change it.
+      if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
+      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
+      else ts.forEachChild(node, visit);
+    };
+    // A local binding is used only in its own file; an exported one may be changed anywhere.
+    visit(declaration.getSourceFile());
+    return found;
   };
   return {
     language: "typescript",
@@ -46,6 +127,110 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     textAt(file, span) {
       const at = nodeAt(file, span);
       return at ? at.node.getText(at.sourceFile) : null;
+    },
+    unsureBinding(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return true;
+      // The element may sit on the name or on its whole declaration.
+      const node = ts.isIdentifier(at.node) ? at.node.parent : at.node;
+      // An argument at or after a spread (`f(...pair, x)`) is not at the position the binding names; the evidence may sit inside `x as T`.
+      let argument: TypeScript.Node = at.node;
+      while (ts.isAsExpression(argument.parent) || ts.isSatisfiesExpression(argument.parent) || ts.isParenthesizedExpression(argument.parent) || ts.isNonNullExpression(argument.parent) || ts.isTypeAssertionExpression(argument.parent)) argument = argument.parent;
+      const call = argument.parent;
+      if ((ts.isCallExpression(call) || ts.isNewExpression(call)) && call.arguments) {
+        const index = call.arguments.indexOf(argument as TypeScript.Expression);
+        if (index >= 0 && call.arguments.slice(0, index + 1).some((argument) => ts.isSpreadElement(argument))) return true;
+      }
+      // A function that declares `this` binds its arguments one place over.
+      if (ts.isParameter(node) && node.parent.parameters.some((parameter) => ts.isIdentifier(parameter.name) && parameter.name.text === "this")) return true;
+      // A state pair's `[value, setter]` is modelled; an object pattern, a rest or a default is not one value the evidence names.
+      if (ts.isBindingElement(node)) return ts.isObjectBindingPattern(node.parent) || !!node.initializer || !!node.dotDotDotToken;
+      if (ts.isParameter(node)) return !!node.initializer || !!node.dotDotDotToken || !ts.isIdentifier(node.name);
+      if (ts.isVariableDeclaration(node)) return ts.isObjectBindingPattern(node.name);
+      return false;
+    },
+    callable(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      if (checker.getTypeAtLocation(at.node).getCallSignatures().length > 0) return true;
+      // Untyped, the model still says it: a pair's first handle that is read by calling it (`ReturnValue.Member[0].ReturnValue`).
+      const element = ts.isIdentifier(at.node) ? at.node.parent : at.node;
+      const pattern = ts.isBindingElement(element) ? element.parent : undefined;
+      const declaration = pattern && ts.isArrayBindingPattern(pattern) && pattern.elements[0] === element ? pattern.parent : undefined;
+      const cell = declaration && ts.isVariableDeclaration(declaration) && declaration.initializer ? cellCall(ts, checker, declaration.initializer) : null;
+      return !!cell && (cell.row.reads ?? []).some((path) => path === "ReturnValue.Member[0].ReturnValue");
+    },
+    returnUnsure(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return true;
+      let node: TypeScript.Node | undefined = at.node;
+      while (node && !ts.isFunctionLike(node)) {
+        if (ts.isYieldExpression(node)) return true;
+        node = node.parent;
+      }
+      if (!node) return false;
+      const fn = node as TypeScript.SignatureDeclaration & { body?: TypeScript.Node; asteriskToken?: TypeScript.AsteriskToken };
+      // A generator's value is an iterator, not what it returns; a block body whose end can be reached also returns undefined.
+      if (fn.asteriskToken) return true;
+      if (fn.body && ts.isBlock(fn.body) && !endsAlways(fn.body)) return true;
+      // A method (of a class or an object, or a function-valued property) runs on whatever receiver the call has: another object's method of the same name may run.
+      if (ts.isMethodDeclaration(fn) || ts.isPropertyAssignment(fn.parent) || ts.isPropertyDeclaration(fn.parent)) return true;
+      // An async function's call is a promise: what it returns is the field only once awaited.
+      if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
+      // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
+      return ts.isCallExpression(fn.parent) && fn.parent.arguments.includes(fn as unknown as TypeScript.Expression) ? "callback" : false;
+    },
+    optionalCall(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      // `a?.b()`, `a?.()`: the call does not run when the chain short-circuits.
+      for (let node: TypeScript.Node = at.node; ts.isCallExpression(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isNonNullExpression(node); node = (node as TypeScript.CallExpression).expression) {
+        if ((node as TypeScript.CallExpression).questionDotToken) return true;
+      }
+      return false;
+    },
+    hasArguments(file, span) {
+      const at = nodeAt(file, span);
+      return !!at && ts.isCallExpression(at.node) && at.node.arguments.length > 0;
+    },
+    awaited(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      let node: TypeScript.Node = at.node;
+      while (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
+      return ts.isAwaitExpression(node.parent);
+    },
+    mutable(file, span) {
+      const at = nodeAt(file, span);
+      if (!at || !ts.isObjectLiteralExpression(at.node)) return false;
+      // Up through the object literals (and `as`/`satisfies`) that hold it, to the binding that names the outermost one.
+      let holder: TypeScript.Node = at.node;
+      for (;;) {
+        if (ts.isPropertyAssignment(holder.parent) && ts.isObjectLiteralExpression(holder.parent.parent)) holder = holder.parent.parent;
+        else if (ts.isAsExpression(holder.parent) || ts.isSatisfiesExpression(holder.parent) || ts.isParenthesizedExpression(holder.parent)) holder = holder.parent;
+        else break;
+      }
+      const parent = holder.parent;
+      if (!ts.isVariableDeclaration(parent) || parent.initializer !== holder) return false;
+      return changedBinding(parent);
+    },
+    mutatedBinding(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      const declaration = ts.isIdentifier(at.node) ? at.node.parent : at.node;
+      return (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration);
+    },
+    stateFactory(file, span) {
+      const at = nodeAt(file, span);
+      return !!at && ts.isCallExpression(at.node) && cellCall(ts, checker, at.node) !== null;
+    },
+    objectMembers(file, span) {
+      const at = nodeAt(file, span);
+      if (!at || !ts.isObjectLiteralExpression(at.node)) return null;
+      return at.node.properties.map((member) => {
+        if (ts.isSpreadAssignment(member) || !member.name || ts.isComputedPropertyName(member.name)) return null;
+        return ts.isIdentifier(member.name) || ts.isStringLiteral(member.name) || ts.isNumericLiteral(member.name) || ts.isPrivateIdentifier(member.name) ? member.name.text : null;
+      });
     },
     typeTextAt(file, span) {
       const at = nodeAt(file, span);

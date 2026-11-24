@@ -3,6 +3,12 @@ import type { AnchorGraphResult, RouteGraphResult, RoutePathResult } from "../..
 import sample from "../../../../../engine/test/srcly/__fixtures__/solid-route.anchor-graph.json";
 import routeSample from "../../../../../server/tests/snapshots/fake-engine.routeGraph.ok.json";
 import pathSample from "../../../../../server/tests/snapshots/fake-engine.routePath.ok.json";
+import returned from "../../../../../engine/test/srcly/__fixtures__/fpr-returned.anchor-graph.json";
+import opaque from "../../../../../engine/test/srcly/__fixtures__/fpr-opaque.anchor-graph.json";
+import titleDraft from "../../../../../engine/test/srcly/__fixtures__/fpr-title.anchor-graph.json";
+import tagsDraft from "../../../../../engine/test/srcly/__fixtures__/fpr-tags.anchor-graph.json";
+import shared from "../../../../../engine/test/srcly/__fixtures__/fpr-shared.anchor-graph.json";
+import owner from "../../../../../engine/test/srcly/__fixtures__/fpr-owner.anchor-graph.json";
 import { anchorQuestion, matchingRoutePath, routeQuestion } from "./traceQuestionModel";
 
 const real = sample as AnchorGraphResult;
@@ -56,5 +62,59 @@ describe("route evidence scope", () => {
     expect(matchingRoutePath(route, matching.edge.id, { ...matching, generation: route.generation + 1 })).toBeNull();
     expect(matchingRoutePath(route, matching.edge.id, { ...matching, programHash: "different" })).toBeNull();
     expect(matchingRoutePath(route, matching.edge.id, { ...matching, route: { ...matching.route, key: "other" } })).toBeNull();
+  });
+});
+
+// Real anchor graphs from engine/examples/value-flow-basics/src/field-producers.tsx (`pnpm capture-anchor-graph`).
+const graphOf = (json: unknown) => json as AnchorGraphResult;
+
+describe("the field's producer on the question card", () => {
+  it("names a returned literal, its returning object, and the read", () => {
+    const q = anchorQuestion(graphOf(returned));
+    expect(q.fieldRead?.span.startLine).toBe(16);
+    expect(q.producer).toMatchObject({ field: "title", producer: { text: '"LOADED_TITLE"', span: { startLine: 12 } }, handoff: { kind: "return", object: { span: { startLine: 12 } } }, laterWrites: [] });
+    expect(q.boundary).toBeNull();
+  });
+
+  it("keeps a store's first value apart from its later write", () => {
+    const q = anchorQuestion(graphOf(titleDraft));
+    expect(q.producer).toMatchObject({ producer: { text: "props.note.title", span: { startLine: 28 } }, handoff: { kind: "initialization" } });
+    expect(q.producer!.laterWrites.map((w) => [w.text, w.span.startLine])).toEqual([["event.currentTarget.value", 30]]);
+  });
+
+  it("gives the same rendered field different witnesses when its initial value comes from another field", () => {
+    const title = anchorQuestion(graphOf(titleDraft)).producer!;
+    const tags = anchorQuestion(graphOf(tagsDraft)).producer!;
+    expect(tags.producer.text).toBe('props.note.tags.join(" / ")');
+    expect(tags.producer.span).not.toEqual(title.producer.span);
+    expect(JSON.stringify(title)).not.toContain("tags");
+  });
+
+  it("leaves a shared component's callers apart until one is chosen", () => {
+    const q = anchorQuestion(graphOf(shared));
+    expect(q.producer?.producer.span.startLine).toBe(40);
+    expect(q.callers.map((c) => [c.text, c.span.startLine])).toEqual([["note={alpha}", 48], ["note={beta}", 49]]);
+    expect(JSON.stringify(q)).not.toMatch(/ALPHA_TITLE|BETA_TITLE/);
+  });
+
+  it("stops at a signature-only call by name, with no producer", () => {
+    const q = anchorQuestion(graphOf(opaque));
+    expect(q.producer).toBeNull();
+    expect(q.boundary).toMatchObject({ text: 'externalNote("KEY")', span: { startLine: 22 }, reason: "no-return" });
+  });
+
+  it("names a fallback packed as the field, with no other handoff", () => {
+    expect(anchorQuestion(graphOf(owner)).producer).toMatchObject({ producer: { text: 'props.owner ?? "Unknown"' }, handoff: { kind: "field" } });
+  });
+
+  it("claims nothing when the engine names two first values, or none proven", () => {
+    const graph = structuredClone(graphOf(returned));
+    graph.producers = [...graph.producers, { ...graph.producers[0], nodeId: graph.anchor.elementId! }];
+    expect(anchorQuestion(graph)).toMatchObject({ producer: null, alternatives: [{ span: { startLine: 12 } }, { span: { startLine: 16 } }] });
+    graph.producers = [{ ...graph.producers[0], status: "partial" }];
+    expect(anchorQuestion(graph).producer).toBeNull();
+    expect(anchorQuestion({ ...graphOf(returned), direction: "forward" }).producer).toBeNull();
+    // One producer beside a path the engine could not finish (an opaque branch) is no answer either.
+    expect(anchorQuestion({ ...graphOf(returned), producersOpen: true })).toMatchObject({ producer: null, alternatives: [{ text: '"LOADED_TITLE"' }] });
   });
 });

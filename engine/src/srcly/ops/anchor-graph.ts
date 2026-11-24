@@ -8,6 +8,7 @@ import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
+import { fieldProducers, type FieldProducer, type ProducerStop } from "../field-producers";
 import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords, useWords } from "../anchor-words";
@@ -118,6 +119,11 @@ class AnchorGraphBuilder {
   private readonly terminalRoles = new Map<string, string[]>();
   /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
   private anchorId: string | null = null;
+  /** The anchor's field producers found upstream (`fieldProducers`), by element. */
+  private producerFacts: FieldProducer[] = [];
+  /** A path that may fill the field ended without a producer (`FieldProducers.open`), and where. */
+  private producersOpen = false;
+  private producerStopFacts: ProducerStop[] = [];
   /** A declaration anchor's own returns: where a body run hands on to the return's run. */
   private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
@@ -194,6 +200,24 @@ class AnchorGraphBuilder {
       if (run.endsHere) continue;
       const slice = this.slice(run, anchor.text);
       const begun = this.walk(run.seedId, slice, run.side, run.seedSpan);
+      if (run.side === "up" && run.seedId === seed && !isDeclaration) {
+        ({ producers: this.producerFacts, open: this.producersOpen, stops: this.producerStopFacts } = fieldProducers(slice, seed, {
+          members: (pack) => this.host.objectMembers?.(pack.location.file, pack.location.span) ?? null,
+          oneCaller: (parameter) => {
+            const { sites } = this.host.callSitesOf(parameter);
+            return singleCall(sites) && !sites?.handedToPage && !sites?.namespaced;
+          },
+          unsureBinding: (element) => this.host.unsureBinding?.(element.location.file, element.location.span) ?? false,
+          stateFactory: (element) => this.host.stateFactory?.(element.location.file, element.location.span) ?? false,
+          callable: (element) => this.host.callable?.(element.location.file, element.location.span) ?? false,
+          mutable: (pack) => this.host.mutable?.(pack.location.file, pack.location.span) ?? false,
+          mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
+          returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
+          awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
+          optionalCall: (call) => this.host.optionalCall?.(call.location.file, call.location.span) ?? false,
+          hasArguments: (call) => this.host.hasArguments?.(call.location.file, call.location.span) ?? true,
+        }));
+      }
       const natural = begun + this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);
       naturalBySeed.set(run.seedId, (naturalBySeed.get(run.seedId) ?? 0) + natural);
       coverage.elements += slice.elements.length;
@@ -468,6 +492,8 @@ class AnchorGraphBuilder {
       const key = side === "down" ? relation.from : relation.to;
       (next.get(key) ?? next.set(key, []).get(key)!).push(relation);
     }
+    // Bookkeeping repeats the anchor only in the anchor's own file: another file's element can sit at the same span.
+    const seedFile = byId.get(seed)?.location.file ?? this.nodes.get(seed)?.file;
     const visited = new Set<string>([seed]);
     const queue: { id: string; depth: number }[] = [{ id: seed, depth: 0 }];
     /** Elements the walk expanded, and those it went on from. */
@@ -483,7 +509,7 @@ class AnchorGraphBuilder {
         if (!element || otherId === seed || otherId === this.anchorId) continue;
         continued.add(id);
         // Bookkeeping at the anchor's own span (its alias, its call) repeats the anchor.
-        if (sameSpan(element.location.span, seedSpan) && !elementTraits(element.kind).terminal && !element.originRoles.length) {
+        if (element.location.file === seedFile && sameSpan(element.location.span, seedSpan) && !elementTraits(element.kind).terminal && !element.originRoles.length) {
           this.alias.set(otherId, seed);
           if (!visited.has(otherId)) {
             visited.add(otherId);
@@ -833,6 +859,30 @@ class AnchorGraphBuilder {
     return out;
   }
 
+  /** The producers whose value and object are both drawn, as boxes. */
+  private producers(): AnchorGraphResult["producers"] {
+    const out: AnchorGraphResult["producers"] = [];
+    for (const fact of this.producerFacts) {
+      const nodeId = this.resolve(fact.elementId);
+      const packNodeId = this.resolve(fact.packId);
+      const value = this.nodes.get(nodeId);
+      const pack = this.nodes.get(packNodeId);
+      // A producer folded into the anchor (or never drawn) is no witness of its own.
+      if (!value || !pack || nodeId === this.anchorId) {
+        this.producersOpen = true;
+        continue;
+      }
+      if (out.some((item) => item.nodeId === nodeId && item.packNodeId === packNodeId && item.via.join() === fact.via.join())) continue;
+      // The source's own characters, cut at a length: a witness never changes a literal's text.
+      const text = (node: AnchorNode) => {
+        const source = this.host.textAt(node.file, node.span) ?? node.label;
+        return source.length > 160 ? `${source.slice(0, 159)}…` : source;
+      };
+      out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack) });
+    }
+    return out;
+  }
+
   private finish(anchor: AnchorGraphResult["anchor"], direction: AnchorDirection, outcome: AnchorGraphResult["outcome"], reason: string | null, coverage: AnchorGraphResult["coverage"]): AnchorGraphResult {
     const nodes = [...this.nodes.values()];
     const boxes = nodes.filter((node) => node.kind !== "scope");
@@ -850,6 +900,11 @@ class AnchorGraphBuilder {
       nodes,
       edges: this.edges,
       links: this.links(nodes),
+      producers: this.producers(),
+      producersOpen: this.producersOpen,
+      producerStops: this.producerStopFacts
+        .map((stop) => ({ nodeId: this.resolve(stop.elementId), reason: stop.reason }))
+        .filter((stop, index, all) => this.nodes.has(stop.nodeId) && stop.nodeId !== this.anchorId && all.findIndex((other) => other.nodeId === stop.nodeId && other.reason === stop.reason) === index),
       origins: boxes.filter((node) => node.kind === "origin").map((node) => ({ nodeId: node.id, label: node.label, roles: this.originRoles.get(node.id) ?? [], status: node.status })),
       terminals: boxes.filter((node) => node.kind === "terminal").map((node) => ({ nodeId: node.id, label: node.label, roles: this.terminalRoles.get(node.id) ?? [], status: node.status })),
       counts: {
