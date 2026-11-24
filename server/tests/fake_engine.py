@@ -13,6 +13,8 @@ Flags (after the ``--root``/``--source`` the server always passes):
   --delay OP=SECONDS   answer OP after a pause (requests run on threads, so
                        replies arrive in completion order)
   --hang OP            never answer OP (a cancel still gets ``cancelled``)
+  --working OP=SECONDS answer OP after a pause, sending a progress frame
+                       every 50 ms meanwhile (a one-time build)
   --ignore-cancel      do not answer cancels
   --crash OP           write to stderr and exit 3 when OP arrives
   --garbage OP         print a non-protocol line when OP arrives
@@ -356,6 +358,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--python", default=None)
     parser.add_argument("--delay", action="append", default=[])
     parser.add_argument("--hang", action="append", default=[])
+    parser.add_argument("--working", action="append", default=[])
     parser.add_argument("--ignore-cancel", action="store_true")
     parser.add_argument("--crash", action="append", default=[])
     parser.add_argument("--garbage", action="append", default=[])
@@ -367,6 +370,7 @@ def main(argv: list[str] | None = None) -> None:
     engine = FakeEngine(args)
 
     delays = {op: float(seconds) for op, seconds in (item.split("=", 1) for item in args.delay)}
+    working = {op: float(seconds) for op, seconds in (item.split("=", 1) for item in args.working)}
     write_lock = threading.Lock()
     hanging: set[int] = set()
     cancelled: set[int] = set()
@@ -393,6 +397,11 @@ def main(argv: list[str] | None = None) -> None:
             send({"id": request_id, "progress": {"phase": "program", "message": "Building", "completed": 0, "total": 3}})
         if op in delays:
             time.sleep(delays[op])
+        if op in working:
+            until = time.monotonic() + working[op]
+            while time.monotonic() < until and request_id not in cancelled:
+                send({"id": request_id, "progress": {"phase": "trace", "message": "Indexing callers"}})
+                time.sleep(0.05)
         if request_id in cancelled:
             return
         if op == "routes" and args.refuse:
