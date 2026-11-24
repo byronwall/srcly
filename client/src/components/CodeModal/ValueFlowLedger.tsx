@@ -22,8 +22,8 @@ const baseName = (file: string) => file.slice(file.lastIndexOf("/") + 1);
 /**
  * The value-flow ledger for one selected expression, in operation order:
  * what it is made of, then where it goes. Every row names its evidence
- * status; the query outcome is named above the rows. Click a row in this
- * file to go to its line.
+ * status; the query outcome is named above the rows. Click a row to go to
+ * its line: in this file, or in its own file when the host can open one.
  */
 export function ValueFlowLedger(props: {
   state: LedgerState;
@@ -32,9 +32,13 @@ export function ValueFlowLedger(props: {
   marked: boolean;
   onToggleMarks: () => void;
   onJump: (line: number) => void;
+  /** Open a row in another file at its line; without it those rows only name their file. */
+  onOpen?: (absPath: string, line: number) => void;
   onClose: () => void;
 }) {
   const inThisFile = (row: Row) => row.absPath === props.filePath;
+  const canOpen = (row: Row) => inThisFile(row) || Boolean(props.onOpen);
+  const open = (row: Row) => (inThisFile(row) ? props.onJump(row.line) : props.onOpen?.(row.absPath, row.line));
   return (
     <section class="mb-4 border-b border-[var(--plc-divider)] pb-2.5" aria-label="Value flow">
       <h3 class="mb-1 flex items-center gap-2 pl-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">
@@ -76,9 +80,12 @@ export function ValueFlowLedger(props: {
                       <button
                         type="button"
                         class="w-full rounded px-1.5 py-1 text-left hover:bg-[var(--plc-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)] disabled:cursor-default disabled:hover:bg-transparent"
-                        disabled={!inThisFile(row)}
+                        disabled={!canOpen(row)}
+                        data-ledger-row={i()}
+                        data-row-file={row.absPath}
+                        data-row-line={row.line}
                         title={[row.note, row.typeText ? `Type: ${row.typeText}` : null, row.reason ? (row.kind === "boundary" ? `Stops: ${row.reason}` : `Not traced: ${row.reason}`) : null, ...row.proof.map((p) => p.detail)].filter(Boolean).join("\n")}
-                        onClick={() => props.onJump(row.line)}
+                        onClick={() => open(row)}
                       >
                         <div class="flex items-baseline gap-2 text-[11px] text-[var(--plc-on-subtle)]">
                           <span class="plc-data-sm w-4 shrink-0 text-right text-[var(--plc-on-disabled)]">{i() + 1}</span>

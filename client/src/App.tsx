@@ -647,6 +647,10 @@ function AppContent(props: { active: boolean }) {
           fileNode={selectedNodes().fileNode}
           scopeNode={selectedNodes().scopeNode}
           rootPath={rootPath()}
+          onOpenSource={(absPath, line) => {
+            const at = atFromTreePath(absPath, rootPath());
+            if (at) openAt(at, line);
+          }}
         />
       </Show>
     </div>
