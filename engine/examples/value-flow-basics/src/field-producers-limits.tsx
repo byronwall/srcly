@@ -364,3 +364,31 @@ export function OptionalCall(props: { repo?: { load: typeof loadSet } }) { // @s
   const maybe = props.repo?.load();
   return <p>{maybe?.title}</p>; // @trace fpl-optional backward maybe?.title @produces-open fpl-optional @no-produces fpl-optional
 }
+
+// A function that can be replaced may run another body.
+function defaults() {
+  return { theme: "light" }; // @produces fpl-replaced return proven @caveat fpl-replaced receiver
+}
+const service = { load: defaults };
+service.load = () => ({ theme: "dark" });
+export function Replaced() {
+  const settings = service.load();
+  return <p>{settings.theme}</p>; // @trace fpl-replaced backward settings.theme
+}
+
+// An object handed to a component may be changed through its props.
+function TitleEditor(props: { note: { title: string } }) {
+  props.note.title = "edited";
+  return <i>{props.note.title}</i>;
+}
+export function PassedToChild() {
+  const note = { title: "initial" }; // @produces fpl-passed none proven @caveat fpl-passed mutable
+  return <p><TitleEditor note={note} />{note.title}</p>; // @trace fpl-passed backward note.title
+}
+
+// A method that writes its own object.
+export function SelfPatched() {
+  const state = { value: "old", apply(patch: { value: string }) { Object.assign(this, patch); } }; // @produces fpl-self none proven @caveat fpl-self mutable
+  state.apply({ value: "new" });
+  return <p>{state.value}</p>; // @trace fpl-self backward state.value
+}
