@@ -361,7 +361,7 @@ export type AnchorGraphResult = {
   producersOpen: boolean;
   producerStops: {
     nodeId: string;
-    reason: "no-return" | "fallthrough" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+    reason: "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
   }[];
   origins: {
     nodeId: string;

@@ -42,9 +42,10 @@ export type FieldProducers = {
  * (`factory`), a write into the read (`write`), an object with no such field
  * (`missing`: the read can be undefined), an object the code changes after it
  * is built (`mutable`), a function that can end without this return
- * (`fallthrough`: a branch with no return, a generator).
+ * (`fallthrough`: a branch with no return, a generator), a return handed
+ * to a library call (`callback`: `.then(f)`, a store creator).
  */
-export type ProducerStopReason = "no-return" | "fallthrough" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
+export type ProducerStopReason = "no-return" | "fallthrough" | "callback" | "dead-end" | "missing" | "mutable" | "widened" | "unnamed-member" | "operand" | "callers" | "binding" | "accessor" | "factory" | "write" | "budget";
 export type ProducerStop = { elementId: string; reason: ProducerStopReason };
 
 /** What the walk asks of the language host. */
@@ -136,7 +137,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
 
   type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean };
   /** Why one step back from `current` to `target` cannot carry the field exactly, and where to say so; null when it can. */
-  const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath): ProducerStop | null => {
+  const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath, via: ProducerVia[]): ProducerStop | null => {
     const at = (elementId: string, reason: ProducerStopReason) => ({ elementId, reason });
     // A field read pushes exactly its field; a path too deep to hold it no longer names the field.
     if (relation.kind === "field-input" && (path.length !== item.path.length + 1 || path.slice(0, -1).join(".") !== item.path.join("."))) return at(current.id, "widened");
@@ -151,8 +152,10 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (target.kind === "return") {
       const unsure = hooks.returnUnsure(target);
       if (unsure === true || (unsure === "async" && !(relation.kind === "return-value" && hooks.awaited(current)))) return at(target.id, "fallthrough");
-      // A callback's return is the field only where the model seeds a state with it (a lazy initial value).
-      if (unsure === "callback" && relation.proof.kind !== "state-initialization") return at(target.id, "fallthrough");
+      // A return reaches the read only out of its own call, or as a state's lazy initial value (an updater's return is a later write, listed apart).
+      // Any other way (a library call it was handed to: `.then(f)`) gives the caller what that call makes of it.
+      const ownCall = relation.kind === "return-value" && unsure !== "callback";
+      if (!ownCall && relation.proof.kind !== "state-initialization" && firstStateStep(via) !== "write") return at(target.id, "callback");
     }
     if (isState(target.id) && throughState(relation.proof.kind)) {
       // A getter read without its call (`get.length`) reads the function; a store hook called with a selector reads what the selector picks.
@@ -217,7 +220,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       }
       const step: ProducerVia | null = init ? "initialization" : throughState(relation.proof.kind) && relation.status !== "proven" && isState(item.id) ? "write" : relation.kind === "return-value" || relation.kind === "return-expression" ? "return" : null;
       const via = step && item.via.at(-1) !== step ? [...item.via, step] : item.via;
-      const block = blocked(relation, item, current, target, path);
+      const block = blocked(relation, item, current, target, path, via);
       if (block) {
         stop({ via }, block.elementId, block.reason);
         continue;

@@ -312,3 +312,33 @@ export function Switched(props: { status: string }) {
   console.log(shown.title);
   return <p>{shown.title}</p>; // @trace fpl-switch backward shown.title
 }
+
+// A break inside a clause can leave the switch, and the function, without a return.
+function found(key: string, ok: boolean) {
+  switch (key) {
+    case "found":
+      if (!ok) break;
+      return { title: "SET" };
+    default:
+      throw new Error("missing");
+  }
+}
+export function Breaks(props: { ok: boolean }) {
+  const n = found("found", props.ok);
+  return <p>{n?.title}</p>; // @trace fpl-break backward n?.title @no-produces fpl-break @produces-open fpl-break
+}
+
+// A reference handed out of a function can be written wherever it goes.
+export function Escaped() {
+  const n = { title: "OLD" };
+  const get = () => n;
+  Object.assign(get(), { title: "NEW" });
+  return <p>{n.title}</p>; // @trace fpl-escaped backward n.title @no-produces fpl-escaped @produces-open fpl-escaped
+}
+
+// A functional update is a later write too.
+export function Updated() {
+  const [n, setN] = useState({ title: "FIRST" }); // @produces fpl-updated initialization proven
+  // @trace fpl-updated backward n.title @produces fpl-updated write partial
+  return <button onClick={() => setN((prev) => ({ ...prev, title: "NEXT" }))}>{n.title}</button>;
+}

@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "e47cdbff72631554",
+ "programHash": "1e04473bc1bac5ab",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
@@ -2121,7 +2121,7 @@
   },
   {
    "nodeId": "program-element:e9divp",
-   "reason": "mutable"
+   "reason": "dead-end"
   }
  ],
  "origins": [

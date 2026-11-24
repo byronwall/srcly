@@ -64,6 +64,7 @@ const STOP_WORDS: Record<StopReason, string> = {
   "no-return": "No source in the analysis returns a value into this call, so the field's value past it is not known.",
   "dead-end": "The field's path ends here: its value comes from outside what the analysis can follow.",
   missing: "This object has no own field with this name, so on this path the value comes from its prototype or is undefined.",
+  callback: "This value is returned to a library call it was handed to (a callback, a store creator), which decides what the caller gets.",
   fallthrough: "This function can also end without this return (a branch with no return, or a generator), so the call may yield something else.",
   mutable: "The code changes this object after building it, so the value written here may not be what the read sees.",
   widened: "Here the value is reshaped (a library call, an array), so the field is no longer one the path can name.",

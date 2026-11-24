@@ -564,6 +564,7 @@
             "enum": [
               "no-return",
               "fallthrough",
+              "callback",
               "dead-end",
               "missing",
               "mutable",

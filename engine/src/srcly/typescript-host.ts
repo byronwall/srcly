@@ -36,6 +36,12 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     while (ts.isArrayLiteralExpression(node.parent) || ts.isObjectLiteralExpression(node.parent) || ts.isPropertyAssignment(node.parent) || ts.isShorthandPropertyAssignment(node.parent) || ts.isSpreadElement(node.parent) || ts.isSpreadAssignment(node.parent)) node = node.parent;
     return node !== target && ts.isBinaryExpression(node.parent) && node.parent.left === node && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
   };
+  /** Whether a `break` in this statement can leave the switch it sits in (not one inside a nested loop, switch or function). */
+  const breaks = (node: TypeScript.Node): boolean => {
+    if (ts.isBreakStatement(node)) return !node.label;
+    if (ts.isIterationStatement(node, false) || ts.isSwitchStatement(node) || ts.isFunctionLike(node)) return false;
+    return !!ts.forEachChild(node, (child) => breaks(child) || undefined);
+  };
   /** Whether running every statement in order always returns or throws. */
   const endsAlways = (statement: TypeScript.Statement | undefined): boolean => {
     if (!statement) return false;
@@ -45,7 +51,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     // A switch with a default, whose every clause with statements ends (an empty clause falls into the next).
     if (ts.isSwitchStatement(statement)) {
       const clauses = statement.caseBlock.clauses;
-      return clauses.some((clause) => ts.isDefaultClause(clause)) && clauses.every((clause, index) => clause.statements.length === 0 ? index < clauses.length - 1 : endsAlways(clause.statements.at(-1)));
+      return clauses.some((clause) => ts.isDefaultClause(clause)) && clauses.every((clause, index) => clause.statements.length === 0 ? index < clauses.length - 1 : !clause.statements.some(breaks) && endsAlways(clause.statements.at(-1)));
     }
     return false;
   };
@@ -71,9 +77,11 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const whole = top === unwrap(use);
       // Written (`x.a = …`, `x = …`, `[x.a] = …`, `({ x } = …)`, `for (x of …)`).
       if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
-      // A primitive (`console.log(n.title)`) carries no object to change.
+      // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
       const type = checker.getTypeAtLocation(top);
-      if (!(type.flags & ts.TypeFlags.Any) && !(type.flags & ts.TypeFlags.Unknown) && !(type.flags & ts.TypeFlags.Object) && !(type.flags & ts.TypeFlags.Union) && !(type.flags & ts.TypeFlags.Intersection) && !(type.flags & ts.TypeFlags.TypeParameter)) return false;
+      if ((type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0)) return false;
+      // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
+      if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || (ts.isParameter(up) && up.initializer === top)) return true;
       // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
       if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
       if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;

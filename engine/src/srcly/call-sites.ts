@@ -55,7 +55,9 @@ export function createCallSiteIndex(tier1: TsTier1) {
     let handed = false;
     // A namespace import of its module (`views[name](…)`) can call it by a key the index cannot read.
     const home = symbol.declarations?.[0]?.getSourceFile();
-    const namespaced = !!home && files.some((file) => file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && checker.getSymbolAtLocation(statement.moduleSpecifier)?.valueDeclaration === home));
+    // Through re-exports too: any namespace-imported module that exports it.
+    const exportsIt = (module: TypeScript.Symbol | undefined) => !!module && checker.getExportsOfModule(module).some((exported) => resolve(exported) === symbol);
+    const namespaced = !!home && files.some((file) => file.statements.some((statement) => ts.isImportDeclaration(statement) && !!statement.importClause?.namedBindings && ts.isNamespaceImport(statement.importClause.namedBindings) && exportsIt(checker.getSymbolAtLocation(statement.moduleSpecifier))));
     for (const file of files) {
       if (![...names].some((each) => file.text.includes(each))) continue;
       const visit = (node: TypeScript.Node) => {

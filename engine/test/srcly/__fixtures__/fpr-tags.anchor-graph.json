@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "eeb2b8f17bd340a6",
+ "programHash": "210f640b2b02a64e",
  "tsconfig": "/fixture/value-flow-basics/tsconfig.json",
  "typescript": "5.9.3",
  "nullProof": true,
