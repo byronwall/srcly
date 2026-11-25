@@ -42,7 +42,7 @@ function Spare() {
   return <p>spare</p>;
 }
 
-export function Tree(props: { outer: string; inner: string; spare: string }) { // @stop outer-back untraced parameter
+export function Tree(props: { outer: string; inner: string; spare: string }) { // @visits outer-back parameter
   return (
     <div>
       {/* @trace outer-provided forward props.outer */}

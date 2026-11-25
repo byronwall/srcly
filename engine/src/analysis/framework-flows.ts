@@ -10,10 +10,11 @@ import { cellFlow, holdsState } from "./cells";
  * or with `compares` a boolean test of it;
  * `passes` the call's value carries those arguments (`*` every one);
  * `source` and `callback` the callback's first parameter receives what the
- * source returns (or is). A flow with none of these is a call with no value:
+ * source returns (or is); `packs` the call's value is an object that holds
+ * that argument in one field (`useRef(x).current`). A flow with none of these is a call with no value:
  * its callback runs for what it does (`useEffect`), and nothing comes back.
  */
-export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number };
+export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number; packs?: { argument: number; field: string } };
 
 /** One access path of a row: the value at `from` reaches `to`, or with `test` a boolean test of it reaches `to`. */
 export type Flow = { from: string; to: string; test: boolean };
@@ -103,6 +104,10 @@ export function rowFlow(row: LibraryModelRow | null): FrameworkFlow | undefined 
   const flows = rowPaths(row);
   if (row.model === "passes-through") {
     const passes = flows.filter((flow) => flow.to === "ReturnValue").map((flow) => flow.from);
+    // An object that holds the argument in one field (`useRef(x).current`).
+    const packed = flows.find((flow) => /^ReturnValue\.Member\[\w+\]$/.test(flow.to));
+    const packedArgument = packed ? num(/^Argument\[(\d+)\]$/, packed.from) : undefined;
+    if (packed && packedArgument !== undefined) return { packs: { argument: packedArgument, field: /Member\[(\w+)\]/.exec(packed.to)![1] } };
     return { passes: passes.includes("Argument[0..]") ? "*" : passes.flatMap((from) => num(/^Argument\[(\d+)\]$/, from) ?? []) };
   }
   if (yieldsNothing(row)) return {};

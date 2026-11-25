@@ -61,7 +61,7 @@ export function undrawn(kind: string): boolean {
 }
 
 /** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
-export const CARRIES_RETURN: ReadonlySet<string> = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return"]);
+export const CARRIES_RETURN: ReadonlySet<string> = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return", "render-terminal"]);
 
 /** Where the anchor walk ends a path: a terminal forward (a return still carries on to its paired call), an origin backward. */
 export function endsWalk(element: ProgramElement, forward: boolean): boolean {

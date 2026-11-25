@@ -2,6 +2,7 @@ import type * as TypeScript from "typescript";
 import type { SourceSpan } from "../types";
 import type { AnalysisCancellationToken } from "./cancellation";
 import { transportCandidates } from "./program-evidence-transport-candidates";
+import { imperativeHandleMethods } from "./react-imperative-handle";
 import { ProgramEvidenceCollector } from "./program-evidence-collector";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "./program-evidence-candidate-index";
 import type { ProgramElementKind, ProgramEvidenceOptions } from "./program-evidence";
@@ -226,6 +227,15 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
       // A value written into a member (`this.owner = owner`): the member's reads may sit in another statement (`Account.prototype.describe = function () { … this.owner … }`).
       const written = direction !== "backward" ? memberWritten(this.ts, node) : null;
       if (discover && written && this.isProjectSymbol(written)) for (const reference of this.referenceCandidates(written, false)) roots.add(this.partition(reference));
+      // The call itself, or the call this value is an argument of: what it runs may be declared in another statement.
+      const call = !discover ? null : this.ts.isCallExpression(node) ? node : node.parent && this.ts.isCallExpression(node.parent) && node.parent.arguments.some((argument) => argument === node) ? node.parent : null;
+      if (call) {
+        // A call through a parameter or a prop (`props.onEdit(id, text)`) runs what each caller hands in: the calls and occurrences that do.
+        const slot = this.handlerSlotOwner(call.expression);
+        if (slot) for (const reference of this.referenceCandidates(slot, true)) roots.add(this.partition(reference));
+        // A call through what a ref's imperative handle holds (`handle.current?.fill(x)`) runs a function another component declares.
+        for (const method of imperativeHandleMethods(this.ts, this.checker, call.expression)) roots.add(this.partition(method));
+      }
       if (direction !== "forward" || fact.kind === "return" && !returnTo) add(fact.ownerId, direction === "backward" || fact.kind === "parameter" || fact.kind === "return");
       // Declaration links are already emitted when the call or JSX occurrence is collected.
       // Their bodies are needed only when a value enters that declaration.
@@ -237,6 +247,21 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
     }
     if (process.env.SRCLY_DEMAND_TRACE === "1" && [...roots].some((root) => !this.roots.has(root))) process.stderr.write(`[frontier] ${JSON.stringify({ id: elementId, kind: this.factsById.get(elementId)?.kind, label: this.factsById.get(elementId)?.label, direction, returnTo, roots: [...roots].filter((root) => !this.roots.has(root)).map((node) => `${relative(this.root, node.getSourceFile().fileName)}:${node.getStart()}`) })}\n`);
     this.ensureRoots([...roots]);
+  }
+
+  /**
+   * The name of the function whose parameter a callee reads a function from
+   * (`visit` in `visit(item)`, `props` in `props.onSave(v)`, a destructured
+   * `{ onSave }`), when the project declares that function; else null.
+   */
+  private handlerSlotOwner(callee: TypeScript.Expression): TypeScript.Node | null {
+    let read = unwrap(this.ts, callee);
+    if (this.ts.isPropertyAccessExpression(read)) read = unwrap(this.ts, read.expression);
+    if (!this.ts.isIdentifier(read)) return null;
+    let declaration: TypeScript.Node | undefined = this.checker.getSymbolAtLocation(read)?.valueDeclaration;
+    while (declaration && this.ts.isBindingElement(declaration)) declaration = declaration.parent.parent;
+    if (!declaration || !this.ts.isParameter(declaration) || !this.isProjectSymbol(read)) return null;
+    return functionNameNode(this.ts, declaration.parent as TypeScript.FunctionLikeDeclaration);
   }
 
   /** Follow value aliases as candidate locations; existing proof rules still resolve each call. */

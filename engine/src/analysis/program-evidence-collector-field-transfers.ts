@@ -1,6 +1,7 @@
 import * as TypeScript from "typescript";
 import { ProgramEvidenceCollectorDirectConsumerSupport } from "./program-evidence-collector-direct-consumers";
-import { proof, unwrap } from "./program-evidence-support";
+import { importedCallee, proof, unwrap } from "./program-evidence-support";
+import { yieldsFirstFunction } from "./framework-flows";
 import { exactCallbackReturnExpression } from "./program-callback-return";
 import { resolvesArrayIncludes, resolvesArrayMap, resolvesCreateMemo } from "./route-totality-field-proof-ast";
 import {
@@ -568,7 +569,13 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
   private accessorName(declaration: TypeScript.FunctionLikeDeclaration): TypeScript.Identifier | null {
     let current: TypeScript.Node | undefined = declaration;
     while (current?.parent) {
+      const inner: TypeScript.Node = current;
       current = current.parent;
+      // `const ids = useMemo(() => …)` binds what the callback returns, not the callback: `ids` is no accessor of it.
+      if (this.ts.isCallExpression(current) && current.arguments.some((argument) => argument === inner)) {
+        const imported = importedCallee(this.ts, this.checker, current.expression);
+        if (imported && !yieldsFirstFunction(imported.module, imported.name)) return null;
+      }
       if (this.ts.isVariableDeclaration(current) && this.ts.isIdentifier(current.name)) return current.name;
       if (this.ts.isFunctionLike(current) && !this.ts.isArrowFunction(current)) return null;
     }

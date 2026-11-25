@@ -8,7 +8,7 @@ import { createStore } from "solid-js/store";
 // through the object that holds its pair (`state.doc`) sees the store.
 // The framework's model says what the factory, setter and getter calls do:
 // none of them is library code assumed to pass the value on.
-export function Named(props: { start: string; next: string; other: number }) { // @stop name-back untraced parameter
+export function Named(props: { start: string; next: string; other: number }) { // @visits name-back parameter
   const [name, setName] = createSignal(props.start); // @trace start forward props.start @visits name-back field-read * "start" @never-reaches other
   const [count, setCount] = createSignal(0); // @never-reaches start,next,name-back
   setName(props.next); // @trace next forward props.next @visits name-back field-read * "next"

@@ -170,9 +170,18 @@ ts:react#useReducer (cell)
 ts:react#useMemo (calls-back)
   rowFlow: {"returns":0}
   yieldsOnlyCallback: true
+ts:react#useRef (passes-through)
+  rowFlow: {"packs":{"argument":0,"field":"current"}}
+  yieldsFirstFunction: true
+ts:react#cloneElement (passes-through)
+  rowFlow: {"passes":"*"}
+  yieldsFirstFunction: true
 ts:react#useDeferredValue (passes-through)
   rowFlow: {"passes":[0]}
   yieldsFirstFunction: true
+ts:react#useSyncExternalStore (calls-back)
+  rowFlow: {"returns":1}
+  yieldsOnlyCallback: true
 ts:react#useEffect (calls-back)
   rowFlow: {}
   hasNoValue: true
@@ -205,8 +214,6 @@ ts:zustand#create (cell)
   yieldsFirstFunction: true
   makesStore: true
   callsInitialValue: true
-ts:react#useRef (consumes)
-  yieldsFirstFunction: true
 ts:react#useId (consumes)
   yieldsFirstFunction: true
 ts:react#useTransition (consumes)
@@ -437,6 +444,12 @@ ts:global#Response.json (terminal)
   yieldsFirstFunction: true
 ts:global#import.meta.env (origin)
   yieldsFirstFunction: true
+ts:lib#URLSearchParams.set (consumes)
+  writes: "this"
+ts:lib#URLSearchParams.append (consumes)
+  writes: "this"
+ts:lib#URLSearchParams.delete (consumes)
+  writes: "this"
 py:flask.globals#request.* (passes-through)
   rowFlow: {"passes":"*"}
 py:flask#request.* (passes-through)

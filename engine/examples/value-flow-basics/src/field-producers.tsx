@@ -52,7 +52,7 @@ export function TwoCallers() {
 }
 
 // A whole object handed on is not a field's producer: `summary.owner` reads a field the pack fills, `card.title` a field of an object made elsewhere.
-export function Summary(props: { owner: string; card: Note }) { // @stop fpr-card untraced parameter
+export function Summary(props: { owner: string; card: Note }) { // @visits fpr-card parameter
   const summary = { owner: props.owner ?? "Unknown", card: props.card }; // @produces fpr-owner none proven
   return <p>{summary.owner} {summary.card.title}</p>; // @trace fpr-owner backward summary.owner @trace fpr-card backward summary.card.title @no-produces fpr-card
 }

@@ -18,7 +18,7 @@
    },
    "text": "props.a",
    "kind": "PropertyAccessExpression",
-   "elementId": "program-element:1xt36tv",
+   "elementId": "program-element:1p4jkkn",
    "typeText": "string"
   },
   "direction": "forward",
@@ -51,7 +51,7 @@
     "note": null
    },
    {
-    "id": "program-element:1xt36tv",
+    "id": "program-element:1p4jkkn",
     "kind": "anchor",
     "label": "props.a",
     "detail": "property read",
@@ -186,7 +186,7 @@
     "note": null
    },
    {
-    "id": "program-element:yul0s9",
+    "id": "program-element:u0x0r3",
     "kind": "value",
     "label": "id(props.a)",
     "detail": "call",
@@ -213,7 +213,7 @@
     "note": null
    },
    {
-    "id": "program-element:ahg8ut",
+    "id": "program-element:18r8npn",
     "kind": "terminal",
     "label": "id(props.a)",
     "detail": "render slot",
@@ -242,8 +242,8 @@
   ],
   "edges": [
    {
-    "id": "program-relation:31bfhk",
-    "source": "program-element:1xt36tv",
+    "id": "program-relation:149dp0b",
+    "source": "program-element:1p4jkkn",
     "target": "program-element:gnkfg4",
     "kind": "argument-binding",
     "status": "proven",
@@ -337,9 +337,9 @@
     "label": null
    },
    {
-    "id": "program-relation:hyaw55",
+    "id": "program-relation:1cfh7jp",
     "source": "program-element:1fiogzl",
-    "target": "program-element:yul0s9",
+    "target": "program-element:u0x0r3",
     "kind": "return-value",
     "status": "proven",
     "proof": [
@@ -365,9 +365,9 @@
     "label": null
    },
    {
-    "id": "program-relation:188jqk",
-    "source": "program-element:yul0s9",
-    "target": "program-element:ahg8ut",
+    "id": "program-relation:1gz7og",
+    "source": "program-element:u0x0r3",
+    "target": "program-element:18r8npn",
     "kind": "render-terminal",
     "status": "proven",
     "proof": [
@@ -407,7 +407,7 @@
   "origins": [],
   "terminals": [
    {
-    "nodeId": "program-element:ahg8ut",
+    "nodeId": "program-element:18r8npn",
     "label": "id(props.a)",
     "roles": [
      "render"
@@ -453,7 +453,7 @@
    },
    "text": "props.b",
    "kind": "PropertyAccessExpression",
-   "elementId": "program-element:1yfbeq1",
+   "elementId": "program-element:1hgbk87",
    "typeText": "string"
   },
   "direction": "forward",
@@ -486,7 +486,7 @@
     "note": null
    },
    {
-    "id": "program-element:1yfbeq1",
+    "id": "program-element:1hgbk87",
     "kind": "anchor",
     "label": "props.b",
     "detail": "property read",
@@ -621,7 +621,7 @@
     "note": null
    },
    {
-    "id": "program-element:1o0ezlw",
+    "id": "program-element:1bnl94",
     "kind": "value",
     "label": "id(props.b)",
     "detail": "call",
@@ -648,7 +648,7 @@
     "note": null
    },
    {
-    "id": "program-element:lvjumy",
+    "id": "program-element:1fp68fq",
     "kind": "terminal",
     "label": "id(props.b)",
     "detail": "render slot",
@@ -677,8 +677,8 @@
   ],
   "edges": [
    {
-    "id": "program-relation:p1o77o",
-    "source": "program-element:1yfbeq1",
+    "id": "program-relation:y47cid",
+    "source": "program-element:1hgbk87",
     "target": "program-element:gnkfg4",
     "kind": "argument-binding",
     "status": "proven",
@@ -772,9 +772,9 @@
     "label": null
    },
    {
-    "id": "program-relation:1giekhg",
+    "id": "program-relation:qjxp28",
     "source": "program-element:1fiogzl",
-    "target": "program-element:1o0ezlw",
+    "target": "program-element:1bnl94",
     "kind": "return-value",
     "status": "proven",
     "proof": [
@@ -800,9 +800,9 @@
     "label": null
    },
    {
-    "id": "program-relation:1o5sl95",
-    "source": "program-element:1o0ezlw",
-    "target": "program-element:lvjumy",
+    "id": "program-relation:p64y5u",
+    "source": "program-element:1bnl94",
+    "target": "program-element:1fp68fq",
     "kind": "render-terminal",
     "status": "proven",
     "proof": [
@@ -842,7 +842,7 @@
   "origins": [],
   "terminals": [
    {
-    "nodeId": "program-element:lvjumy",
+    "nodeId": "program-element:1fp68fq",
     "label": "id(props.b)",
     "roles": [
      "render"

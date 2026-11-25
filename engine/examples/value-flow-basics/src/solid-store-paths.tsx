@@ -8,10 +8,10 @@ import { createStore } from "solid-js/store";
 // returns, a loop the walk leaves at `prev`). A predicate in the path picks
 // items; what it returns is a test for Solid, never stored. A named updater is called
 // like an inline one: what it returns is stored, not the function.
-export function StorePaths(props: { title: string; other: string; seedLeft: string; seedRight: string; id: number; label: string }) { // @stop sp-prev untraced parameter
+export function StorePaths(props: { title: string; other: string; seedLeft: string; seedRight: string; id: number; label: string }) { // @visits sp-prev parameter
   const [store, setStore] = createStore({ left: { title: props.seedLeft }, right: { title: props.seedRight }, items: [{ id: 1, label: "a" }] }); // @trace sp-seed-left forward props.seedLeft @visits sp-prev * "seedRight" @never-reaches sp-prev * "seedLeft"
   setStore("left", "title", props.title); // @trace sp-title forward props.title
-  setStore("right", "title", (prev) => prev + props.other); // @trace sp-other forward props.other @trace sp-prev backward prev @stop sp-prev untraced value
+  setStore("right", "title", (prev) => prev + props.other); // @trace sp-other forward props.other @trace sp-prev backward prev
   setStore("items", (item) => item.id === props.id, "label", props.label); // @trace sp-id forward props.id @trace sp-label forward props.label @reaches sp-id return
   // @outcome sp-title,sp-other,sp-label ok
   return (

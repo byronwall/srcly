@@ -57,7 +57,7 @@ const Unit = createContext("en"); // @never-reaches lang-back
 
 function LangRead() {
   const lang = useContext(Lang);
-  return <b>{lang}</b>; // @trace lang-back backward lang @outcome lang-back partial @reaches lang-provided render-terminal @never-reaches unit-provided
+  return <b>{lang}</b>; // @trace lang-back backward lang @outcome lang-back ok @reaches lang-provided render-terminal @never-reaches unit-provided
 }
 
 function UnitRead() {
@@ -65,7 +65,7 @@ function UnitRead() {
   return <i>{unit}</i>; // @reaches unit-provided render-terminal @never-reaches lang-provided
 }
 
-export function Settings(props: { lang: string; unit: string }) { // @stop lang-back untraced parameter
+export function Settings(props: { lang: string; unit: string }) { // @visits lang-back parameter
   return (
     <div>
       {/* @trace lang-provided forward props.lang @outcome lang-provided ok */}

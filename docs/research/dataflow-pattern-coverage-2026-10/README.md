@@ -201,3 +201,28 @@ Still not `ok`:
 | `v-observer` | assumed | `onSeen(entry.target.id)` calls a callback that `watch`'s caller hands in, and nothing in the program calls `watch`. A call through a callback no caller supplies is assumed on purpose (`callback-not-service.tsx`, `draft-save`). |
 
 Closing `js-reduce` and `js-require` needs a type source for JavaScript parameters (JSDoc, or the types at every call site of a function nothing exports). A rule that reads the method name alone would be a false `ok` whenever a project's own object has a method of that name.
+
+## React root (November 2026, React hooks round)
+
+| Root | Patterns | `ok` before | `ok` after | `assumed` | `partial` | Wanted end before | Wanted end after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| react | 81 | 70 | 80 | 1 (6 before) | 0 (5 before) | 75 | 81 |
+
+"Before" is main at 1daf504d. Closed, by principle (the rules are in `docs/dataflow-coverage.md`):
+
+| Principle | Patterns |
+| --- | --- |
+| Rows in the access-path vocabulary: `useSyncExternalStore` (`calls-back`, `Argument[1].ReturnValue -> ReturnValue`), `useRef` (`passes-through`, `Argument[0] -> ReturnValue.Member[current]`), `cloneElement` (`passes-through`), Next's `AppRouterInstance.push` and `replace` (`terminal` member rows), `URLSearchParams.set`, `append`, `delete` (`consumes`, `writes: this`) | `r-external-store`, `r-ref-latest`, `r-router-push`, `n-router-replace` |
+| A hook input ends in place: an effect's dependency list (no value) and a wrapper's (`useCallback(fn, deps)`) | `r-storage-init`, `r-memo-chain` |
+| `useMemo(fn)`'s binding is not an accessor of `fn` | `r-memo-chain` |
+| Class component state: `this.setState(x)` or an updater's return is merged into `state` | `r-class-state` |
+| Imperative handle: `handle.current?.fill(x)` runs the `fill` that `useImperativeHandle` returns for the element given `ref={handle}` | `r-imperative` |
+| A component's return renders at its occurrence | `r-clone` |
+| A callback inside a handler handed in returns to its own call (the walk used to stop at its return, a wrong `ok` at `return`) | `r-list-edit` |
+| A parameter of an exported function nothing calls begins at the module's API | `r-debounce-hook` |
+
+Still not `ok`:
+
+| Pattern | Outcome | Why it stays |
+| --- | --- | --- |
+| `q-optimistic` | assumed | `onError`'s `context.previous` comes from `getQueryData(["likes", id])`. The key is computed, so the keyed-store rule joins it to the `setQueryData` writes as assumed (`computed-key`). Proving that two computed keys are equal is a separate rule. |

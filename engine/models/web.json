@@ -178,6 +178,30 @@
       "store": "Argument[this]",
       "role": "external-read",
       "note": "Reads the name of the entry at an index, not an entry."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.set",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.append",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.delete",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
     }
   ]
 }

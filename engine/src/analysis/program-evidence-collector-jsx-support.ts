@@ -8,6 +8,7 @@ import { resolveValue, wrapperFillsParameters } from "./value-origin";
 import { cellHas, cellYields, pairCall } from "./cells";
 import type { LibraryModelRow } from "./library-models";
 import { watchedFunction } from "./framework-flows";
+import { imperativeHandleMethods } from "./react-imperative-handle";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { handsProp, renderedProp, testsProp } from "./slots";
 import { ContextAncestry, contextApplies } from "./program-evidence-context-ancestry";
@@ -190,6 +191,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const child = written.length === 1 && this.ts.isJsxExpression(written[0]) && written[0].expression ? unwrap(this.ts, written[0].expression) : undefined;
     if (child && (this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child))) for (const each of targets) this.childFunctions.push({ target: each.id, value: child, at: opening });
     for (const each of targets) {
+      this.renderedComponents.add(each.id);
       this.addRelation(
         occurrenceId,
         each.id,
@@ -767,7 +769,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const slot = this.handlerSlot(node.expression);
     // A handler handed in by a caller is paired with that caller; a context's provider is above every reader, so its handler is not.
     const handed: { value: TypeScript.Node; paired: boolean; at?: TypeScript.Node }[] = !slot
-      ? [...this.contextMethod(node.expression), ...this.cells.memberOf(node.expression)].map((value) => ({ value, paired: false }))
+      ? [...this.contextMethod(node.expression), ...this.cells.memberOf(node.expression), ...imperativeHandleMethods(this.ts, this.checker, node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
         : this.handedProps(props, slot.owner.id, slot.index, 0);
@@ -1112,13 +1114,68 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   private derivedStateMember(declaration: TypeScript.SignatureDeclaration): string | null {
     if (!this.ts.isMethodDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !/^getDerivedStateFrom(Error|Props)$/.test(declaration.name.text)) return null;
     if (!this.ts.getModifiers(declaration)?.some((modifier) => modifier.kind === this.ts.SyntaxKind.StaticKeyword)) return null;
-    const owner = declaration.parent;
+    return this.reactStateMember(declaration.parent);
+  }
+
+  /** The `state` member a React class component declares (the class extends React's `Component` or `PureComponent`); null for any other class. */
+  private reactStateMember(owner: TypeScript.Node): string | null {
     if (!this.ts.isClassLike(owner)) return null;
     const base = owner.heritageClauses?.find((clause) => clause.token === this.ts.SyntaxKind.ExtendsKeyword)?.types[0]?.expression;
     const imported = base ? importedCallee(this.ts, this.checker, base) : null;
     if (imported?.module !== "react" || !/^(Component|PureComponent)$/.test(imported.name)) return null;
     const state = owner.members.find((member) => this.ts.isPropertyDeclaration(member) && !this.ts.getModifiers(member)?.some((modifier) => modifier.kind === this.ts.SyntaxKind.StaticKeyword) && this.ts.isIdentifier(member.name) && member.name.text === "state");
     return state?.name ? this.symbolId(state.name) : null;
+  }
+
+  /** Functions a JSX tag renders as a component (`processJsx`). */
+  private readonly renderedComponents = new Set<string>();
+
+  /**
+   * What a component returns is what the framework renders at its
+   * occurrence: `return props.children`, `return cloneElement(child, extra)`.
+   * A JSX element it returns already renders each value in place, so only
+   * another value's return gets a render end. A function that is also
+   * called, not only rendered, keeps its calls' returns.
+   */
+  private connectComponentReturns(): void {
+    for (const id of this.renderedComponents) {
+      const fn = this.functionsById.get(id);
+      if (!fn || this.calls.some((call) => call.target?.id === id)) continue;
+      for (const returnId of this.returnsByFunction.get(id) ?? []) {
+        const node = this.factNodes.get(returnId);
+        const expression = node && (this.ts.isReturnStatement(node) ? node.expression : this.ts.isExpression(node) ? node : undefined);
+        const value = expression && unwrap(this.ts, expression);
+        if (!value || this.ts.isJsxElement(value) || this.ts.isJsxSelfClosingElement(value) || this.ts.isJsxFragment(value)) continue;
+        const at = [this.location(value)];
+        const terminalId = this.ensureElement(value, "render-terminal", id, { terminalKind: "component-return", label: value.getText(value.getSourceFile()).slice(0, 80) }, null, null, null, "proven", proof("jsx-tag", "What the component returns is what the framework renders at its occurrence.", at));
+        this.addRelation(returnId, terminalId, "render-terminal", at, proof("jsx-tag", "The component's return is rendered at its occurrence.", at), "proven");
+      }
+    }
+  }
+
+  /**
+   * `this.setState(x)` in a React class component: React merges `x`, or what
+   * an updater function returns, into the class's `state`, so a read of
+   * `this.state` sees it. An updater's first parameter is the current state.
+   * The call itself holds nothing (`classSetState`).
+   */
+  private connectClassSetState(): void {
+    for (const call of this.calls) {
+      const owner = this.classSetState(call.node);
+      const key = owner ? this.reactStateMember(owner) : null;
+      const value = key && this.ts.isCallExpression(call.node) ? call.node.arguments[0] : undefined;
+      if (!key || !value) continue;
+      const fn = unwrap(this.ts, value);
+      const updater = this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn) ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? null : this.ts.isIdentifier(fn) ? this.targetFunction(fn) : null;
+      const writes = updater ? this.returnsByFunction.get(updater.id) ?? [] : [this.expression(value, call.ownerId)];
+      const parameter = updater?.declaration.parameters[0];
+      const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+      // The updater receives the state as it is: what the class declares and every other write.
+      if (parameterId) {
+        for (const stateId of this.memberWrites.get(key) ?? []) this.addRelation(stateId, parameterId, "member-state", [this.location(fn)], proof("compiler-symbol", "React calls the updater with the component's current state.", [this.location(fn)]), "partial");
+      }
+      this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), ...writes]);
+    }
   }
 
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
@@ -1149,6 +1206,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         }
       }
     }
+    this.connectClassSetState();
+    this.connectComponentReturns();
     if (this.memberWrites.size === 0) return;
     for (const read of this.memberReads) {
       this.checkCancellation();

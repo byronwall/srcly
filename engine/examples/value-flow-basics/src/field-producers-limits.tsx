@@ -95,7 +95,7 @@ export function TwoBranchesOneHelper(props: { p: boolean }) {
 }
 
 // An operand is no field of the result: a template's length, a ternary's condition.
-export function Operands(props: { guard: { title: string } | null; a: Note; b: Note }) { // @stop fpl-ternary untraced parameter
+export function Operands(props: { guard: { title: string } | null; a: Note; b: Note }) { // @visits fpl-ternary parameter
   const text = `${{ length: 100 }}`;
   const chosen = props.guard ? props.a : props.b;
   return <p>{text.length} {chosen.title}</p>; // @trace fpl-template backward text.length @trace fpl-ternary backward chosen.title @produces-open fpl-template @no-produces fpl-template @produces-open fpl-ternary @no-produces fpl-ternary
@@ -360,7 +360,7 @@ export function Overridden(props: { repo: Base }) {
 function loadSet() {
   return { title: "SET" };
 }
-export function OptionalCall(props: { repo?: { load: typeof loadSet } }) { // @stop fpl-optional untraced parameter
+export function OptionalCall(props: { repo?: { load: typeof loadSet } }) { // @visits fpl-optional parameter
   const maybe = props.repo?.load();
   return <p>{maybe?.title}</p>; // @trace fpl-optional backward maybe?.title @produces-open fpl-optional @no-produces fpl-optional
 }
