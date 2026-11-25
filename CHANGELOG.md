@@ -1,5 +1,82 @@
 # Changelog
 
+## [1.13.0](https://github.com/byronwall/srcly/compare/v1.12.0...v1.13.0) (2026-11-25)
+
+
+### Features
+
+* Change Lens on real history, with docs ([#411](https://github.com/byronwall/srcly/issues/411)) ([4727bd5](https://github.com/byronwall/srcly/commit/4727bd56c9dc845ba02920c27db8e12ccdff7e65))
+* **changelens:** color new chunks by their complexity in the delta lens ([#416](https://github.com/byronwall/srcly/issues/416)) ([9b62ec9](https://github.com/byronwall/srcly/commit/9b62ec92c3ae84c6061b1bc69dab48dfacc699c8))
+* **changelens:** read main history when the checkout is off main ([#414](https://github.com/byronwall/srcly/issues/414)) ([6e34ba6](https://github.com/byronwall/srcly/commit/6e34ba6c5c9f992803dae9827d4c8c6b4145ff88))
+* **changes:** show every committed path with exact source evidence ([#457](https://github.com/byronwall/srcly/issues/457)) ([11fcf04](https://github.com/byronwall/srcly/commit/11fcf04855a1786cfb3b6aabbf443f0aeaaf22e6))
+* **client:** Change Lens review panel components ([#409](https://github.com/byronwall/srcly/issues/409)) ([a88eb89](https://github.com/byronwall/srcly/commit/a88eb8922ffbe66e7993455f9ec518078fa068b8))
+* **client:** Changes view with Only edits and In repo maps ([#410](https://github.com/byronwall/srcly/issues/410)) ([4ab3d69](https://github.com/byronwall/srcly/commit/4ab3d69da3bc497cb2791202d073b2a52ca89fb7))
+* **cli:** srcly trace and srcly impact, data flow from the terminal ([#402](https://github.com/byronwall/srcly/issues/402)) ([42850b9](https://github.com/byronwall/srcly/commit/42850b94c57a2f63d1c6aa2bdb906183b916201a))
+* **compare:** data-flow changes for each changed function ([#406](https://github.com/byronwall/srcly/issues/406)) ([9cbbf69](https://github.com/byronwall/srcly/commit/9cbbf6937bb0186d317f78df43f51c93f19e1af1))
+* **dataflow:** 58 Solid patterns, router ends and model rows ([#404](https://github.com/byronwall/srcly/issues/404)) ([8800022](https://github.com/byronwall/srcly/commit/8800022f2ff3f7fa352b192e8aff087deff9e5ff))
+* **dataflow:** finish M7 with relay findings, retire tsx-dataflow-integration ([#415](https://github.com/byronwall/srcly/issues/415)) ([f445fee](https://github.com/byronwall/srcly/commit/f445feeef303be3b56e2eb93ec62d251516fc917))
+* **dataflow:** Python pattern catalog and five Python rules ([#403](https://github.com/byronwall/srcly/issues/403)) ([655efc0](https://github.com/byronwall/srcly/commit/655efc087d0e1f1fe3c7fd0189c49d4e00d75a3d))
+* **engine:** cell rows for library state, one state per call ([#432](https://github.com/byronwall/srcly/issues/432)) ([35be83a](https://github.com/byronwall/srcly/commit/35be83a11ae1d6d7bcb33c8ef99f98caa34cfe2c))
+* **engine:** constructor functions, JSON values and module lets ([#420](https://github.com/byronwall/srcly/issues/420)) ([9ae61b8](https://github.com/byronwall/srcly/commit/9ae61b85053b01dc5fbe6dd761112544a69163f4))
+* **engine:** fileSignals op for data-flow metrics, findings and work packets ([#398](https://github.com/byronwall/srcly/issues/398)) ([252092b](https://github.com/byronwall/srcly/commit/252092bb44078aab0f72b5a65f4e1f11b905e1ba))
+* **engine:** keyed-store rows for context, the query cache and Storage ([#435](https://github.com/byronwall/srcly/issues/435)) ([61bd57f](https://github.com/byronwall/srcly/commit/61bd57f80ee1b19ec109f6105f6d4dd92e840d86))
+* **engine:** per-call contexts for closures and class fields ([#430](https://github.com/byronwall/srcly/issues/430)) ([f0a6d2b](https://github.com/byronwall/srcly/commit/f0a6d2b1c944d47690a32edbe731136bd04d49a0))
+* **engine:** props cross spread, lazy, HOC and Dynamic components ([#417](https://github.com/byronwall/srcly/issues/417)) ([1779c9e](https://github.com/byronwall/srcly/commit/1779c9eca28e22409f8556e5cb052db93d5c7aa6))
+* **engine:** Python scope, closures, partial and library rows ([#418](https://github.com/byronwall/srcly/issues/418)) ([40cd9a6](https://github.com/byronwall/srcly/commit/40cd9a689b167c2262e9e7627b3cfa70f7bfe463))
+* **engine:** React imperative handles, external stores and class state as rows ([#477](https://github.com/byronwall/srcly/issues/477)) ([86ab42f](https://github.com/byronwall/srcly/commit/86ab42f04c32b4f0219b10b249c6f8db265f1b3d))
+* **engine:** React Query select, cache and invalidate ([#423](https://github.com/byronwall/srcly/issues/423)) ([2200570](https://github.com/byronwall/srcly/commit/2200570b1ebbde68a162118bb1a9cba9a1170b40))
+* **engine:** Solid submissions, resource mutate and context actions ([#424](https://github.com/byronwall/srcly/issues/424)) ([0ec51ec](https://github.com/byronwall/srcly/commit/0ec51ece3b480cb7496d0f0eb1f276cc17a61c3e))
+* **engine:** type-signature hints at package calls with no row ([#436](https://github.com/byronwall/srcly/issues/436)) ([bb2eb8e](https://github.com/byronwall/srcly/commit/bb2eb8e6797cb2429e2e6f55b1cdd42e33eeec32))
+* **engine:** zustand middleware, slices and store API ([#419](https://github.com/byronwall/srcly/issues/419)) ([b430beb](https://github.com/byronwall/srcly/commit/b430beb5644462a9b725f0ea2e86189f44f5725f))
+* **flow:** keep the selected field question with its evidence ([#458](https://github.com/byronwall/srcly/issues/458)) ([2e0bce2](https://github.com/byronwall/srcly/commit/2e0bce2ca67a6b94a23c7621de64f8b904ce17c4))
+* **flow:** name a field's producer on the trace question ([#474](https://github.com/byronwall/srcly/issues/474)) ([acad344](https://github.com/byronwall/srcly/commit/acad344f3de9e9c66940b44b321f6470be7a98d3))
+* **flow:** show producer candidates with caveats instead of a proven claim ([#475](https://github.com/byronwall/srcly/issues/475)) ([d4c6129](https://github.com/byronwall/srcly/commit/d4c6129785909a0ff9a098c40e1060666d4f74d2))
+* **server:** Change Lens engine, API and srcly changes ([#408](https://github.com/byronwall/srcly/issues/408)) ([0db5cec](https://github.com/byronwall/srcly/commit/0db5cec91a59c495123b7cc71979c77c43156d1a))
+* **site:** redesign the landing page around Srcly's own treemap ([#391](https://github.com/byronwall/srcly/issues/391)) ([744216f](https://github.com/byronwall/srcly/commit/744216f71fcbde58a419730ac3973a71f4ad776a))
+* **site:** search, an interactive hero and agent files ([#392](https://github.com/byronwall/srcly/issues/392)) ([c5f1434](https://github.com/byronwall/srcly/commit/c5f1434a2c5a3a0d871116465338bab94b71b4ec))
+* srcly report --dataflow, data-flow metrics and code-viewer marks ([#399](https://github.com/byronwall/srcly/issues/399)) ([f0d3384](https://github.com/byronwall/srcly/commit/f0d3384fff865016b82225e5be2c6d7e979e0812))
+
+
+### Bug Fixes
+
+* **changes:** count Git paths in the commit rail ([39de804](https://github.com/byronwall/srcly/commit/39de80404c6bacf0a798e738dc7b54de31b6d98a))
+* **changes:** offer committed range for nonstructural working-tree edits ([391b923](https://github.com/byronwall/srcly/commit/391b9234be2418a161ee5fcf5b0a52c9ed37e1df))
+* **changes:** open source at the selected revision ([#452](https://github.com/byronwall/srcly/issues/452)) ([61f2079](https://github.com/byronwall/srcly/commit/61f20791d20242fca1ebd9bd1cd66490fdc234fe))
+* **compare:** keep the path filter in the URL ([#471](https://github.com/byronwall/srcly/issues/471)) ([ba9c38e](https://github.com/byronwall/srcly/commit/ba9c38e1da617b7666dcb6357ae55fafde74a2c4))
+* **dataflow:** a hook's result holds only what its row names ([#405](https://github.com/byronwall/srcly/issues/405)) ([731517f](https://github.com/byronwall/srcly/commit/731517ff25c6a1cadd54d4da1cba234a273b85ab))
+* **dataflow:** collect local callback prop sites on demand ([#456](https://github.com/byronwall/srcly/issues/456)) ([b882bc7](https://github.com/byronwall/srcly/commit/b882bc7f8b20be474dbea4d4d8fc3ebf91d4871e))
+* **dataflow:** let a first backward trace finish its caller catalog ([#473](https://github.com/byronwall/srcly/issues/473)) ([90f1118](https://github.com/byronwall/srcly/commit/90f11186330fd004cf324e2f5b8c3c03206c5a3d))
+* **dataflow:** wait for a function before requesting effects ([#450](https://github.com/byronwall/srcly/issues/450)) ([5c1b671](https://github.com/byronwall/srcly/commit/5c1b671355d0f4eb1d75ac25fe3660919219463c))
+* **effects:** name a callee with no implementation instead of calling it Closed ([#472](https://github.com/byronwall/srcly/issues/472)) ([3581950](https://github.com/byronwall/srcly/commit/3581950ee2e48b971dfc6da1d05ea0752ee76c3b))
+* **effects:** report writes through parameter aliases ([#451](https://github.com/byronwall/srcly/issues/451)) ([f0a4c51](https://github.com/byronwall/srcly/commit/f0a4c51ff5d3169a1bbee86a853fbb758eb74a3d))
+* **engine:** stop four false oks in typed user code ([#427](https://github.com/byronwall/srcly/issues/427)) ([94ab4d3](https://github.com/byronwall/srcly/commit/94ab4d3083616c5fc6417b21e2a0484ad2269286))
+* **findings:** explain when ESLint ignores the selected scope ([#448](https://github.com/byronwall/srcly/issues/448)) ([818ec72](https://github.com/byronwall/srcly/commit/818ec721d00a6c22a9d5c6aeaa92e622adfed9d8))
+* **flow:** caveat replaced callees, component props and self-writing methods ([#476](https://github.com/byronwall/srcly/issues/476)) ([1daf504](https://github.com/byronwall/srcly/commit/1daf504d8b06b0d50697ef492c87db581ac6a285))
+* **flow:** guard frontier trace actions and clear stale anchors ([#449](https://github.com/byronwall/srcly/issues/449)) ([e18d84f](https://github.com/byronwall/srcly/commit/e18d84f4f60129a29949749f0d7b1dc2a97185f4))
+* **flow:** keep the ledger a view of the graph, and probe every selection ([#467](https://github.com/byronwall/srcly/issues/467)) ([6170105](https://github.com/byronwall/srcly/commit/6170105e045d60962a595f788688fae29b9e9057))
+* **flow:** make the ledger and the graph agree on every expression ([#465](https://github.com/byronwall/srcly/issues/465)) ([a3a5daf](https://github.com/byronwall/srcly/commit/a3a5daf9b33af9288fbbce0027f5fbe54500e60e))
+* **flow:** open ledger witnesses that live in another file ([#470](https://github.com/byronwall/srcly/issues/470)) ([399befe](https://github.com/byronwall/srcly/commit/399befef66fa35398510902a6158f969fd77d9f3))
+* **flow:** project ledger proof to the public contract ([c1339d7](https://github.com/byronwall/srcly/commit/c1339d784712e0a14ce9c2001e758849879164de))
+* **flow:** scope exploration context to the selected root ([#453](https://github.com/byronwall/srcly/issues/453)) ([2cad365](https://github.com/byronwall/srcly/commit/2cad365de77c9e6c9ed6eb0c0a05b9cb3c774edc))
+* **flow:** switch from Symbols when tracing source ([74a4c69](https://github.com/byronwall/srcly/commit/74a4c690aa01f6eef2907e60a6a1fc2cf78c486e))
+* **scan:** share tracked source visibility across views ([#455](https://github.com/byronwall/srcly/issues/455)) ([86057bf](https://github.com/byronwall/srcly/commit/86057bff1fc5806b3479ee9066c7459a7ab4e8be))
+* **site:** build before Playwright starts the preview server ([#413](https://github.com/byronwall/srcly/issues/413)) ([919b881](https://github.com/byronwall/srcly/commit/919b8819bebba9f1ba42181f4fa3616bed283198))
+* **survey:** keep the gate's worktree out of the temp dir, and name corpus edits ([#466](https://github.com/byronwall/srcly/issues/466)) ([d734f7d](https://github.com/byronwall/srcly/commit/d734f7dd1c2bf94ff9b8e78087898a3cfde91ba9))
+
+
+### Documentation
+
+* **agents:** add a library intake rule for the data-flow engine ([#428](https://github.com/byronwall/srcly/issues/428)) ([7bf5957](https://github.com/byronwall/srcly/commit/7bf59573890f4a6d343f8d61da7407f9ac879497))
+* capture initial intent from the Srcly UX review ([#447](https://github.com/byronwall/srcly/issues/447)) ([283d8bd](https://github.com/byronwall/srcly/commit/283d8bd9874411ac7a4ca6b5b0c81e22e10efec9))
+* data-flow reports in the skill, site and code map ([#400](https://github.com/byronwall/srcly/issues/400)) ([e17633f](https://github.com/byronwall/srcly/commit/e17633fba9a88c940977074bdb0bb0dcdd9446fe))
+* **dataflow:** retire the library models intent plan ([#439](https://github.com/byronwall/srcly/issues/439)) ([a4d2a8e](https://github.com/byronwall/srcly/commit/a4d2a8e04b4b4f1a346695c3daa56240e6a57716))
+* **dataflow:** retire the robustness and JS/React/Solid intent plans ([#464](https://github.com/byronwall/srcly/issues/464)) ([7399bbe](https://github.com/byronwall/srcly/commit/7399bbef77e61dee760973bcd5641eb5a4c52f3f))
+* **research:** audit library-specific code in the data-flow engine ([#421](https://github.com/byronwall/srcly/issues/421)) ([6658301](https://github.com/byronwall/srcly/commit/6658301167aee0fd92c0daa6e241805c53b5129d))
+* **research:** review and revised plan for library models ([#422](https://github.com/byronwall/srcly/issues/422)) ([da98322](https://github.com/byronwall/srcly/commit/da9832215fd6cb5b6262c0201ed4ea16ae0d72bf))
+* **research:** save two tsx-data-flow evaluation docs ([#396](https://github.com/byronwall/srcly/issues/396)) ([63cc7e7](https://github.com/byronwall/srcly/commit/63cc7e7292366bcc003bd62b7bd58d9a71965a04))
+* shape complete change inventory and field evidence ([#454](https://github.com/byronwall/srcly/issues/454)) ([978a965](https://github.com/byronwall/srcly/commit/978a9657dc3499dd01ada6e602ded81a7728662d))
+* **ux:** shape the next evidence and review slices ([37362d9](https://github.com/byronwall/srcly/commit/37362d97e9eda6b4026dc8c4b8f9303e906b981f))
+
 ## [1.12.0](https://github.com/byronwall/srcly/compare/v1.11.0...v1.12.0) (2026-11-13)
 
 
