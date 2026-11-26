@@ -117,7 +117,9 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (found) return;
       // `export { state }` hands it to every importer, which may change it.
       if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
-      else if (ts.isIdentifier(node) && node !== name && node !== installed && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
+      // The assignment that installed the object is no write to it, unless its value goes on (`f(o = { … })`, `a = o = { … }`).
+      else if (node === installed) found = !ts.isExpressionStatement(node.parent.parent);
+      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
       else ts.forEachChild(node, visit);
     };
     // A local binding is used only in its own file; an exported one may be changed anywhere.

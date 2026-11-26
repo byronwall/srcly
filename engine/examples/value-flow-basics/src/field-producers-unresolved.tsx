@@ -52,3 +52,26 @@ export function BracketMethod() {
   o[name]();
   return <b>{o.k}</b>; // @trace fu-bracket backward o.k
 }
+
+// A replacement that leaves out the field, next to a read of the field it keeps.
+export function ReplacementOmits() {
+  const [doc, setDoc] = createSignal<{ k?: string; other?: string }>({ k: "OLD" }); // @produces fu-omits initialization proven @caveat fu-omits write
+  const replacement = { other: "NEW" };
+  setDoc(replacement);
+  return <b title={doc().other}>{doc().k}</b>; // @trace fu-omits backward doc().k
+}
+
+// An updater reached through a member: the walk does not hold its return.
+const actions = { rename: (previous: { k: string }) => ({ k: previous.k + "NEW" }) };
+export function MemberUpdater() {
+  const [doc, setDoc] = createSignal({ k: "OLD" }); // @produces fu-member initialization proven @caveat fu-member write
+  setDoc(actions.rename);
+  return <b>{doc().k}</b>; // @trace fu-member backward doc().k
+}
+
+// The assignment that installs the object also hands it on.
+export function AssignedAndPassed() {
+  let o: { k: string };
+  Object.assign((o = { k: "OLD" }), { k: "NEW" }); // @produces fu-installed none proven @caveat fu-installed mutable
+  return <b>{o.k}</b>; // @trace fu-installed backward o.k
+}
