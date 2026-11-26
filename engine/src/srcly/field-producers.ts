@@ -191,6 +191,20 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (current.kind !== "call" && isState(target.id) && hooks.callable(target)) return at(current.id, "accessor");
     return null;
   };
+  /**
+   * Where a later write's path ends without touching the field: a step that
+   * named another field, a setter's path (`setStore("other", 1)`) that names
+   * only other fields, or the updater function itself, whose return the walk
+   * follows on its own path. An object literal that lacks the field is not
+   * one: a replacement (`setState({ other })`) does change it.
+   */
+  const leavesField = (element: ProgramElement, field: string, elsewhere: boolean) => {
+    if (elsewhere || hooks.callable(element)) return true;
+    if (members(element) !== null) return false;
+    const raw = element.attributes?.fields;
+    const names = typeof raw === "string" ? Object.values(JSON.parse(raw) as Record<string, string>) : [];
+    return names.length > 0 && !names.includes(field);
+  };
   const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false, caveats: [] }];
   /** Writes straight into the read: a caveat on every producer. */
   const seedCaveats: ProducerStop[] = [];
@@ -229,6 +243,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       continue;
     }
     let continued = false;
+    // A step back not taken because it named another field: a write that leaves this field alone.
+    let elsewhere = false;
     // A call that no return or modelled result enters (only its arguments and its callee): its value comes from outside.
     if (named && current.kind === "call" && incoming(item.id).every((relation) => relation.kind === "argument" || relation.kind === "carrier" || (relation.kind === "references" && byId.has(relation.from) && within(byId.get(relation.from)!, current)))) {
       stop(item, current.id, "no-return");
@@ -245,7 +261,10 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         continue;
       }
       const path = stepFieldPath(item.path, relation, current, target, false, cache);
-      if (path === null) continue;
+      if (path === null) {
+        if (relation.kind === "pack-field") elsewhere = true;
+        continue;
+      }
       continued = true;
       const init = relation.proof.kind === "state-initialization";
       // The factory's call seeds the state too, as bookkeeping around its own initial value: that value is the first value.
@@ -307,7 +326,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     }
     // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside;
     // an object with no such field leaves the read undefined on this path.
-    if (named && !continued) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
+    if (named && !continued && !(firstStateStep(item.via) === "write" && leavesField(current, item.path[item.path.length - 1], elsewhere))) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
   }
   const producers = [...found.values()].map((producer) => ({ ...producer, caveats: seedCaveats.reduce((list, item) => caveat(list, item.elementId, item.reason), producer.caveats) }));
   return { producers, open, stops: [...stops.values()] };

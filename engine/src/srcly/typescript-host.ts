@@ -64,7 +64,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   };
   /** A value that carries no object to change: every member of its type is a primitive. */
   const isPrimitive = (type: TypeScript.Type) => (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0);
-  const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
+  /** `installed`: the assignment that put the object in the binding (`o = { … }`), which is no write to it. */
+  const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration, installed?: TypeScript.Node): boolean => {
     if (!ts.isIdentifier(declaration.name)) return true;
     const name = declaration.name;
     const symbol = checker.getSymbolAtLocation(name);
@@ -116,7 +117,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (found) return;
       // `export { state }` hands it to every importer, which may change it.
       if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
-      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
+      else if (ts.isIdentifier(node) && node !== name && node !== installed && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
       else ts.forEachChild(node, visit);
     };
     // A local binding is used only in its own file; an exported one may be changed anywhere.
@@ -243,7 +244,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // Assigned after its declaration (`o = { … }`): the binding it lands in, checked the same way.
       if (ts.isBinaryExpression(parent) && parent.right === holder && parent.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(parent.left)) {
         const declaration = checker.getSymbolAtLocation(parent.left)?.valueDeclaration;
-        return !!declaration && (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration);
+        return !!declaration && (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration, parent.left);
       }
       return false;
     },
