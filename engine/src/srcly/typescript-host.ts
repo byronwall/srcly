@@ -241,6 +241,12 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (!ts.isVariableDeclaration(parent) || parent.initializer !== holder) return false;
       return changedBinding(parent);
     },
+    mayCall(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return true;
+      const type = checker.getTypeAtLocation(at.node);
+      return (type.isUnion() ? type.types : [type]).some((member) => member.getCallSignatures().length > 0 || (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) !== 0);
+    },
     combinedWrite(file, span) {
       const at = nodeAt(file, span);
       if (!at) return false;

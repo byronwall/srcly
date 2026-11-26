@@ -50,6 +50,21 @@ const noop = () => {};
 const children = (props: Record<string, unknown>) => props.children;
 const createContext = (value: unknown) => ({ Provider: children, defaultValue: value });
 const useContext = (context: { defaultValue?: unknown }) => context?.defaultValue;
+/**
+ * React's hooks, as one list across a render in call order: a setter stores
+ * the next value and asks for another render, and effects run after each
+ * render, as React runs them after it commits. Solid's effects and `onMount`
+ * run once the component has run, as after mount.
+ */
+const hooks = { store: [] as unknown[], index: 0, dirty: false, effects: [] as (() => unknown)[] };
+const slot = <T>(make: () => T): [number, T] => {
+  const index = hooks.index++;
+  if (!(index in hooks.store)) hooks.store[index] = make();
+  return [index, hooks.store[index] as T];
+};
+const afterRender = (effect: () => unknown) => {
+  hooks.effects.push(effect);
+};
 const update = (value: unknown, old: unknown) => (typeof value === "function" ? (value as (old: unknown) => unknown)(old) : value);
 
 // Solid's store paths (keys, arrays of keys, predicates, ranges, merging) are its own: the installed library runs them.
@@ -57,13 +72,19 @@ const solidStore = createRequire(import.meta.url)("solid-js/store") as Record<st
 
 const STAND_INS: Record<string, Record<string, unknown>> = {
   react: {
-    useState: (init: unknown) => [typeof init === "function" ? (init as () => unknown)() : init, noop],
-    useReducer: (_reducer: unknown, init: unknown, lazy?: (value: unknown) => unknown) => [lazy ? lazy(init) : init, noop],
+    useState: (init: unknown) => {
+      const [index, value] = slot(() => (typeof init === "function" ? (init as () => unknown)() : init));
+      return [value, (next: unknown) => ((hooks.store[index] = update(next, hooks.store[index])), (hooks.dirty = true))];
+    },
+    useReducer: (reducer: (state: unknown, action: unknown) => unknown, init: unknown, lazy?: (value: unknown) => unknown) => {
+      const [index, value] = slot(() => (lazy ? lazy(init) : init));
+      return [value, (action: unknown) => ((hooks.store[index] = reducer(hooks.store[index], action)), (hooks.dirty = true))];
+    },
     useMemo: (make: () => unknown) => make(),
     useCallback: (fn: unknown) => fn,
-    useRef: (value: unknown) => ({ current: value }),
-    useEffect: noop,
-    useLayoutEffect: noop,
+    useRef: (value: unknown) => slot(() => ({ current: value }))[1],
+    useEffect: afterRender,
+    useLayoutEffect: afterRender,
     useId: () => "id",
     createContext,
     useContext,
@@ -80,10 +101,10 @@ const STAND_INS: Record<string, Record<string, unknown>> = {
       const value = make();
       return () => value;
     },
-    createEffect: noop,
-    createRenderEffect: noop,
-    createComputed: noop,
-    onMount: noop,
+    createEffect: afterRender,
+    createRenderEffect: afterRender,
+    createComputed: afterRender,
+    onMount: afterRender,
     onCleanup: noop,
     untrack: (fn: () => unknown) => fn(),
     batch: (fn: () => unknown) => fn(),
@@ -118,14 +139,18 @@ function ambientNames(files: readonly ts.SourceFile[]) {
   return names;
 }
 
-/** The exported functions nothing in the program references: the code's own callers are all the calls the rest get. */
+/** The exported functions nothing in the program calls (a call, `new`, a JSX tag, outside its own body): the code's own calls are all the calls the rest get. */
 function entryPoints(program: ts.Program, files: readonly ts.SourceFile[]) {
   const checker = program.getTypeChecker();
   const resolve = (symbol: ts.Symbol | undefined) => (symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
   const referenced = new Set<ts.Symbol>();
   for (const file of files) {
     const visit = (node: ts.Node) => {
-      if (ts.isIdentifier(node) && !ts.isExportSpecifier(node.parent) && !ts.isImportSpecifier(node.parent) && !ts.isImportClause(node.parent) && (node.parent as ts.NamedDeclaration).name !== node) {
+      // `f()`, `ns.f()`, `new F()`, `<F />`: a place the program calls it. A reference that only holds it (`{ handler: f }`) calls nothing.
+      const callee = ts.isIdentifier(node) && ts.isPropertyAccessExpression(node.parent) && node.parent.name === node ? node.parent : node;
+      const call = callee.parent;
+      const calls = !!call && (((ts.isCallExpression(call) || ts.isNewExpression(call) || ts.isTaggedTemplateExpression(call)) && (call as ts.CallExpression).expression === callee) || ((ts.isJsxOpeningElement(call) || ts.isJsxSelfClosingElement(call)) && call.tagName === callee));
+      if (ts.isIdentifier(node) && calls) {
         const symbol = resolve(checker.getSymbolAtLocation(node));
         // A function that calls itself is still called by no one else.
         const own = symbol?.valueDeclaration;
@@ -172,7 +197,10 @@ export type Recorded = Map<string, { value: unknown; run: number }[]>;
  * Returns what each marked span held each time it ran (and in which run),
  * and the marked spans no expression matched.
  */
-export async function runRoot(root: string, program: ts.Program, marked: Set<string>): Promise<{ recorded: Recorded; unmatched: Set<string> }> {
+/** How many values a span keeps; a span past it is reported, never checked on part of what it held. */
+const LIMIT = 1000;
+
+export async function runRoot(root: string, program: ts.Program, marked: Set<string>): Promise<{ recorded: Recorded; unmatched: Set<string>; overflowed: Set<string> }> {
   const files = sourceFiles(root);
   const parsed = files.map((file) => program.getSourceFile(path.join(root, file))).filter((file): file is ts.SourceFile => !!file);
   const relative = (source: ts.SourceFile) => path.relative(root, source.fileName).split(path.sep).join("/");
@@ -180,10 +208,12 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
   const entries = entryPoints(program, parsed);
   const recorded: Recorded = new Map();
   const unmatched = new Set(marked);
+  const overflowed = new Set<string>();
   let run = 0;
   const record = (key: string, value: unknown) => {
     const list = recorded.get(key) ?? recorded.set(key, []).get(key)!;
-    if (list.length < 200) list.push({ value, run });
+    if (list.length < LIMIT) list.push({ value, run });
+    else overflowed.add(key);
     return value;
   };
 
@@ -285,10 +315,25 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
         if (typeof value !== "function") continue;
         for (const args of [[opaque("arg")], [{}], []]) {
           run += 1;
-          try {
-            await settle((value as (...args: unknown[]) => unknown)(...args));
-          } catch {
-            // A call that throws still ran its reads up to the throw.
+          hooks.store = [];
+          // Render again while a setter asks for it, up to three renders.
+          for (let pass = 0; pass < 3; pass += 1) {
+            hooks.index = 0;
+            hooks.dirty = false;
+            hooks.effects = [];
+            try {
+              await settle((value as (...args: unknown[]) => unknown)(...args));
+            } catch {
+              // A call that throws still ran its reads up to the throw.
+            }
+            for (const effect of hooks.effects) {
+              try {
+                await settle(effect());
+              } catch {
+                // An effect that throws ran its reads up to the throw.
+              }
+            }
+            if (!hooks.dirty) break;
           }
         }
       }
@@ -306,5 +351,5 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
     process.removeAllListeners("unhandledRejection");
     for (const listener of listeners) process.on("unhandledRejection", listener);
   }
-  return { recorded, unmatched };
+  return { recorded, unmatched, overflowed };
 }

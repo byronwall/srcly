@@ -74,7 +74,7 @@ describe.each(ROOTS)("producer oracle in %s", (name) => {
     }
 
     const marked = new Set(claims.flatMap((claim) => [claim.read, ...claim.producers.map((producer) => producer.key)]));
-    const { recorded, unmatched } = await runRoot(root, program, marked);
+    const { recorded, unmatched, overflowed } = await runRoot(root, program, marked);
 
     const failures: string[] = [];
     let ran = 0;
@@ -83,13 +83,15 @@ describe.each(ROOTS)("producer oracle in %s", (name) => {
       if (!seen.length) continue;
       ran += 1;
       const made = claim.producers.flatMap((producer) => recorded.get(producer.key) ?? []);
-      // A value counts only if a producer made it in the same run, or while the modules loaded: another call's value proves nothing.
-      const stray = seen.find((item) => !made.some((candidate) => (candidate.run === item.run || candidate.run === 0) && Object.is(candidate.value, item.value)));
+      // A value counts only if a producer made it before the read, in this run or an earlier one (state carries across calls):
+      // a later call's value proves nothing about this read.
+      const stray = seen.find((item) => !made.some((candidate) => candidate.run <= item.run && Object.is(candidate.value, item.value)));
       if (stray) failures.push(`${claim.file}:${claim.line} ${claim.text} held ${JSON.stringify(stray.value)}; the engine names only ${claim.producers.map((producer) => producer.text).join(", ")}${made.length ? ` (which made ${made.slice(0, 3).map((item) => JSON.stringify(item.value)).join(", ")})` : " (none ran)"}`);
     }
 
     console.log(`${name}: ${reads} field reads, ${claims.length} closed answers, ${ran} ran, ${failures.length} contradicted, ${unmatched.size} spans unmatched`);
     expect([...unmatched], "every producer and read span maps to an expression the runtime can wrap").toEqual([]);
+    expect([...overflowed], "spans that held more values than the runtime keeps").toEqual([]);
     expect(failures).toEqual([]);
     // A runtime that stops running the code would pass with nothing checked.
     expect(ran, "closed answers whose read ran").toBeGreaterThanOrEqual(MIN_RAN[name] ?? 0);
