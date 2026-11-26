@@ -211,6 +211,7 @@ class AnchorGraphBuilder {
           stateFactory: (element) => this.host.stateFactory?.(element.location.file, element.location.span) ?? false,
           callable: (element) => this.host.callable?.(element.location.file, element.location.span) ?? false,
           mutable: (pack) => this.host.mutable?.(pack.location.file, pack.location.span) ?? false,
+          combinedWrite: (value) => this.host.combinedWrite?.(value.location.file, value.location.span) ?? false,
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,

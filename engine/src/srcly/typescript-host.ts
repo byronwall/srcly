@@ -65,7 +65,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     if (ts.isVariableDeclaration(declaration) && (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0) return true;
     const unwrap = (node: TypeScript.Node) => {
       let top = node;
-      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent)) top = top.parent;
+      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
       return top;
     };
     const changes = (use: TypeScript.Identifier) => {
@@ -84,16 +84,19 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (isPrimitive(type)) return false;
       // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
       if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
-      // Handed out of a function (`() => n`, `return n`) or used as a parameter's default (`d = n`): written wherever that goes.
-      if (ts.isReturnStatement(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up)) && up.initializer === top)) return true;
+      // Handed out of a function (`() => n`, `return n`, `yield n`), used as a parameter's default (`d = n`) or a class field's (`held = n`): written wherever that goes.
+      if (ts.isReturnStatement(up) || ts.isYieldExpression(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up) || ts.isPropertyDeclaration(up)) && up.initializer === top)) return true;
       // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
       if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
       if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
       if (ts.isConditionalExpression(up) && up.condition !== top) return true;
       // Its own method called (`state.apply(patch)`), which may write it through `this`.
       if (ts.isPropertyAccessExpression(top) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
-      // Handed to a component (`<Editor note={note} />`), which may write it through its props.
+      // Handed to a component (`<Editor note={note} />`, `<Editor {...doc} />`), which may write it through its props.
       if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && /^[A-Z]/.test(up.parent.parent.parent.tagName.getText())) return true;
+      if (ts.isJsxSpreadAttribute(up) && /^[A-Z]/.test(up.parent.parent.tagName.getText())) return true;
+      // Handed to a tag function (``tag`${note}` ``), which may write it.
+      if (ts.isTemplateSpan(up) && ts.isTaggedTemplateExpression(up.parent.parent)) return true;
       // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
       if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
       if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
@@ -229,6 +232,18 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const parent = holder.parent;
       if (!ts.isVariableDeclaration(parent) || parent.initializer !== holder) return false;
       return changedBinding(parent);
+    },
+    combinedWrite(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return false;
+      let node: TypeScript.Node = at.node;
+      while (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isSatisfiesExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
+      const up = node.parent;
+      if (!ts.isBinaryExpression(up) || up.right !== node) return false;
+      const kind = up.operatorToken.kind;
+      const combines = kind > ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+      // `a ||= b`, `a &&= b`, `a ??= b` store b itself when they store anything: b is a value of the field, not an operand.
+      return combines && ![ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(kind);
     },
     mutatedBinding(file, span) {
       const at = nodeAt(file, span);
