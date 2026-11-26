@@ -55,13 +55,13 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     }
     return false;
   };
-  /** A value with a `then` member: awaiting it gives its result, not itself. */
-  const thenable = (node: TypeScript.Node) => {
-    const type = checker.getTypeAtLocation(node);
-    return (type.isUnion() ? type.types : [type]).some((member) => !!member.getProperty("then"));
+  /** A JSX tag that names a component as Solid's compiler reads it (`Editor`, `_Editor`, `ui.editor`), not a page element (`div`, `svg:rect`). */
+  const componentTag = (tag: TypeScript.JsxTagNameExpression) => {
+    if (ts.isJsxNamespacedName(tag)) return false;
+    if (!ts.isIdentifier(tag)) return true;
+    const first = tag.text[0];
+    return first !== first.toLowerCase() || !/[a-z]/i.test(first);
   };
-  /** A JSX tag that names a component (`Editor`, `ui.editor`), not a page element (`div`, `svg:rect`). */
-  const componentTag = (tag: TypeScript.JsxTagNameExpression) => !ts.isJsxNamespacedName(tag) && (!ts.isIdentifier(tag) || /^[A-Z]/.test(tag.text));
   /** A value that carries no object to change: every member of its type is a primitive. */
   const isPrimitive = (type: TypeScript.Type) => (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0);
   const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
@@ -70,10 +70,10 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     const symbol = checker.getSymbolAtLocation(name);
     if (!symbol) return true;
     if (ts.isVariableDeclaration(declaration) && (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0) return true;
-    // `await x` is x itself unless x is a promise, whose result is another object.
+    // `await x` can be x itself (a value that is not a promise, or a promise that settles to it): the same object.
     const unwrap = (node: TypeScript.Node) => {
       let top = node;
-      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || (ts.isAwaitExpression(top.parent) && !thenable(top))) top = top.parent;
+      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
       return top;
     };
     const changes = (use: TypeScript.Identifier) => {

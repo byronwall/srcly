@@ -221,11 +221,19 @@ export function WJsxMemberSpread() {
   return <p><ui.editor {...doc} />{doc.note.title}</p>; // @trace fw-jsx-member-spread backward doc.note.title
 }
 
-// Controls: a read that writes nothing keeps a sure answer.
-export async function WAwaitMemberRead() {
-  const state = { count: 10, done: Promise.resolve({ ready: true }) }; // @produces fw-await-member none proven @no-caveat fw-await-member
-  const { ready } = await state.done;
-  return <p title={String(ready)}>{state.count}</p>; // @trace fw-await-member backward state.count
+// `await` can give back the object itself (`Item | Promise<Item>`), so a write through its result is a write.
+type Item = { k: number };
+export async function WAwaitUnion() {
+  const state: { item: Item | Promise<Item> } = { item: { k: 10 } }; // @produces fw-await-union none proven @caveat fw-await-union mutable
+  const item = await state.item;
+  item.k = 42;
+  return <p>{(state.item as Item).k}</p>; // @trace fw-await-union backward (state.item as Item).k
+}
+
+const _Editor = NoteEditor;
+export function WJsxUnderscoreSpread() {
+  const doc = { note: { title: "OLD" } }; // @produces fw-jsx-underscore none proven @caveat fw-jsx-underscore mutable
+  return <p><_Editor {...doc} />{doc.note.title}</p>; // @trace fw-jsx-underscore backward doc.note.title
 }
 
 export function WReadOnly() {
