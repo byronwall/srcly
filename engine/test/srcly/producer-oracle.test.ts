@@ -83,9 +83,8 @@ describe.each(ROOTS)("producer oracle in %s", (name) => {
       if (!seen.length) continue;
       ran += 1;
       const made = claim.producers.flatMap((producer) => recorded.get(producer.key) ?? []);
-      // A value counts only if a producer made it before the read, in this run or an earlier one (state carries across calls):
-      // a later call's value proves nothing about this read.
-      const stray = seen.find((item) => !made.some((candidate) => candidate.run <= item.run && Object.is(candidate.value, item.value)));
+      // A value counts only if a producer made it in the same call, before the read: another call's value, or a later one, proves nothing.
+      const stray = seen.find((item) => !made.some((candidate) => candidate.run === item.run && candidate.seq < item.seq && Object.is(candidate.value, item.value)));
       if (stray) failures.push(`${claim.file}:${claim.line} ${claim.text} held ${JSON.stringify(stray.value)}; the engine names only ${claim.producers.map((producer) => producer.text).join(", ")}${made.length ? ` (which made ${made.slice(0, 3).map((item) => JSON.stringify(item.value)).join(", ")})` : " (none ran)"}`);
     }
 

@@ -56,13 +56,23 @@ const useContext = (context: { defaultValue?: unknown }) => context?.defaultValu
  * render, as React runs them after it commits. Solid's effects and `onMount`
  * run once the component has run, as after mount.
  */
-const hooks = { store: [] as unknown[], index: 0, dirty: false, effects: [] as (() => unknown)[] };
+const hooks = { store: [] as unknown[], index: 0, pass: 0, dirty: false, effects: [] as (() => unknown)[] };
 const slot = <T>(make: () => T): [number, T] => {
   const index = hooks.index++;
   if (!(index in hooks.store)) hooks.store[index] = make();
   return [index, hooks.store[index] as T];
 };
-const afterRender = (effect: () => unknown) => {
+/** Solid runs a component once: its effects run after the first render only. */
+const afterMount = (effect: () => unknown) => {
+  if (hooks.pass === 0) hooks.effects.push(effect);
+};
+/** React runs an effect after a render when it has no dependency list or one of its dependencies changed. */
+const useEffect = (effect: () => unknown, deps?: unknown[]) => {
+  const [, last] = slot(() => ({ deps: undefined as unknown[] | undefined, ran: false }));
+  const changed = !last.ran || !deps || !last.deps || deps.length !== last.deps.length || deps.some((dep, index) => !Object.is(dep, last.deps![index]));
+  last.deps = deps;
+  if (!changed) return;
+  last.ran = true;
   hooks.effects.push(effect);
 };
 const update = (value: unknown, old: unknown) => (typeof value === "function" ? (value as (old: unknown) => unknown)(old) : value);
@@ -83,8 +93,8 @@ const STAND_INS: Record<string, Record<string, unknown>> = {
     useMemo: (make: () => unknown) => make(),
     useCallback: (fn: unknown) => fn,
     useRef: (value: unknown) => slot(() => ({ current: value }))[1],
-    useEffect: afterRender,
-    useLayoutEffect: afterRender,
+    useEffect,
+    useLayoutEffect: useEffect,
     useId: () => "id",
     createContext,
     useContext,
@@ -101,10 +111,10 @@ const STAND_INS: Record<string, Record<string, unknown>> = {
       const value = make();
       return () => value;
     },
-    createEffect: afterRender,
-    createRenderEffect: afterRender,
-    createComputed: afterRender,
-    onMount: afterRender,
+    createEffect: afterMount,
+    createRenderEffect: afterMount,
+    createComputed: afterMount,
+    onMount: afterMount,
     onCleanup: noop,
     untrack: (fn: () => unknown) => fn(),
     batch: (fn: () => unknown) => fn(),
@@ -187,8 +197,8 @@ export function sourceFiles(root: string) {
   return out.sort();
 }
 
-/** Each value a span held, with the run it held it in: 0 is loading the modules, then one per entry-point call. */
-export type Recorded = Map<string, { value: unknown; run: number }[]>;
+/** Each value a span held, with the run it held it in (one per entry-point call, modules loaded fresh) and its order across all runs. */
+export type Recorded = Map<string, { value: unknown; run: number; seq: number }[]>;
 
 /**
  * Loads every module of the root with the marked spans wrapped in a
@@ -210,9 +220,10 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
   const unmatched = new Set(marked);
   const overflowed = new Set<string>();
   let run = 0;
+  let seq = 0;
   const record = (key: string, value: unknown) => {
     const list = recorded.get(key) ?? recorded.set(key, []).get(key)!;
-    if (list.length < LIMIT) list.push({ value, run });
+    if (list.length < LIMIT) list.push({ value, run, seq: seq++ });
     else overflowed.add(key);
     return value;
   };
@@ -306,18 +317,19 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
       }
     }
   };
+  // Each call starts from freshly loaded modules, so no call sees state another one left.
   const runAll = async () => {
-    for (const file of compiled.keys()) load(file);
     for (const file of compiled.keys()) {
-      const exported = load(file);
       for (const name of entryNames.get(file) ?? []) {
-        const value = exported[name];
-        if (typeof value !== "function") continue;
         for (const args of [[opaque("arg")], [{}], []]) {
           run += 1;
+          cache.clear();
+          const value = load(file)[name];
+          if (typeof value !== "function") break;
           hooks.store = [];
           // Render again while a setter asks for it, up to three renders.
           for (let pass = 0; pass < 3; pass += 1) {
+            hooks.pass = pass;
             hooks.index = 0;
             hooks.dirty = false;
             hooks.effects = [];

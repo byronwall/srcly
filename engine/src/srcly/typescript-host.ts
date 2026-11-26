@@ -245,7 +245,9 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       if (!at) return true;
       const type = checker.getTypeAtLocation(at.node);
-      return (type.isUnion() ? type.types : [type]).some((member) => member.getCallSignatures().length > 0 || (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) !== 0);
+      // A broad type can hold a function with no call signature of its own: `Function`, `Object`, `{}`, `object`.
+      const broad = (member: TypeScript.Type) => (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive)) !== 0 || ["Function", "Object"].includes(member.symbol?.name ?? "") || (!!(member.flags & ts.TypeFlags.Object) && member.getProperties().length === 0);
+      return (type.isUnion() ? type.types : [type]).some((member) => member.getCallSignatures().length > 0 || broad(member));
     },
     combinedWrite(file, span) {
       const at = nodeAt(file, span);
