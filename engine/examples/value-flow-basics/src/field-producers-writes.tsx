@@ -208,7 +208,26 @@ export function WJsxSpread() {
   return <p><NoteEditor {...doc} />{doc.note.title}</p>; // @trace fw-jsx-spread backward doc.note.title
 }
 
-// Control: a read that writes nothing keeps a sure answer.
+declare function step(): Promise<number>;
+export async function WCompoundAwait() {
+  const counter = { count: 10 }; // @produces fw-compound-await none proven @caveat fw-compound-await mutable
+  counter["count"] += await step(); // the walk stops at the operand: the stored value is 10 + the step
+  return <p>{counter.count}</p>; // @trace fw-compound-await backward counter.count @produces-open fw-compound-await
+}
+
+const ui = { editor: NoteEditor };
+export function WJsxMemberSpread() {
+  const doc = { note: { title: "OLD" } }; // @produces fw-jsx-member-spread none proven @caveat fw-jsx-member-spread mutable
+  return <p><ui.editor {...doc} />{doc.note.title}</p>; // @trace fw-jsx-member-spread backward doc.note.title
+}
+
+// Controls: a read that writes nothing keeps a sure answer.
+export async function WAwaitMemberRead() {
+  const state = { count: 10, done: Promise.resolve({ ready: true }) }; // @produces fw-await-member none proven @no-caveat fw-await-member
+  const { ready } = await state.done;
+  return <p title={String(ready)}>{state.count}</p>; // @trace fw-await-member backward state.count
+}
+
 export function WReadOnly() {
   const note = { title: "OLD" }; // @produces fw-read-only none proven @no-caveat fw-read-only
   console.log(note.title);

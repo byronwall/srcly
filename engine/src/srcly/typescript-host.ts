@@ -55,6 +55,13 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     }
     return false;
   };
+  /** A value with a `then` member: awaiting it gives its result, not itself. */
+  const thenable = (node: TypeScript.Node) => {
+    const type = checker.getTypeAtLocation(node);
+    return (type.isUnion() ? type.types : [type]).some((member) => !!member.getProperty("then"));
+  };
+  /** A JSX tag that names a component (`Editor`, `ui.editor`), not a page element (`div`, `svg:rect`). */
+  const componentTag = (tag: TypeScript.JsxTagNameExpression) => !ts.isJsxNamespacedName(tag) && (!ts.isIdentifier(tag) || /^[A-Z]/.test(tag.text));
   /** A value that carries no object to change: every member of its type is a primitive. */
   const isPrimitive = (type: TypeScript.Type) => (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0);
   const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration): boolean => {
@@ -63,9 +70,10 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     const symbol = checker.getSymbolAtLocation(name);
     if (!symbol) return true;
     if (ts.isVariableDeclaration(declaration) && (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0) return true;
+    // `await x` is x itself unless x is a promise, whose result is another object.
     const unwrap = (node: TypeScript.Node) => {
       let top = node;
-      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
+      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || (ts.isAwaitExpression(top.parent) && !thenable(top))) top = top.parent;
       return top;
     };
     const changes = (use: TypeScript.Identifier) => {
@@ -93,8 +101,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // Its own method called (`state.apply(patch)`), which may write it through `this`.
       if (ts.isPropertyAccessExpression(top) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
       // Handed to a component (`<Editor note={note} />`, `<Editor {...doc} />`), which may write it through its props.
-      if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && /^[A-Z]/.test(up.parent.parent.parent.tagName.getText())) return true;
-      if (ts.isJsxSpreadAttribute(up) && /^[A-Z]/.test(up.parent.parent.tagName.getText())) return true;
+      if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && componentTag(up.parent.parent.parent.tagName)) return true;
+      if (ts.isJsxSpreadAttribute(up) && componentTag(up.parent.parent.tagName)) return true;
       // Handed to a tag function (``tag`${note}` ``), which may write it.
       if (ts.isTemplateSpan(up) && ts.isTaggedTemplateExpression(up.parent.parent)) return true;
       // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
@@ -237,7 +245,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       if (!at) return false;
       let node: TypeScript.Node = at.node;
-      while (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isSatisfiesExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
+      while (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isSatisfiesExpression(node.parent) || ts.isNonNullExpression(node.parent) || ts.isTypeAssertionExpression(node.parent) || ts.isAwaitExpression(node.parent)) node = node.parent;
       const up = node.parent;
       if (!ts.isBinaryExpression(up) || up.right !== node) return false;
       const kind = up.operatorToken.kind;
