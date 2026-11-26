@@ -272,8 +272,9 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         if (field === item.path[item.path.length - 1] && !settled(current, field)) caveats = caveat(caveats, current.id, "unnamed-member");
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
           if (hooks.mutable(current)) caveats = caveat(caveats, current.id, "mutable");
-          // A state setter stores what a function it is handed returns (`setDoc("title", rename)`), never the function: its return is the value.
-          if (firstStateStep(via) === "write" && hooks.callable(target)) caveats = caveat(caveats, target.id, "callback");
+          // A state setter handed a function as the value itself (`setDoc("title", rename)`, not a member of an object it is handed)
+          // stores what the function returns, never the function: its return is the value, wherever the state goes next.
+          if (via.includes("write") && members(current) === null && hooks.callable(target)) caveats = caveat(caveats, target.id, "callback");
           const key = `${target.id}|${current.id}|${via.join(",")}`;
           const known = found.get(key);
           if (known) known.caveats = caveats.reduce((list, item) => caveat(list, item.elementId, item.reason), known.caveats);

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import ts from "typescript";
 import { spanOf, type Span } from "../../src/srcly/selection";
@@ -51,22 +52,8 @@ const createContext = (value: unknown) => ({ Provider: children, defaultValue: v
 const useContext = (context: { defaultValue?: unknown }) => context?.defaultValue;
 const update = (value: unknown, old: unknown) => (typeof value === "function" ? (value as (old: unknown) => unknown)(old) : value);
 
-/** Solid's `setStore("a", "b", value)`: the last argument is the value, or a function of the old one; an object merges into an object. */
-function setPath(target: Record<string, unknown>, args: unknown[]) {
-  const keys = args.slice(0, -1) as string[];
-  if (!keys.length) {
-    const next = update(args[0], target);
-    if (next && typeof next === "object") Object.assign(target, next);
-    return;
-  }
-  let holder = target;
-  for (const key of keys.slice(0, -1)) holder = holder[key] as Record<string, unknown>;
-  const key = keys[keys.length - 1];
-  const old = holder[key];
-  const next = update(args[args.length - 1], old);
-  if (next && typeof next === "object" && !Array.isArray(next) && old && typeof old === "object" && !Array.isArray(old)) Object.assign(old, next);
-  else holder[key] = next;
-}
+// Solid's store paths (keys, arrays of keys, predicates, ranges, merging) are its own: the installed library runs them.
+const solidStore = createRequire(import.meta.url)("solid-js/store") as Record<string, unknown>;
 
 const STAND_INS: Record<string, Record<string, unknown>> = {
   react: {
@@ -108,14 +95,11 @@ const STAND_INS: Record<string, Record<string, unknown>> = {
     Index: (props: { each?: unknown[]; children: (item: () => unknown, index: number) => unknown }) => props.each?.map((item, index) => props.children(() => item, index)),
     Show: (props: { when: unknown; fallback?: unknown; children: unknown }) => (props.when ? (typeof props.children === "function" ? (props.children as (value: unknown) => unknown)(props.when) : props.children) : props.fallback),
   },
-  "solid-js/store": {
-    createStore: (init: Record<string, unknown>) => [init, (...args: unknown[]) => setPath(init, args)],
-    createMutable: (init: unknown) => init,
-  },
+  "solid-js/store": solidStore,
 };
 
 /** Host globals the code must not reach for real (network, storage, timers, the page, the process): opaque inside the sandbox. */
-const SHADOWED = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "localStorage", "sessionStorage", "indexedDB", "document", "window", "self", "navigator", "location", "history", "process", "globalThis", "global", "setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback", "console", "crypto", "performance", "Buffer"];
+const SHADOWED = ["AbortSignal", "AbortController", "Worker", "MessageChannel", "BroadcastChannel", "WebAssembly", "Atomics", "SharedArrayBuffer", "Function", "eval", "fetch", "XMLHttpRequest", "WebSocket", "EventSource", "localStorage", "sessionStorage", "indexedDB", "document", "window", "self", "navigator", "location", "history", "process", "globalThis", "global", "setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback", "console", "crypto", "performance", "Buffer"];
 
 /** Names declared ambiently (`declare function f()`, a global in a `.d.ts`): no code defines them, so they are opaque at run time. */
 function ambientNames(files: readonly ts.SourceFile[]) {
@@ -143,7 +127,10 @@ function entryPoints(program: ts.Program, files: readonly ts.SourceFile[]) {
     const visit = (node: ts.Node) => {
       if (ts.isIdentifier(node) && !ts.isExportSpecifier(node.parent) && !ts.isImportSpecifier(node.parent) && !ts.isImportClause(node.parent) && (node.parent as ts.NamedDeclaration).name !== node) {
         const symbol = resolve(checker.getSymbolAtLocation(node));
-        if (symbol) referenced.add(symbol);
+        // A function that calls itself is still called by no one else.
+        const own = symbol?.valueDeclaration;
+        const inside = own && own.getSourceFile() === node.getSourceFile() && node.pos >= own.pos && node.end <= own.end;
+        if (symbol && !inside) referenced.add(symbol);
       }
       ts.forEachChild(node, visit);
     };
@@ -175,14 +162,15 @@ export function sourceFiles(root: string) {
   return out.sort();
 }
 
-export type Recorded = Map<string, unknown[]>;
+/** Each value a span held, with the run it held it in: 0 is loading the modules, then one per entry-point call. */
+export type Recorded = Map<string, { value: unknown; run: number }[]>;
 
 /**
  * Loads every module of the root with the marked spans wrapped in a
  * recorder, then calls each entry point a few ways (an opaque argument, an
  * empty object, nothing), awaiting a promise and draining a generator.
- * Returns what each marked span held each time it ran, and the marked spans
- * no expression matched.
+ * Returns what each marked span held each time it ran (and in which run),
+ * and the marked spans no expression matched.
  */
 export async function runRoot(root: string, program: ts.Program, marked: Set<string>): Promise<{ recorded: Recorded; unmatched: Set<string> }> {
   const files = sourceFiles(root);
@@ -192,9 +180,10 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
   const entries = entryPoints(program, parsed);
   const recorded: Recorded = new Map();
   const unmatched = new Set(marked);
+  let run = 0;
   const record = (key: string, value: unknown) => {
     const list = recorded.get(key) ?? recorded.set(key, []).get(key)!;
-    if (list.length < 50) list.push(value);
+    if (list.length < 200) list.push({ value, run });
     return value;
   };
 
@@ -288,12 +277,14 @@ export async function runRoot(root: string, program: ts.Program, marked: Set<str
     }
   };
   const runAll = async () => {
+    for (const file of compiled.keys()) load(file);
     for (const file of compiled.keys()) {
       const exported = load(file);
       for (const name of entryNames.get(file) ?? []) {
         const value = exported[name];
         if (typeof value !== "function") continue;
         for (const args of [[opaque("arg")], [{}], []]) {
+          run += 1;
           try {
             await settle((value as (...args: unknown[]) => unknown)(...args));
           } catch {

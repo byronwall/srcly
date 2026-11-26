@@ -79,12 +79,13 @@ describe.each(ROOTS)("producer oracle in %s", (name) => {
     const failures: string[] = [];
     let ran = 0;
     for (const claim of claims) {
-      const seen = (recorded.get(claim.read) ?? []).filter((value) => !isOpaque(value));
+      const seen = (recorded.get(claim.read) ?? []).filter((item) => !isOpaque(item.value));
       if (!seen.length) continue;
       ran += 1;
       const made = claim.producers.flatMap((producer) => recorded.get(producer.key) ?? []);
-      const stray = seen.filter((value) => !made.some((candidate) => Object.is(candidate, value)));
-      if (stray.length) failures.push(`${claim.file}:${claim.line} ${claim.text} held ${JSON.stringify(stray[0])}; the engine names only ${claim.producers.map((producer) => producer.text).join(", ")}${made.length ? ` (which made ${made.slice(0, 3).map((value) => JSON.stringify(value)).join(", ")})` : " (none ran)"}`);
+      // A value counts only if a producer made it in the same run, or while the modules loaded: another call's value proves nothing.
+      const stray = seen.find((item) => !made.some((candidate) => (candidate.run === item.run || candidate.run === 0) && Object.is(candidate.value, item.value)));
+      if (stray) failures.push(`${claim.file}:${claim.line} ${claim.text} held ${JSON.stringify(stray.value)}; the engine names only ${claim.producers.map((producer) => producer.text).join(", ")}${made.length ? ` (which made ${made.slice(0, 3).map((item) => JSON.stringify(item.value)).join(", ")})` : " (none ran)"}`);
     }
 
     console.log(`${name}: ${reads} field reads, ${claims.length} closed answers, ${ran} ran, ${failures.length} contradicted, ${unmatched.size} spans unmatched`);
