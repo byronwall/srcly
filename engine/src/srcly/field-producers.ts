@@ -200,9 +200,18 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const found = new Map<string, FieldProducer>();
   const stops = new Map<string, ProducerStop>();
   let open = false;
-  /** A path that may fill the field ends here; only a path to the read's first value leaves the answer open. */
+  /**
+   * A path that may fill the field ends here. A path to the read's first
+   * value leaves the answer open. A later write the walk cannot follow
+   * (a computed key, an operand, a value that is an updater or a
+   * replacement) may still change what the read sees: a `write` caveat on
+   * every producer, which keeps the first value but never as a sure answer.
+   */
   const stop = (item: Pick<Item, "via">, at: string, reason: ProducerStopReason) => {
-    if (firstStateStep(item.via) === "write") return;
+    if (firstStateStep(item.via) === "write") {
+      seedCaveats.splice(0, seedCaveats.length, ...caveat(seedCaveats, at, "write"));
+      return;
+    }
     open = true;
     if (!stops.has(`${at}|${reason}`)) stops.set(`${at}|${reason}`, { elementId: at, reason });
   };

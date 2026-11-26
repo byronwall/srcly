@@ -77,7 +77,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       return top;
     };
     const changes = (use: TypeScript.Identifier) => {
-      if (ts.isExportAssignment(use.parent)) return true;
+      // `export default state`, `export default (state as State)`.
+      if (ts.isExportAssignment(unwrap(use).parent)) return true;
       // `x.a.b`, `x["a"]`: the access chain that starts at this use.
       let top: TypeScript.Node = unwrap(use);
       while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
@@ -99,7 +100,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
       if (ts.isConditionalExpression(up) && up.condition !== top) return true;
       // Its own method called (`state.apply(patch)`), which may write it through `this`.
-      if (ts.isPropertyAccessExpression(top) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
+      if ((ts.isPropertyAccessExpression(top) || ts.isElementAccessExpression(top)) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
       // Handed to a component (`<Editor note={note} />`, `<Editor {...doc} />`), which may write it through its props.
       if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && componentTag(up.parent.parent.parent.tagName)) return true;
       if (ts.isJsxSpreadAttribute(up) && componentTag(up.parent.parent.tagName)) return true;
@@ -238,8 +239,13 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
         else break;
       }
       const parent = holder.parent;
-      if (!ts.isVariableDeclaration(parent) || parent.initializer !== holder) return false;
-      return changedBinding(parent);
+      if (ts.isVariableDeclaration(parent) && parent.initializer === holder) return changedBinding(parent);
+      // Assigned after its declaration (`o = { … }`): the binding it lands in, checked the same way.
+      if (ts.isBinaryExpression(parent) && parent.right === holder && parent.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(parent.left)) {
+        const declaration = checker.getSymbolAtLocation(parent.left)?.valueDeclaration;
+        return !!declaration && (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration);
+      }
+      return false;
     },
     mayCall(file, span) {
       const at = nodeAt(file, span);
