@@ -199,7 +199,13 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
    * change it), nor is an updater whose return the slice does not hold.
    */
   const leavesField = (element: ProgramElement, field: string) => {
-    if (hooks.callable(element)) return slice.relations.some((relation) => relation.kind === "return-expression" && byId.has(relation.to) && byId.get(relation.to)!.kind === "return" && within(byId.get(relation.to)!, element));
+    if (hooks.callable(element)) {
+      // Only a function written in place at the setter call, whose returns are inside it and cover every exit (no branch falls through,
+      // not async); a return handed to the setter (`callback`) is what the setter stores.
+      if (element.kind !== "literal") return false;
+      const returns = slice.elements.filter((other) => other.kind === "return" && within(other, element));
+      return returns.length > 0 && returns.every((ret) => { const unsure = hooks.returnUnsure(ret); return unsure === false || unsure === "callback"; }) && slice.relations.some((relation) => relation.kind === "return-expression" && returns.some((ret) => ret.id === relation.to));
+    }
     if (members(element) !== null) return false;
     const raw = element.attributes?.fields;
     const names = typeof raw === "string" ? Object.values(JSON.parse(raw) as Record<string, string>) : [];

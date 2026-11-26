@@ -75,3 +75,12 @@ export function AssignedAndPassed() {
   Object.assign((o = { k: "OLD" }), { k: "NEW" }); // @produces fu-installed none proven @caveat fu-installed mutable
   return <b>{o.k}</b>; // @trace fu-installed backward o.k
 }
+
+// An inline updater that can fall through stores undefined on that branch.
+export function FallthroughUpdater(props: { ok: boolean }) {
+  const [doc, setDoc] = createSignal<{ k: string } | undefined>({ k: "OLD" }); // @produces fu-fallthrough initialization proven @caveat fu-fallthrough write
+  setDoc((previous) => {
+    if (props.ok) return { k: "NEW" }; // @produces fu-fallthrough write partial
+  });
+  return <b>{doc()?.k}</b>; // @trace fu-fallthrough backward doc()?.k
+}
