@@ -3,7 +3,8 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
-import { compilerSymbolId } from "../analysis/program-evidence-support";
+import { compilerSymbolId, importedCallee } from "../analysis/program-evidence-support";
+import { frameworkRow } from "../analysis/framework-flows";
 import { builtinTsModel } from "../analysis/library-models";
 import { cellCall, cellHas, cellSite, pairShaped } from "../analysis/cells";
 import { scopeRole } from "./scope-roles";
@@ -172,10 +173,27 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     const key = inner(node);
     return ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) ? key.text : null;
   };
-  /** A value whose every type member can be called: a function the setter calls, never the value it stores. */
-  const surelyCallable = (node: TypeScript.Node) => {
+  /** A value whose type may hold a function (a call signature, or a type that does not say: `any`, `unknown`, `Function`, `object`). */
+  const mayBeCallable = (node: TypeScript.Node) => {
     const type = checker.getTypeAtLocation(node);
-    return (type.isUnion() ? type.types : [type]).every((member) => member.getCallSignatures().length > 0);
+    const broad = (member: TypeScript.Type) => (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter)) !== 0 || ["Function", "Object"].includes(member.symbol?.name ?? "");
+    return (type.isUnion() ? type.types : [type]).some((member) => member.getCallSignatures().length > 0 || broad(member));
+  };
+  /** A call to a library export the models name (`produce(…)`, `reconcile(…)`): the evidence collector accounts for what it makes. */
+  const modelledCall = (node: TypeScript.Node) => {
+    if (!ts.isCallExpression(node)) return false;
+    const imported = importedCallee(ts, checker, node.expression);
+    return !!imported && frameworkRow(imported.module, imported.name) !== null;
+  };
+  /**
+   * An initial value whose branches cannot share an object: object and array literals all the way down, with
+   * primitives at the leaves and no getter, method or spread. Then a write under one literal key never reaches another.
+   */
+  const literalTree = (node: TypeScript.Node): boolean => {
+    const value = inner(node);
+    if (ts.isObjectLiteralExpression(value)) return value.properties.every((member) => ts.isPropertyAssignment(member) && !ts.isComputedPropertyName(member.name) && literalTree(member.initializer));
+    if (ts.isArrayLiteralExpression(value)) return value.elements.every((element) => !ts.isSpreadElement(element) && literalTree(element));
+    return isPrimitive(checker.getTypeAtLocation(value));
   };
   const effects = new WeakMap<TypeScript.VariableDeclaration, StateEffect[] | null>();
   /**
@@ -191,14 +209,16 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     const site = cellSite(ts, checker, declaration);
     const pattern = declaration.name;
     let out: StateEffect[] | null = null;
+    // A setter that takes a path first (Solid's `setStore("doc", "title", v)`) merges a plain object into the old one, and its store is a read-only proxy.
+    const paths = !!site && cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0..]");
+    // Every value the store holds is its own (no getter, no object two branches share), so a literal prefix can rule a read out.
+    let aliasFree = paths && site!.node.arguments.length > 0 && literalTree(site!.node.arguments[0]);
     if (site && pairShaped(site.row) && ts.isArrayBindingPattern(pattern)) {
       out = [];
       const sourceFile = declaration.getSourceFile();
       const at = (node: TypeScript.Node) => spanOf(sourceFile, node);
-      const add = (effect: StateEffect["effect"], node: TypeScript.Node, resolved: boolean, value: TypeScript.Node | null = null, prefix: string[] = []) => out!.push({ effect, span: at(node), value: value ? at(inner(value)) : null, resolved, prefix, merges: paths });
+      const add = (effect: StateEffect["effect"], node: TypeScript.Node, resolved: boolean, value: TypeScript.Node | null = null, prefix: string[] = []) => out!.push({ effect, span: at(node), value: value ? at(inner(value)) : null, argument: value ? at(value) : null, resolved, prefix, merges: paths });
       const exported = (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0;
-      // A setter that takes a path first (Solid's `setStore("doc", "title", v)`) merges a plain object into the old one, and its store is a read-only proxy.
-      const paths = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0..]");
       const [first, second, ...rest] = pattern.elements;
       // A rest element, or a handle under a nested pattern, is a handle the model does not follow.
       if (rest.some((element) => !ts.isOmittedExpression(element)) || [first, second].some((element) => element && ts.isBindingElement(element) && (!ts.isIdentifier(element.name) || element.dotDotDotToken))) add("escape", pattern, false);
@@ -223,8 +243,11 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
           }
           const value = args[args.length - 1];
           const fn = ts.isArrowFunction(inner(value)) || ts.isFunctionExpression(inner(value));
-          // A function made elsewhere (`setDoc(rename("NEW"))`): what it returns is stored, and the slice may not hold that return.
-          if (!fn && surelyCallable(value)) {
+          // A store value that may be an object another branch also holds (`set("copy", store.doc)`) can join two branches.
+          if (paths && !fn && !literalTree(value)) aliasFree = false;
+          // A function made elsewhere (`setDoc(rename("NEW"))`), or a value that may be one: what it returns is stored, and the
+          // slice may not hold that return. A library updater the models name (`produce(…)`) is the collector's to place.
+          if (!fn && mayBeCallable(value) && !modelledCall(inner(value))) {
             add("updater", call, false, value);
             continue;
           }
@@ -260,7 +283,21 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
           }
         }
       }
+      // A store proxy rejects direct writes, but a library call that passes its argument through (`unwrap(store)`) hands back
+      // the plain object, which the code can change.
+      if (getter && paths) {
+        for (const use of usesOf(getter)) {
+          const top = unwrap(use);
+          const call = ts.isCallExpression(top.parent) ? top.parent : null;
+          const index = call ? call.arguments.indexOf(top as TypeScript.Expression) : -1;
+          const imported = call && index >= 0 ? importedCallee(ts, checker, call.expression) : null;
+          const row = imported ? frameworkRow(imported.module, imported.name) : null;
+          const through = row?.model === "passes-through" && (row.flows ?? []).some((flow) => String(flow).replace(/\s/g, "") === `Argument[${index}]->ReturnValue`);
+          if (through && changes(call!, new Set())) add("alias", call!, false);
+        }
+      }
     }
+    if (out && !aliasFree) for (const effect of out) effect.prefix = [];
     effects.set(declaration, out);
     return out;
   };
@@ -343,8 +380,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       if (!at) return true;
       const type = checker.getTypeAtLocation(at.node);
-      const object = (member: TypeScript.Type) => (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter)) !== 0 || (!!(member.flags & ts.TypeFlags.Object) && member.getCallSignatures().length === 0);
-      return (type.isUnion() ? type.types : [type]).some(object);
+      // Anything not a primitive and not only a function: an object, an intersection, a type parameter, `any`.
+      return (type.isUnion() ? type.types : [type]).some((member) => !isPrimitive(member) && member.getCallSignatures().length === 0);
     },
     ownReturns(file, span) {
       const at = nodeAt(file, span);

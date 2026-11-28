@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, produce, unwrap } from "solid-js/store";
 
 // Writes that reach a state by another name: through a path updater, an
 // alias of what a getter read, a setter carried in an object or bound, a
@@ -138,4 +138,50 @@ export function NarrowedKey() {
   flip();
   set(side, key, "NEW");
   return <b>{s.right.k}</b>; // @trace we-narrowed backward s.right.k
+}
+
+// A patch typed as an intersection is still an object a path updater merges in.
+export function IntersectionPatch() {
+  const [s, set] = createStore({ user: { name: "Ada", active: false, role: "admin" } }); // @produces we-intersection initialization proven @caveat we-intersection write
+  set("user", () => Object.assign({ name: "Grace" }, { active: true }));
+  return <b>{s.user.role}{String(s.user === undefined)}</b>; // @trace we-intersection backward s.user
+}
+
+// A root merge is shallow: the object under a key replaces the old one.
+export function ShallowMerge() {
+  const [s, set] = createStore({ user: { name: "Ada", role: "admin" } as { name: string; role?: string } }); // @produces we-shallow initialization proven
+  set({ user: { name: "Grace" } }); // @produces we-shallow write partial
+  return <b>{String(s.user === undefined)}</b>; // @trace we-shallow backward s.user
+}
+
+// A draft write through the library's updater is the collector's to place.
+export function DraftWrite() {
+  const [s, set] = createStore({ k: "OLD" }); // @produces we-draft initialization proven @produces we-draft write partial
+  set(produce((draft) => { draft.k = "NEW"; })); // @produces we-draft write partial
+  return <b>{s.k}</b>; // @trace we-draft backward s.k
+}
+
+// An updater factory whose return type says nothing: what it returns may be an updater.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape under test is an erased return type
+const makeUpdater = (k: string): any => (previous: { k: string }) => ({ ...previous, k });
+export function ErasedUpdater() {
+  const [doc, setDoc] = createSignal({ k: "OLD" }); // @produces we-erased initialization proven @caveat we-erased write
+  setDoc(makeUpdater("NEW"));
+  return <b>{doc().k}</b>; // @trace we-erased backward doc().k
+}
+
+// A getter in the initial value can make two paths one object: a prefix rules nothing out.
+export function StoreGetter() {
+  const key = "k" as "k" | "l";
+  const [s, set] = createStore({ doc: { k: "OLD", l: "" }, get copy() { return this.doc; } }); // @produces we-getter initialization proven @caveat we-getter write
+  set("copy", key, "NEW");
+  return <b>{s.doc.k}</b>; // @trace we-getter backward s.doc.k
+}
+
+// The plain object behind a store, changed through `unwrap`, shows at the next read.
+export function UnwrappedStore() {
+  const [s] = createStore({ k: "OLD" }); // @produces we-unwrap initialization proven @caveat we-unwrap mutable
+  const raw = unwrap(s);
+  raw.k = "NEW";
+  return <b>{s.k}</b>; // @trace we-unwrap backward s.k
 }

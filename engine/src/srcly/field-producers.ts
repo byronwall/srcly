@@ -187,7 +187,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     for (const id of statePaths.keys()) {
       const state = byId.get(id)!;
       if (state.location.file !== value.location.file) continue;
-      const hit = effectsOf(state)?.find((effect) => effect.value && (exact ? sameSpan(effect.value, value.location.span) : inSpan(value.location.span, effect.value)));
+      // The value itself, under or with its parentheses and assertions: not an object inside it (`set({ user: { … } })` replaces `user`).
+      const hit = effectsOf(state)?.find((effect) => effect.value && effect.argument && (exact ? sameSpan(effect.value, value.location.span) : inSpan(effect.value, value.location.span) && inSpan(value.location.span, effect.argument)));
       if (hit) return hit;
     }
     return null;
@@ -267,7 +268,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     // The setter call that holds this value most closely is the one that wrote it (`set("dirty", true)` inside another call's updater).
     const holding = (effectsOf(state) ?? []).filter((item) => state.location.file === value.location.file && inSpan(value.location.span, item.span));
     const effect = holding.reduce<StateEffect | null>((best, item) => (!best || inSpan(item.span, best.span) ? item : best), null);
-    if (!effect || effect.resolved || !effect.value) return false;
+    // Only a path with a computed key: an updater made elsewhere keeps the edges the collector made for it, under its caveat.
+    if (!effect || effect.resolved || effect.effect !== "path") return false;
     if (!disjoint([...path].reverse(), effect.prefix)) seedCaveat(state.id, "write");
     return true;
   };

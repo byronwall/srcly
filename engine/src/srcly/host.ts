@@ -30,8 +30,10 @@ export type StateEffect = {
   effect: "replace" | "updater" | "merge" | "path" | "escape" | "alias";
   /** The setter's call, or the use that hands the handle on. */
   span: Span;
-  /** The value a setter call is handed (its last argument), when there is one. */
+  /** The value a setter call is handed (its last argument, under parentheses and assertions), when there is one. */
   value: Span | null;
+  /** That argument as written, with its parentheses and assertions. */
+  argument: Span | null;
   /** Whether the slice's own write edges hold it: a direct setter call with a value and literal keys. */
   resolved: boolean;
   /** The literal store path it writes under (`set("doc", key, v)` writes under `doc`); empty for the whole state. */
