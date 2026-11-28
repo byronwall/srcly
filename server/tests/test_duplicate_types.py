@@ -1,7 +1,11 @@
 import time
 from pathlib import Path
 
+import pytest
+
+from app.services.findings import duplicate_types
 from app.services.findings.duplicate_types import check_files
+from app.services.findings.tools import ToolTimeout
 
 
 def write(root: Path, rel: str, text: str) -> str:
@@ -48,6 +52,7 @@ def test_a_local_copy_of_an_exported_type_is_reported_and_look_alikes_are_not(tm
         # `export default Options` exports the interface declared above it.
         write(tmp_path, "src/opts.ts", "export interface Options { a: string; b: number; c: boolean }\n"),
         write(tmp_path, "src/plugin.ts", "interface Options { a: string; b: number; c: boolean }\nexport default Options;\n"),
+        write(tmp_path, "src/plugin2.ts", "export default interface Options { a: string; b: number; c: boolean }\n"),
         # Exported on both sides: two public types, not a hidden copy.
         write(tmp_path, "src/public.ts", "export type Run = { id: string; status: string; startedAt: string };\n"),
         # Tests may restate a type on purpose.
@@ -58,3 +63,14 @@ def test_a_local_copy_of_an_exported_type_is_reported_and_look_alikes_are_not(tm
     assert "exported `Doc` in src/api.ts:1 (4 of its 5 fields" in found[("src/view.tsx", 1)]
     # Two exported `Run`s tie on shared fields; the first path wins, so the message is stable.
     assert "src/api.ts:2" in found[("src/runs.ts", 1)]
+
+
+def test_oversized_files_are_skipped_and_an_expired_deadline_times_out(tmp_path: Path, monkeypatch):
+    big = write(tmp_path, "src/generated.ts", "type Doc = { id: string; title: string; path: string };\n" * 40)
+    small = write(tmp_path, "src/api.ts", "export type Doc = { id: string; title: string; path: string };\n")
+    monkeypatch.setattr(duplicate_types, "MAX_ANALYZED_FILE_BYTES", 500)
+    monkeypatch.setattr(duplicate_types, "object_types", lambda path, *a: pytest.fail(f"parsed {path}") if "generated" in path else [])
+    _, checked = check_files(tmp_path.resolve(), [big, small], "t", time.monotonic() + 30)
+    assert checked == [str(Path(small).resolve())]
+    with pytest.raises(ToolTimeout):
+        check_files(tmp_path.resolve(), [small], "t", time.monotonic() - 1)
