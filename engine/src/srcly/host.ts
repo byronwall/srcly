@@ -72,6 +72,8 @@ export interface LanguageHost {
   hasArguments?(file: string, span: Span): boolean;
   /** Whether the call at this span is awaited where it is made. */
   awaited?(file: string, span: Span): boolean;
+  /** Whether the value at this span may be a function: some member of its type has a call signature, or the type is unknown. */
+  mayCall?(file: string, span: Span): boolean;
   /** Whether the expression at this span is the right side of a compound assignment that combines it with the old value (`n += step`): an operand, not the value stored. */
   combinedWrite?(file: string, span: Span): boolean;
   /** Whether the binding (a variable or parameter) at this span names an object the code changes, as `mutable` says. */
