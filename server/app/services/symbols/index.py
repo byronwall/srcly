@@ -17,6 +17,7 @@ from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolInde
 from app.services.deps.common import SourceSignature, is_test_path, source_signature, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.dataflow.models import SymbolRefsResult as CheckerResult
+from app.services.symbols.checker import LASTING as LASTING_REASONS
 from app.services.symbols.checker import join
 from app.services.symbols.checker import query as query_checker
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
@@ -666,7 +667,8 @@ def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-s
     index = assemble(root, parts, checked)
     if index.binder != "checker":
         index.binder_reason = reason if binder == "checker" else "asked"
-    if use_cache:
+    # A fallback for a passing cause (a crash, a timeout, the memory limit) is not kept: the next request tries the checker again.
+    if use_cache and (index.binder == binder or reason in LASTING_REASONS):
         with _lock:
             _cache[(root, binder)] = (sig, index)
     return index

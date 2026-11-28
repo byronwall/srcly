@@ -37,8 +37,16 @@ class CheckerRefs:
     program_hash: Optional[str] = None
 
 
+# Reasons the checker will still be missing on the next request: the index may cache its fallback.
+LASTING = frozenset({"python-root", "node-not-found", "engine-missing", "no-tsconfig", "no-ts-files", "typescript-not-found", "engine-protocol-mismatch"})
+
+
 def query(root: Path, registry=None) -> Tuple[Optional[SymbolRefsResult], Optional[str]]:
-    """The engine's ``symbolRefs`` for the root, or None and the reason it has none."""
+    """
+    The engine's ``symbolRefs`` for the root, from the sources as they are now, or None and
+    the reason it has none. The engine keeps its Program until asked to refresh, so a stale
+    one is rebuilt first.
+    """
     from app.services.dataflow.engine import EngineError
     from app.services.dataflow.engine import registry as shared
 
@@ -52,6 +60,9 @@ def query(root: Path, registry=None) -> Tuple[Optional[SymbolRefsResult], Option
     if known is not None:
         return None, known.code
     try:
+        status = reg.query(root, "status", {})
+        if status.get("stale"):
+            reg.query(root, "refresh", {}, timeout=180.0)
         # A walk of the whole program: allow more than one ordinary query.
         raw = reg.query(root, "symbolRefs", {}, timeout=180.0)
     except EngineError as exc:
