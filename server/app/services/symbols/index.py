@@ -51,6 +51,7 @@ class SymbolIndex:
     unbound: Dict[str, int] = field(default_factory=dict)
     mismatched: List[str] = field(default_factory=list)
     outside_program: int = 0
+    _by_line: Optional[Dict[Tuple[str, int], List[int]]] = None
 
     def __post_init__(self) -> None:
         for i, r in enumerate(self.references):
@@ -340,6 +341,39 @@ class SymbolIndex:
             scored.append((rank, -refs, sym.id, sym))
         scored.sort()
         return [self._hit(s) for _r, _n, _i, s in scored[:limit]]
+
+    def at(self, file: str, line: int, column: int, name: str) -> Tuple[Optional[str], List[str]]:
+        """
+        The symbol bound at a source position (1-based line, 1-based UTF-16 column), and the
+        candidates when the index cannot tell. A reference whose span holds the column wins;
+        then a declaration of that name whose lines hold the line. A tree-sitter reference has
+        no columns, so it matches by line and target name, and several targets stay candidates.
+        Never a search by name alone.
+        """
+        here = [self.references[i] for i in self._refs_on_line().get((file, line), [])]
+        spanned = [r for r in here if r.column is not None and r.end_column is not None and r.column <= column < r.end_column]
+        if spanned:
+            return spanned[0].target, []
+        if not any(r.column is not None for r in here):
+            named = sorted({r.target for r in here if self.symbols[r.target].name == name})
+            if len(named) == 1:
+                return named[0], []
+            if named:
+                return None, named
+        declared = [s for s in self.symbols.values() if s.file == file and s.name == name and s.kind != "module" and s.line <= line <= s.end_line]
+        if declared:
+            return min(declared, key=lambda s: (s.end_line - s.line, -s.line)).id, []
+        return None, []
+
+    def _refs_on_line(self) -> Dict[Tuple[str, int], List[int]]:
+        if self._by_line is None:
+            by_line: Dict[Tuple[str, int], List[int]] = defaultdict(list)
+            for i, r in enumerate(self.references):
+                src = self.symbols.get(r.source)
+                if src is not None:
+                    by_line[(src.file, r.line)].append(i)
+            self._by_line = by_line
+        return self._by_line
 
     def info(self) -> SymbolIndexInfo:
         return SymbolIndexInfo(

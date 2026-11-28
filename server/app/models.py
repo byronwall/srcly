@@ -300,6 +300,14 @@ class SymbolIndexInfo(BaseModel):
     outside_program: int = Field(0, alias="outsideProgram")
 
 
+class SymbolAt(BaseModel):
+    """The symbol bound at a source position, or the candidates when the index cannot tell."""
+
+    id: str | None = None
+    candidates: List[str] = Field(default_factory=list)
+    index: SymbolIndexInfo
+
+
 class SymbolGraph(BaseModel):
     root: str
     focus: str

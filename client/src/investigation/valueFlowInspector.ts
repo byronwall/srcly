@@ -23,8 +23,8 @@ export function createValueFlowInspector(opts: {
   file: () => string | null;
   /** "Trace where it goes / comes from": open the graph anchored at the candidate. */
   onTrace?: (candidate: Candidate, direction: "forward" | "backward") => void;
-  /** "Show references": Symbols mode centred on the name at the caret (no engine needed). */
-  onReferences?: (at: { line: number; column: number }) => void;
+  /** "Show references": Symbols mode centred on the symbol bound at the caret; a message when there is none. */
+  onReferences?: (at: { line: number; column: number }) => Promise<string | null>;
 }) {
   const [menu, setMenu] = createSignal<MenuState | null>(null);
   const [picker, setPicker] = createSignal<PickerState | null>(null);
@@ -45,7 +45,12 @@ export function createValueFlowInspector(opts: {
     setMenu(null);
     if (!at || !req) return;
     if (action === "references") {
-      opts.onReferences?.({ line: at.line, column: at.column });
+      if (!opts.onReferences) return;
+      const mine = ++token;
+      setPicker({ x: at.x, y: at.y, loading: true, candidates: [], message: null, action });
+      const message = await opts.onReferences({ line: at.line, column: at.column }).catch((e: unknown) => String((e as Error)?.message ?? e));
+      if (mine !== token) return;
+      setPicker(message ? { x: at.x, y: at.y, loading: false, candidates: [], message, action } : null);
       return;
     }
     pending = action;

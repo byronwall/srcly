@@ -1,7 +1,9 @@
 """
 The symbol reference graph: who calls, instantiates, reads, writes, extends or
-names whom, inside and across files. Built once per root by name (tree-sitter)
-and cached by file mtimes; served as neighbourhoods, never whole.
+names whom, inside and across files. Declarations come from tree-sitter; TypeScript
+references are bound by the data-flow engine's checker when it can run, else by
+name (tree-sitter). Built once per root, cached by file mtimes, and served as
+neighbourhoods, never whole.
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models import SymbolGraph, SymbolPath, SymbolSearch, SymbolStats
+from app.models import SymbolAt, SymbolGraph, SymbolPath, SymbolSearch, SymbolStats
 from app.services.symbols.index import build_symbol_index
 from app.services.symbols.model import REF_KINDS
 
@@ -54,6 +56,20 @@ def search_symbols(path: str | None = None, q: str = Query("", max_length=200), 
     """Symbols whose name, qualified name or file contains `q`, best match first, with their reference counts."""
     index = build_symbol_index(_root(path), binder="checker")
     return SymbolSearch(hits=index.search(q, limit=limit, include_tests=tests), index=index.info())
+
+
+@router.get("/at", response_model=SymbolAt, response_model_exclude_none=True, response_model_by_alias=True)
+def get_symbol_at(
+    path: str | None = None,
+    file: str = Query(..., description="Relative to the root"),
+    line: int = Query(..., ge=1),
+    column: int = Query(..., ge=1, description="1-based UTF-16 column"),
+    name: str = Query(..., max_length=200, description="The identifier at the position"),
+):
+    """The symbol bound at a source position: Show references in the code viewer. No symbol is an answer, not a search."""
+    index = build_symbol_index(_root(path), binder="checker")
+    found, candidates = index.at(file, line, column, name)
+    return SymbolAt(id=found, candidates=candidates, index=index.info())
 
 
 @router.get("/path", response_model=SymbolPath, response_model_exclude_none=True, response_model_by_alias=True)

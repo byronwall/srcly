@@ -78,3 +78,17 @@ def test_checker_refs_join_to_tree_sitter_ids(tmp_path: Path):
     assert {r.resolution for r in idx.references} == {"exact"}
     assert idx.binder == "checker" and idx.unbound == {"any": 1}
     assert idx.mismatched == ["src/m.ts:16 ambient (value)"]
+
+
+def test_a_position_resolves_to_the_reference_there_never_a_name_search(tmp_path: Path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "m.ts").write_text(M, encoding="utf-8")
+    parts, _ = extract_ts(tmp_path, [tmp_path / "src" / "m.ts"])
+    targets = [("src/m.ts", "use", 11, "value", "module"), ("src/m.ts", "Row", 1, "type", "module"), ("src/m.ts", "Row", 2, "value", "module")]
+    refs = [(13, 12, 15, "type", 0, 1, None), (13, 18, 21, "read", 0, 2, None)]
+    idx = assemble(tmp_path, parts, _result(targets, refs))
+    assert idx.at("src/m.ts", 13, 13, "Row") == ("src/m.ts#Row@type", [])
+    assert idx.at("src/m.ts", 13, 18, "Row") == ("src/m.ts#Row", [])
+    # A declaration's own name is the declaration; an unbound name is nothing, not the first search hit.
+    assert idx.at("src/m.ts", 1, 13, "Row") == ("src/m.ts#Row@type", [])
+    assert idx.at("src/m.ts", 14, 3, "shape") == (None, [])

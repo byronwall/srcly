@@ -315,6 +315,8 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     if (m.hiddenByKind) parts.push(`${m.hiddenByKind} hidden by the kind filters`);
     if (g.truncated) parts.push("cut at the neighbourhood limit: hide kinds or tests");
     parts.push(`index: ${g.index.symbols.toLocaleString("en-US")} symbols, ${g.index.references.toLocaleString("en-US")} references in ${g.index.files} files`);
+    // Who bound the TypeScript names: the checker, or tree-sitter names and why.
+    if (g.index.binder) parts.push(g.index.binder === "checker" ? "TypeScript bound by the checker" : `TypeScript bound by name (${g.index.binderReason ?? "no checker"})`);
     if (g.index.httpLinks) parts.push(`${g.index.httpLinks} HTTP link${g.index.httpLinks === 1 ? "" : "s"} client → server${g.index.httpUnmatched ? `, ${g.index.httpUnmatched} unanswered` : ""}`);
     return parts.join(" · ");
   };
