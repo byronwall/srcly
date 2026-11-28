@@ -1,0 +1,34 @@
+diagram "How a reference is bound" version=1
+subtitle "Checker when the engine is up; today's index when it is not"
+
+node ask "srcly refs, Symbols view,\nShow references"
+
+group engine "Data-flow engine (Node)" color=blue
+node start "Start engine\nexplicit use only" in=engine
+node walk "symbolRefs walk\ngetSymbolAtLocation + aliases" in=engine
+
+group server "srcly server (Python)" color=mint
+node decls "Tree-sitter declarations\nthe only source of ids" in=server
+node join "Join keys to ids\nfile, line, name, meaning" in=server
+node cindex "Checker index\nbound = exact, unbound counted" in=server
+node tsbind "Tree-sitter binding\ntoday's index, unchanged" in=server
+node lookup "Resolve position\n/api/symbols/at" in=server
+
+node answer "Refs answer\nlabelled with its binder" color=violet
+
+legend blue "Engine"
+legend mint "Server"
+legend violet "What the reader gets"
+legend line dashed "Fallback"
+
+edge e_ask ask -> start "request"
+edge e_up start -> walk "engine up"
+edge e_keys walk -> join "decl keys"
+edge e_ids decls -> join "ids"
+edge e_build join -> cindex "builds"
+edge e_down start -> tsbind "no Node, crash,\nmemory-limit" kind=async
+edge e_c cindex -> lookup
+edge e_t tsbind -> lookup "line + text" kind=async
+edge e_answer lookup -> answer "never a name search"
+
+layout root engine=compound-spring fit=slide aspect=1.6

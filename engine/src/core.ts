@@ -49,6 +49,8 @@ export function createAnalyzer(args: AnalyzerArgs, reportProgress?: AnalyzerProg
     ts,
     program,
     args,
+    /** The tsconfigs found and the primary one, whose options the Program uses. */
+    resolution,
     identitiesForFile: (file: string) => prepare().identityIndex.evidenceForFile(file),
     report: (overrides: Partial<AnalyzerArgs> = {}) => {
       const { routing, identityIndex } = prepare();

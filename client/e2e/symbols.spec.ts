@@ -136,3 +136,50 @@ test.describe("Symbols mode paths on solid-route", () => {
     await expect(stats(page)).toContainText("no chain of references", { timeout: 90_000 });
   });
 });
+
+// Show references in the code viewer resolves the name by its position, through the checker:
+// `Row` is both a type and a value in src/m.ts, and each use opens its own side.
+test.describe("Show references by position", () => {
+  const fixture = path.resolve(here, "../../engine/test/srcly/__fixtures__/symbol-refs");
+
+  /** Right-click the `nth` occurrence of `text` on the code line that contains `context`, then Show references. */
+  async function showReferences(page: Page, context: string, text: string) {
+    const line = page.getByRole("dialog").locator("span.line").filter({ hasText: context });
+    await line.scrollIntoViewIfNeeded();
+    const point = await line.evaluate((el, word) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let all = "";
+      const nodes: Text[] = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+      for (const node of nodes) all += node.textContent;
+      let offset = all.indexOf(word) + 1;
+      for (const node of nodes) {
+        if (offset < node.textContent!.length) {
+          const range = document.createRange();
+          range.setStart(node, offset);
+          range.setEnd(node, offset + 1);
+          const { x, y, width, height } = range.getBoundingClientRect();
+          return { x: x + width / 2, y: y + height / 2 };
+        }
+        offset -= node.textContent!.length;
+      }
+      throw new Error(`${word} is not rendered`);
+    }, text);
+    await page.mouse.click(point.x, point.y, { button: "right" });
+    await page.locator("[data-inspect-menu][role=menu]").getByRole("menuitem", { name: /Show references/ }).click();
+  }
+
+  for (const [context, focus] of [
+    ['typed: import("./m").Row', "src/m.ts#Row@type"],
+    ['typeof import("./m").Row', "src/m.ts#Row"],
+  ] as const) {
+    test(`a use of a split name opens ${focus}`, async ({ page }) => {
+      await page.goto(`/?${new URLSearchParams({ repo: fixture, view: "treemap", at: "src" })}`);
+      await page.getByRole("treeitem", { name: /use\.tsx/ }).click();
+      await showReferences(page, context, "Row");
+      await expect.poll(() => new URL(page.url()).searchParams.get("symbols"), { timeout: 90_000 }).toBe(focus);
+      await expect(stats(page)).toHaveAttribute("data-symbol-stats", "ready", { timeout: 90_000 });
+      if (focus.endsWith("@type")) await shot(page, "symbols-show-references-by-position");
+    });
+  }
+});

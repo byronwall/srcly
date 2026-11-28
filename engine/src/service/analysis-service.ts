@@ -79,6 +79,8 @@ export type AnalysisOperation =
   | { kind: "function-effects"; params: Record<string, unknown> }
   | { kind: "route-path"; params: Record<string, unknown> }
   | { kind: "file-exports"; params: Record<string, unknown> }
+  /** Every identifier bound by the checker, for srcly's symbol index. */
+  | { kind: "symbol-refs"; params: Record<string, unknown> }
   /** Tier 2: the legacy report as per-file metrics, findings and `dataflow.md`. */
   | { kind: "file-signals"; params: Record<string, unknown> }
   /** A file's functions as flow signatures, for the compare report's data-flow changes. */

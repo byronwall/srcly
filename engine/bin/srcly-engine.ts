@@ -106,6 +106,7 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   if (frame.op === "anchorGraph") return { kind: "anchor-graph", params };
   if (frame.op === "functionEffects") return { kind: "function-effects", params };
   if (frame.op === "fileExports") return { kind: "file-exports", params };
+  if (frame.op === "symbolRefs") return { kind: "symbol-refs", params };
   if (frame.op === "routePath") return { kind: "route-path", params };
   if (frame.op === "fileSignals") return { kind: "file-signals", params };
   if (frame.op === "flowSignature") return { kind: "flow-signature", params };

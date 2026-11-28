@@ -1,7 +1,9 @@
 """
 The symbol reference graph: who calls, instantiates, reads, writes, extends or
-names whom, inside and across files. Built once per root by name (tree-sitter)
-and cached by file mtimes; served as neighbourhoods, never whole.
+names whom, inside and across files. Declarations come from tree-sitter; TypeScript
+references are bound by the data-flow engine's checker when it can run, else by
+name (tree-sitter). Built once per root, cached by file mtimes, and served as
+neighbourhoods, never whole.
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models import SymbolGraph, SymbolPath, SymbolSearch, SymbolStats
+from app.models import SymbolAt, SymbolGraph, SymbolPath, SymbolSearch, SymbolStats
 from app.services.symbols.index import build_symbol_index
 from app.services.symbols.model import REF_KINDS
 
@@ -41,7 +43,7 @@ def get_symbol_graph(
         chosen = [k for k in kinds.split(",") if k in REF_KINDS]
         if not chosen:
             raise HTTPException(status_code=400, detail=f"kinds must be some of {', '.join(REF_KINDS)}")
-    index = build_symbol_index(_root(path))
+    index = build_symbol_index(_root(path), binder="checker")
     opened = [m for m in (more or "").split(",") if m]
     graph = index.neighbourhood(at, hops=hops, kinds=chosen, include_tests=tests, direction=direction, members=members, more=opened)
     if graph is None:
@@ -52,8 +54,22 @@ def get_symbol_graph(
 @router.get("/search", response_model=SymbolSearch, response_model_exclude_none=True, response_model_by_alias=True)
 def search_symbols(path: str | None = None, q: str = Query("", max_length=200), limit: int = Query(30, ge=1, le=200), tests: bool = True):
     """Symbols whose name, qualified name or file contains `q`, best match first, with their reference counts."""
-    index = build_symbol_index(_root(path))
+    index = build_symbol_index(_root(path), binder="checker")
     return SymbolSearch(hits=index.search(q, limit=limit, include_tests=tests), index=index.info())
+
+
+@router.get("/at", response_model=SymbolAt, response_model_exclude_none=True, response_model_by_alias=True)
+def get_symbol_at(
+    path: str | None = None,
+    file: str = Query(..., description="Relative to the root"),
+    line: int = Query(..., ge=1),
+    column: int = Query(..., ge=1, description="1-based UTF-16 column"),
+    name: str = Query(..., max_length=200, description="The identifier at the position"),
+):
+    """The symbol bound at a source position: Show references in the code viewer. No symbol is an answer, not a search."""
+    index = build_symbol_index(_root(path), binder="checker")
+    found, candidates = index.at(file, line, column, name)
+    return SymbolAt(id=found, candidates=candidates, index=index.info())
 
 
 @router.get("/path", response_model=SymbolPath, response_model_exclude_none=True, response_model_by_alias=True)
@@ -70,7 +86,7 @@ def get_symbol_path(
         chosen = [k for k in kinds.split(",") if k in REF_KINDS]
         if not chosen:
             raise HTTPException(status_code=400, detail=f"kinds must be some of {', '.join(REF_KINDS)}")
-    index = build_symbol_index(_root(path))
+    index = build_symbol_index(_root(path), binder="checker")
     result = index.path(start, end, kinds=chosen, include_tests=tests)
     if result is None:
         missing = start if start not in index.symbols else end
@@ -81,4 +97,4 @@ def get_symbol_path(
 @router.get("/stats", response_model=SymbolStats, response_model_exclude_none=True, response_model_by_alias=True)
 def get_symbol_stats(path: str | None = None, limit: int = Query(50, ge=1, le=500), hubs: int = Query(30, ge=1, le=200)):
     """Symbols nothing references (private first, then largest), the ones only test files reference, and the top hubs."""
-    return build_symbol_index(_root(path)).stats(limit=limit, hubs=hubs)
+    return build_symbol_index(_root(path), binder="checker").stats(limit=limit, hubs=hubs)

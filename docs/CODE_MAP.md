@@ -338,7 +338,8 @@ Graph-to-code rule: there is one `CodeModal`. Opening from the graph resolves th
 
 Design rules:
 
-- Matching is name-based first, and every edge says how sure it is: `resolution` is `exact`, `typed` or `name`. The client draws `name` edges as partial proof. The intended upgrade is to re-resolve a neighbourhood with the data-flow engine's checker.
+- Tree-sitter makes every declaration and id. TypeScript references come from the data-flow engine's checker (`symbolRefs`) when Node and a tsconfig are there: each identifier's declaration is joined to a tree-sitter id by file, name, line and meaning (`value` or `type`), and an unbound name stays out of the graph. Without the checker, and for Python and files outside the Program (tests), references are matched by name, and every edge says how sure it is: `resolution` is `exact`, `typed` or `name`. The index says which binder ran (`binder`, `binderReason`).
+- The Symbols routes and `srcly refs` start the engine (explicit use); other callers of `build_symbol_index` get tree-sitter only.
 - The server holds the index. The client asks only for a neighbourhood (up to 4 hops). Past 400 symbols the answer says `truncated`, and the client offers filters.
 - Symbol ids are `file#Qualified.name`. A top-level symbol's id equals the import graph's id, so `at`, Open code and Trace work on it. Members add `.member`.
 - Symbols is a third mode of the graph view. It reuses the dependency canvas, layout, palette, node menus and rail through an adapter. Nothing new is drawn by hand.
@@ -350,9 +351,11 @@ Open work: backlog area `area-symbol-graph` in `pgm/data`.
 | Symbol and reference model: ids `file#Qualified.name`, kinds (function, class, method, field, variable, type, enum, module), reference kinds (call, instantiate, read, write, type, extends, implements), resolution (`exact`, `typed`, `name`), the builtin member stop list | `server/app/services/symbols/model.py` |
 | TypeScript extractor: scope stack (enclosing symbol, class for `this`, shadowing locals, nested symbols), members and object-literal methods as nodes, typed receivers from annotations and `new`, pending member references; reuses `TsProgram` for parsing, module resolution and barrels | `server/app/services/symbols/typescript.py`, `server/app/services/deps/typescript_deps.py` (`TsProgram`) |
 | Python extractor: the same contract; class scopes seen only from the class body, `self`/`cls` (the first parameter of a method) and `super()` as the class receiver, fields from class-body and `self.x = …` assignments, `global`, function-local imports, module attribute chains descended to the deepest known module; `PyProgram` reuses `PyModuleIndex` and `parse_py_file` with `__init__` re-exports passed through | `server/app/services/symbols/python.py` |
+| Checker binding: the `symbolRefs` op (every identifier, its kind, enclosing declaration and target; a tsconfig whose `paths` differ from the primary's gets its own Program; a workspace package's built `.d.ts` is followed to its source), the join to tree-sitter ids, and the comparison of both binders on a whole repo | `engine/src/srcly/ops/symbol-refs.ts`, `engine/src/srcly/contracts/symbol-refs.ts`, `server/app/services/symbols/checker.py`, `server/scripts/compare_binders.py`, `engine/scripts/symbol-refs-probe.ts` (cost) |
+| Show references by position: the reference whose span holds the caret, else the declaration of that name, never a name search | `server/app/services/symbols/index.py` (`SymbolIndex.at`), `GET /api/symbols/at` in `server/app/routers/symbols.py`, `client/src/components/CodeModal/CodeModal.tsx` (`onReferences`) |
 | Index: merge files, settle member references (`this`/`super`, class-qualified, module attribute, typed receiver, else a unique non-builtin member name for calls), mtime cache, neighbourhood BFS with hop and direction, merged edges, search | `server/app/services/symbols/index.py` |
 | Response models | `server/app/models.py` (`SymbolGraph`, `SymbolGraphNode`, `SymbolGraphEdge`, `SymbolSearch`) |
-| Tests: extractor rules and queries; router | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbol_index_py.py`, `server/tests/test_symbols_router.py` |
+| Tests: extractor rules and queries; router; the checker join and position lookup | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbol_index_py.py`, `server/tests/test_symbols_router.py`, `server/tests/test_symbol_checker_join.py`, `engine/test/srcly/symbol-refs.test.ts` |
 
 ### Client: Symbols mode
 

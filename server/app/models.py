@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, Dict, List
 from pydantic import BaseModel, Field, PrivateAttr
 
 class Witness(BaseModel):
@@ -291,6 +291,21 @@ class SymbolIndexInfo(BaseModel):
     # Client requests joined to a handler of the index, and ones nothing answers.
     http_links: int = Field(0, alias="httpLinks")
     http_unmatched: int = Field(0, alias="httpUnmatched")
+    # Who bound the TypeScript references, "checker" or "tree-sitter", and why not the checker.
+    binder: str = "tree-sitter"
+    binder_reason: str | None = Field(None, alias="binderReason")
+    # Checker mode: unbound references by reason, module declarations that joined no symbol, TS files outside the Program.
+    unbound: Dict[str, int] = Field(default_factory=dict)
+    mismatched: int = 0
+    outside_program: int = Field(0, alias="outsideProgram")
+
+
+class SymbolAt(BaseModel):
+    """The symbol bound at a source position, or the candidates when the index cannot tell."""
+
+    id: str | None = None
+    candidates: List[str] = Field(default_factory=list)
+    index: SymbolIndexInfo
 
 
 class SymbolGraph(BaseModel):

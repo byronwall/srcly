@@ -10,6 +10,7 @@ import { routePathResultSchema } from "./route-path";
 import { routesResultSchema } from "./routes";
 import { selectExpressionResultSchema, valueFlowResultSchema } from "./value-flow";
 import { statusResultSchema } from "./status";
+import { symbolRefsResultSchema } from "./symbol-refs";
 
 /**
  * Every op result the server and client read, by op name. `pnpm
@@ -29,4 +30,5 @@ export const CONTRACTS: { op: string; typeName: string; schema: z.ZodType }[] = 
   { op: "routePath", typeName: "RoutePathResult", schema: routePathResultSchema },
   { op: "fileSignals", typeName: "FileSignalsResult", schema: fileSignalsResultSchema },
   { op: "flowSignature", typeName: "FlowSignatureResult", schema: flowSignatureResultSchema },
+  { op: "symbolRefs", typeName: "SymbolRefsResult", schema: symbolRefsResultSchema },
 ];

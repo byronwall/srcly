@@ -13,8 +13,8 @@ import { DialogShell } from "../dialog/DialogShell";
 import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
 import { InspectMenu } from "./InspectMenu";
-import { searchSymbols } from "../../symbols/api";
-import { identifierAt } from "../../symbols/identifier";
+import { fetchSymbolAt } from "../../symbols/api";
+import { identifierRangeAt } from "../../symbols/identifier";
 import { refsPatch, traceAnchorPatch } from "../../navigation/nodeActions";
 import { ValueFlowLedger } from "./ValueFlowLedger";
 import { createEffectsQuery, EffectsPanel } from "../../dataflow/EffectsPanel";
@@ -213,20 +213,19 @@ export default function CodeModal(props: CodeModalProps) {
       props.onClose();
       go(traceAnchorPatch({ file: at, span: candidate.span }, direction));
     },
-    // Show references: the identifier under the caret, looked up in the symbol index (this file's symbol first).
-    onReferences: ({ line, column }) => {
+    // Show references: the symbol the index binds at the caret's position, never a search by name.
+    onReferences: async ({ line, column }) => {
       const at = props.rootPath && props.filePath ? atFromTreePath(props.filePath, props.rootPath) : null;
       const text = (rawCode() ?? "").split("\n")[line - 1] ?? "";
-      const name = identifierAt(text, column);
-      if (at === null || !name || !props.rootPath) return;
-      void searchSymbols({ path: props.rootPath, q: name, limit: 50 }).then((res) => {
-        const exact = res.hits.filter((h) => h.name === name);
-        // On a declaration, that declaration: a type and a value of one name are two symbols.
-        const hit = exact.find((h) => h.file === at && h.line === line) ?? exact.find((h) => h.file === at) ?? exact[0] ?? res.hits[0];
-        if (!hit) return;
-        props.onClose();
-        go(refsPatch({ at: hit.id }));
-      });
+      // The identifier's first column: a caret just past its last letter still names it.
+      const word = identifierRangeAt(text, column);
+      if (at === null || !word || !props.rootPath) return "No name here";
+      const name = word.name;
+      const res = await fetchSymbolAt({ path: props.rootPath, file: at, line, column: word.column, name });
+      if (!res.id) return res.candidates.length ? `"${name}" could be ${res.candidates.length} symbols here` : `No symbol is bound to "${name}" here`;
+      props.onClose();
+      go(refsPatch({ symbol: res.id }));
+      return null;
     },
   });
   /** The ledger's rows are marked through the metric overlay while this is on. */

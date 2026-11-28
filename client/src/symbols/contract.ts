@@ -48,6 +48,20 @@ export interface SymbolIndexInfo {
   /** Client requests joined to a handler of the index, and ones nothing answers. */
   httpLinks?: number;
   httpUnmatched?: number;
+  /** Who bound the TypeScript references: the engine's checker, or tree-sitter names with the reason. */
+  binder?: "checker" | "tree-sitter";
+  binderReason?: string;
+  /** Checker mode: unbound references by reason, module declarations that joined no symbol, TS files outside the Program. */
+  unbound?: Record<string, number>;
+  mismatched?: number;
+  outsideProgram?: number;
+}
+
+/** The symbol bound at a source position, or the candidates when the index cannot tell. */
+export interface SymbolAt {
+  id?: string;
+  candidates: string[];
+  index: SymbolIndexInfo;
 }
 
 export interface SymbolGraph {

@@ -2,6 +2,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { parseArgs } from "../cli/args";
 import { createAnalyzer } from "../core";
+import type { ProgramResolution } from "../project/typescript";
 import { createCompleteProgramEvidenceProvider, createLazyProgramEvidenceProvider, type EvidenceRelationProvider } from "../analysis/evidence-relation-provider";
 import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { ProgramEvidenceCollector } from "../analysis/program-evidence-collector";
@@ -86,6 +87,8 @@ export type TsTier1 = BaseTier1 & {
   surface: (routeKey: string, cancellation?: AnalysisCancellationToken) => RouteSurfaceRecord | null;
   /** Tier 2: the full legacy report. Slow; only batch signals call it. */
   fullReport: () => AnalysisReport;
+  /** The tsconfigs found and the primary one, whose options the Program uses. */
+  resolution: ProgramResolution;
 };
 
 export type Tier1 = TsTier1 | PythonTier1;
@@ -220,6 +223,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
         return totality;
       },
       fullReport: () => (report ??= analyzer.report()),
+      resolution: analyzer.resolution,
     };
     built.host = createTypescriptHost(built);
     return built;

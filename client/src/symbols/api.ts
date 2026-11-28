@@ -1,4 +1,4 @@
-import type { SymbolGraph, SymbolPath, SymbolSearch, SymbolStats } from "./contract";
+import type { SymbolAt, SymbolGraph, SymbolPath, SymbolSearch, SymbolStats } from "./contract";
 
 export class SymbolApiError extends Error {
   status: number;
@@ -37,6 +37,11 @@ export function fetchSymbolPath(req: { path: string; from: string; to: string; k
 /** Unreferenced symbols, test-only ones and the top hubs of the whole index. */
 export function fetchSymbolStats(req: { path: string; limit?: number; hubs?: number }): Promise<SymbolStats> {
   return get<SymbolStats>("/api/symbols/stats", { path: req.path, limit: req.limit, hubs: req.hubs });
+}
+
+/** The symbol bound at a source position (1-based line, 1-based UTF-16 column): Show references. Never a name search. */
+export function fetchSymbolAt(req: { path: string; file: string; line: number; column: number; name: string }): Promise<SymbolAt> {
+  return get<SymbolAt>("/api/symbols/at", { path: req.path, file: req.file, line: req.line, column: req.column, name: req.name });
 }
 
 export function searchSymbols(req: { path: string; q: string; limit?: number; tests?: boolean }): Promise<SymbolSearch> {

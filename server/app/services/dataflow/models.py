@@ -524,6 +524,55 @@ class FileExportsResponse(BaseModel):
     exports: FileExportsResult | None = None
 
 
+# ---- symbol refs (contracts/symbolRefs.schema.json) ---------------------------
+
+
+class SymbolRefTarget(BaseModel):
+    file: str
+    name: str
+    line: int
+    column: int
+    meaning: Literal["value", "type"]
+    scope: Literal["module", "member", "local"]
+
+
+class SymbolRef(BaseModel):
+    line: int
+    column: int
+    endColumn: int
+    kind: Literal["call", "instantiate", "read", "write", "type", "extends", "implements"]
+    source: int | None
+    target: int | None
+    also: list[int] | None = None
+    clause: Literal[True] | None = None
+    unbound: Literal["unresolved", "any"] | None
+
+
+class SymbolRefsFile(BaseModel):
+    file: str
+    refs: list[SymbolRef]
+
+
+class SymbolRefsCounts(BaseModel):
+    files: int
+    bound: int
+    unbound: int
+    external: int
+
+
+class SymbolRefsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    nullProof: bool
+    reason: str | None
+    targets: list[SymbolRefTarget]
+    files: list[SymbolRefsFile]
+    counts: SymbolRefsCounts
+
+
 # ---- function effects (contracts/functionEffects.schema.json) ----------------
 
 

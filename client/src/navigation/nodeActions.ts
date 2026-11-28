@@ -62,9 +62,10 @@ export function addAnchorPatch(target: { at: string; line?: number }, current: L
 
 /**
  * Where "Show references" takes the view: Symbols mode centred on the
- * symbol `at` names (a file shows its module and top-level symbols).
+ * symbol `at` names (a file shows its module and top-level symbols), or on
+ * `symbol`, an id the symbol index gave, which passes through unchanged.
  */
-export function refsPatch(target: { at: string }): Partial<Location> {
+export function refsPatch(target: { at: string } | { symbol: string }): Partial<Location> {
   return {
     view: "graph",
     flow: undefined,
@@ -74,7 +75,7 @@ export function refsPatch(target: { at: string }): Partial<Location> {
     dest: undefined,
     lens: undefined,
     open: undefined,
-    symbols: symbolIdOf(target.at) ?? "",
+    symbols: "symbol" in target ? target.symbol : (symbolIdOf(target.at) ?? ""),
     to: undefined,
   };
 }
