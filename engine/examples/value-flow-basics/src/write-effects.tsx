@@ -185,3 +185,21 @@ export function UnwrappedStore() {
   raw.k = "NEW";
   return <b>{s.k}</b>; // @trace we-unwrap backward s.k
 }
+
+// Under a path, Solid replaces an array: the array handed in is the value stored.
+export function ArrayReplace() {
+  const [s, set] = createStore({ todos: [{ title: "OLD" }] }); // @produces we-array initialization proven
+  set("todos", []); // @produces we-array write partial
+  return <b>{s.todos.length}</b>; // @trace we-array backward s.todos
+}
+
+// A plain name for the store, or a field of it, unwrapped and changed.
+export function UnwrappedAlias() {
+  const [s] = createStore({ k: "OLD", doc: { k: "D" } }); // @produces we-unwrap-alias initialization proven @caveat we-unwrap-alias mutable @produces we-unwrap-field initialization proven @caveat we-unwrap-field mutable
+  const view = s;
+  const raw = unwrap(view);
+  raw.k = "NEW";
+  const doc = unwrap(s.doc);
+  doc.k = "NEW";
+  return <b title={s.doc.k}>{s.k}</b>; // @trace we-unwrap-alias backward s.k @trace we-unwrap-field backward s.doc.k
+}

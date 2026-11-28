@@ -68,7 +68,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   // `await x` can be x itself (a value that is not a promise, or a promise that settles to it): the same object.
   const unwrap = (node: TypeScript.Node) => {
     let top = node;
-    while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
+    while (ts.isAsExpression(top.parent) || ts.isTypeAssertionExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
     return top;
   };
   /**
@@ -162,7 +162,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   /** The expression under parentheses and type assertions: the value itself. */
   const inner = (node: TypeScript.Node) => {
     let at = node;
-    while (ts.isParenthesizedExpression(at) || ts.isAsExpression(at) || ts.isSatisfiesExpression(at) || ts.isNonNullExpression(at)) at = at.expression;
+    while (ts.isParenthesizedExpression(at) || ts.isAsExpression(at) || ts.isTypeAssertionExpression(at) || ts.isSatisfiesExpression(at) || ts.isNonNullExpression(at)) at = at.expression;
     return at;
   };
   /**
@@ -285,17 +285,26 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       }
       // A store proxy rejects direct writes, but a library call that passes its argument through (`unwrap(store)`) hands back
       // the plain object, which the code can change.
-      if (getter && paths) {
-        for (const use of usesOf(getter)) {
-          const top = unwrap(use);
-          const call = ts.isCallExpression(top.parent) ? top.parent : null;
+      // The store's handle, a field of it (`store.doc`), or a plain name for either (`const view = store`) can be handed there.
+      const unwrapped = (name: TypeScript.Identifier, seen: Set<TypeScript.Node>) => {
+        for (const use of usesOf(name)) {
+          let top: TypeScript.Node = unwrap(use);
+          while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
+          const up = top.parent;
+          if (ts.isVariableDeclaration(up) && up.initializer === top && ts.isIdentifier(up.name) && !seen.has(up)) {
+            seen.add(up);
+            unwrapped(up.name, seen);
+            continue;
+          }
+          const call = ts.isCallExpression(up) ? up : null;
           const index = call ? call.arguments.indexOf(top as TypeScript.Expression) : -1;
           const imported = call && index >= 0 ? importedCallee(ts, checker, call.expression) : null;
           const row = imported ? frameworkRow(imported.module, imported.name) : null;
           const through = row?.model === "passes-through" && (row.flows ?? []).some((flow) => String(flow).replace(/\s/g, "") === `Argument[${index}]->ReturnValue`);
           if (through && changes(call!, new Set())) add("alias", call!, false);
         }
-      }
+      };
+      if (getter && paths) unwrapped(getter, new Set());
     }
     if (out && !aliasFree) for (const effect of out) effect.prefix = [];
     effects.set(declaration, out);
@@ -380,8 +389,9 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       if (!at) return true;
       const type = checker.getTypeAtLocation(at.node);
-      // Anything not a primitive and not only a function: an object, an intersection, a type parameter, `any`.
-      return (type.isUnion() ? type.types : [type]).some((member) => !isPrimitive(member) && member.getCallSignatures().length === 0);
+      // Anything not a primitive, an array or only a function: an object, an intersection, a type parameter, `any`.
+      // Under a path Solid replaces an array rather than merging it.
+      return (type.isUnion() ? type.types : [type]).some((member) => !isPrimitive(member) && member.getCallSignatures().length === 0 && !checker.isArrayType(member) && !checker.isTupleType(member));
     },
     ownReturns(file, span) {
       const at = nodeAt(file, span);
