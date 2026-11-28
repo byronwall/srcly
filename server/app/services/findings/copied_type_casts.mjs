@@ -19,8 +19,12 @@ const config = ts.getParsedCommandLineOfConfigFile(configPath, {}, {
   ...ts.sys,
   onUnRecoverableConfigFileDiagnostic: (d) => configError.push(ts.flattenDiagnosticMessageText(d.messageText, " ")),
 });
+// A broken config (a missing `extends` base) changes what the checker sees: N/A, not a clean 0.
+// TS18003 (no inputs) is an empty project, which checks nothing.
+const fatal = config?.errors.find((d) => d.code !== 18003);
+if (fatal) configError.push(ts.flattenDiagnosticMessageText(fatal.messageText, " "));
 if (!config || configError.length) {
-  console.log(JSON.stringify({ error: configError[0] ?? "unreadable tsconfig" }));
+  console.log(JSON.stringify({ error: `tsconfig: ${configError[0] ?? "unreadable"}` }));
   process.exit(0);
 }
 const program = ts.createProgram({
@@ -29,10 +33,12 @@ const program = ts.createProgram({
   projectReferences: config.projectReferences,
 });
 const checker = program.getTypeChecker();
-const scope = path.resolve(scopeDir) + path.sep;
+// The scan root: a folder, or one file.
+const scope = path.resolve(scopeDir);
+const inScope = (file) => file === scope || file.startsWith(scope + path.sep);
 const inNodeModules = (file) => file.split(/[\\/]/).includes("node_modules");
 const isProjectFile = (sf) =>
-  !sf.isDeclarationFile && !inNodeModules(sf.fileName) && path.resolve(sf.fileName).startsWith(scope);
+  !sf.isDeclarationFile && !inNodeModules(sf.fileName) && inScope(path.resolve(sf.fileName));
 // A declaration the project wrote, as opposed to one from a library or lib.d.ts.
 const isOwn = (sf) =>
   !program.isSourceFileDefaultLibrary(sf) && !program.isSourceFileFromExternalLibrary(sf) && !inNodeModules(sf.fileName);
@@ -43,13 +49,19 @@ function unwrapPromise(type) {
   return args?.length === 1 ? args[0] : null;
 }
 
+// Only these declare a type with a name another file can copy.
+const NAMED = ts.SymbolFlags.TypeAlias | ts.SymbolFlags.Interface | ts.SymbolFlags.Class | ts.SymbolFlags.Enum;
+
 // The named declaration behind a type: its alias (`type X = …`) or its
-// class/interface/enum symbol. Anonymous object types (`__type`, `__object`)
-// have no name to share and are left out.
+// class/interface/enum symbol. An enum member (`Status.Ready`, or the one
+// member of a one-member enum) stands for its enum. Anonymous object types,
+// type parameters and anything else are left out.
 function named(type) {
-  const sym = type.aliasSymbol ?? type.getSymbol();
+  if (type.flags & ts.TypeFlags.TypeParameter) return null;
+  let sym = type.aliasSymbol ?? type.getSymbol();
+  if (sym && sym.flags & ts.SymbolFlags.EnumMember) sym = sym.parent;
   const decl = sym?.declarations?.[0];
-  if (!sym || !decl || sym.getName().startsWith("__")) return null;
+  if (!sym || !decl || !(sym.flags & NAMED)) return null;
   const sf = decl.getSourceFile();
   return {
     sym,

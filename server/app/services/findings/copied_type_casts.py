@@ -27,14 +27,16 @@ files are skipped. It is not run for portable (compare) snapshots.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
 from app.services.deps.common import is_test_path
 from app.services.findings import typescript
 from app.services.findings.model import Finding, rel_label
-from app.services.findings.tools import MissingTool, Tool, ToolFailed, find_up, first_line, run_process, timeout_for
+from app.services.findings.tools import _PRUNED_DIRS, Tool, ToolFailed, find_up, first_line, run_process, timeout_for
 
 SCRIPT = Path(__file__).with_name("copied_type_casts.mjs")
 RULE = "copied-type-cast"
@@ -54,20 +56,26 @@ def _where(file: str, line: int, root: Path) -> str:
     return f"{path.name}:{line}"
 
 
-def parse_output(stdout: str, root: Path, tool_id: str) -> tuple[list[Finding], list[str]]:
+def _base(root: Path) -> Path:
+    return root if root.is_dir() else root.parent
+
+
+def parse_output(stdout: str, root: Path, tool_id: str, display: Optional[Path] = None) -> tuple[list[Finding], list[str]]:
+    """The script's JSON as findings. Declarations show relative to ``display`` (the tsconfig's folder)."""
     try:
         data = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise ToolFailed(f"unreadable JSON output ({exc.msg})") from exc
     if data.get("error"):
         raise ToolFailed(str(data["error"]))
+    base = _base(root)
+    shown = display or base
 
     def keep(file: str) -> bool:
-        try:
-            rel = Path(file).relative_to(root).as_posix()
-        except ValueError:
+        path = Path(file)
+        if path != root and root not in path.parents:
             return False
-        return not is_test_path(rel)
+        return not is_test_path(path.relative_to(base).as_posix())
 
     files = [f for f in data.get("files", []) if keep(f)]
     findings = []
@@ -83,8 +91,8 @@ def parse_output(stdout: str, root: Path, tool_id: str) -> tuple[list[Finding], 
                 column=cast["column"],
                 rule=RULE,
                 message=(
-                    f"`{cast['text']}` casts the `{name}` from {_where(src['file'], src['line'], root)} "
-                    f"to a different `{name}`, declared in {_where(tgt['file'], tgt['line'], root)}. "
+                    f"`{cast['text']}` casts the `{name}` from {_where(src['file'], src['line'], shown)} "
+                    f"to a different `{name}`, declared in {_where(tgt['file'], tgt['line'], shown)}. "
                     f"The cast keeps tsc from comparing the two copies. Keep one declaration, import it, "
                     f"and drop the cast."
                 ),
@@ -93,6 +101,28 @@ def parse_output(stdout: str, root: Path, tool_id: str) -> tuple[list[Finding], 
             )
         )
     return findings, files
+
+
+_INPUTS = typescript.TS_EXTENSIONS + (".json",)
+
+
+def project_inputs(directory: Path) -> str:
+    """A digest of the TS and JSON files under a tsconfig's folder (path, size, mtime).
+
+    The checker reads files outside the scanned folder (a sibling's exported
+    type), so the scan's own fingerprint cannot tell when a cached result is stale.
+    """
+    digest = hashlib.sha256()
+    for dirpath, dirnames, filenames in os.walk(directory):
+        dirnames[:] = sorted(d for d in dirnames if d not in _PRUNED_DIRS and not d.startswith("."))
+        for name in sorted(filenames):
+            if name.endswith(_INPUTS):
+                try:
+                    st = os.stat(os.path.join(dirpath, name))
+                except OSError:
+                    continue
+                digest.update(f"{dirpath}/{name}:{st.st_size}:{st.st_mtime_ns}\n".encode())
+    return digest.hexdigest()[:16]
 
 
 class CopiedTypeCastTool(Tool):
@@ -113,27 +143,50 @@ class CopiedTypeCastTool(Tool):
         self.config = config
         self.node = node
 
+    def signature(self) -> str:
+        return f"{super().signature()}|inputs={project_inputs(self.config.parent)}"
+
     def check(self):
         root = self.root.resolve()
         out = run_process([self.node, str(SCRIPT), str(self.config), str(root)], self.config.parent, self.timeout)
         if out.returncode != 0:
             raise ToolFailed(first_line(out.stderr or out.stdout) or f"exit code {out.returncode}")
-        return parse_output(out.stdout, root, self.id)
+        return parse_output(out.stdout, root, self.id, self.config.parent)
+
+
+def _configs(root: Path, stop: Optional[Path]) -> list[tuple[Path, str]]:
+    """Every tsconfig for ``root``, with why the rule cannot check it (empty when it can)."""
+    from app.services.dataflow.availability import locate_node
+
+    node = locate_node()
+    out = []
+    for index, config in enumerate(typescript.tsconfigs(root, stop)):
+        why = ""
+        if index >= typescript.MAX_TSC_PROJECTS:
+            why = f"over the limit of {typescript.MAX_TSC_PROJECTS} projects"
+        elif not find_up(config.parent, "node_modules/typescript/package.json"):
+            why = "no node_modules/typescript"
+        elif node is None:
+            why = "no Node on PATH (set SRCLY_NODE)"
+        out.append((config, why))
+    return out
 
 
 def plan(root: Path, stop: Optional[Path] = None) -> list[Tool]:
-    """One run per tsconfig (as many as ``tsc`` gets) whose project has a ``typescript`` package; none otherwise."""
+    """One run per tsconfig the rule can check, as many as ``tsc`` gets."""
     from app.services.dataflow.availability import locate_node
 
-    configs = [
-        config
-        for config in typescript.tsconfigs(root, stop)[: typescript.MAX_TSC_PROJECTS]
-        if find_up(config.parent, "node_modules/typescript/package.json")
-    ]
-    if not configs:
-        return []
-    node = locate_node()
-    if node is None:
-        return [MissingTool("srcly-casts", "srcly-casts", "srcly copied-type casts", root, typescript.TS_EXTENSIONS, "no Node on PATH (set SRCLY_NODE)")]
     label_base = stop or root
-    return [CopiedTypeCastTool(root, config, node, label_base) for config in configs]
+    configs = [config for config, why in _configs(root, stop) if not why]
+    node = locate_node() if configs else None
+    return [CopiedTypeCastTool(root, config, node, label_base) for config in configs] if node else []
+
+
+def unscheduled(root: Path, stop: Optional[Path] = None) -> list[tuple[str, str, str]]:
+    """Configs ``plan`` leaves out: (tool, label, reason). ``srcly findings`` reads the rule's count as N/A for them."""
+    label_base = stop or root
+    return [
+        ("srcly-casts", f"srcly copied-type casts ({rel_label(config, label_base)})", why)
+        for config, why in _configs(root, stop)
+        if why
+    ]
