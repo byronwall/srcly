@@ -111,7 +111,11 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     if (ts.isTemplateSpan(up) && ts.isTaggedTemplateExpression(up.parent.parent)) return true;
     // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
     if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
-    if (ts.isVariableDeclaration(up) && up.initializer === top) return !ts.isIdentifier(up.name) || changedBinding(up, undefined, seen);
+    if (ts.isVariableDeclaration(up) && up.initializer === top) {
+      if (ts.isIdentifier(up.name)) return changedBinding(up, undefined, seen);
+      // `const { width, height } = size()`: fields copied out as primitives carry no object to change.
+      return !(ts.isObjectBindingPattern(up.name) && up.name.elements.every((element) => !element.dotDotDotToken && ts.isIdentifier(element.name) && isPrimitive(checker.getTypeAtLocation(element.name))));
+    }
     return ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
   };
   /** `installed`: the assignment that put the object in the binding (`o = { … }`), which is no write to it. */

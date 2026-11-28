@@ -218,3 +218,10 @@ export function ArrayUpdater() {
   set("todos", (todos) => [...todos, { title: "NEW" }]); // @produces we-array-updater write partial
   return <b>{s.todos.length}</b>; // @trace we-array-updater backward s.todos
 }
+
+// Fields copied out of what a getter returned, as primitives, change nothing.
+export function DestructuredRead() {
+  const [size] = createSignal({ width: 0, height: 0 }); // @produces we-destructure initialization proven @no-caveat we-destructure
+  const { width, height } = size();
+  return <b title={String(width + height)}>{size().width}</b>; // @trace we-destructure backward size().width
+}
