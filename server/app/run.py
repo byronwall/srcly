@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "changes", "fix", "check", "trace", "impact"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "changes", "fix", "check", "refs", "trace", "impact"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -502,6 +502,15 @@ def _run_headless(argv: list[str]) -> None:
         "--budget", default=None, help="The size_budget.json to compare with. Defaults to <path>/.srcly/size_budget.json."
     )
 
+    refs_parser = subparsers.add_parser(
+        "refs", help="List every declaration of a name and what references each one, from the symbol index."
+    )
+    refs_parser.add_argument("query", help="A name (every declaration with it), file#Qualified.name, or file::Qualified.name.")
+    refs_parser.add_argument("path", nargs="?", help="Project folder. Defaults to the enclosing Git repo root.")
+    refs_parser.add_argument("--format", choices=("md", "json"), default="md", help="md (default) or json.")
+    refs_parser.add_argument("--limit", type=_positive_int, default=20, help="Referencing symbols shown per declaration (default 20).")
+    refs_parser.add_argument("--no-tests", action="store_true", help="Leave references from test files out.")
+
     _add_trace_parsers(subparsers)
 
     args = parser.parse_args(argv)
@@ -523,6 +532,11 @@ def _dispatch(args) -> None:
         from app.services.findings import fixes
 
         print(fixes.run(_resolve_target_path(args.path), set(args.rule or ()), apply=args.write))
+        return
+    if args.command == "refs":
+        from app.services.symbols import refs
+
+        print(refs.run(_resolve_target_path(args.path), args.query, args.format, args.limit, tests=not args.no_tests))
         return
     if args.command == "check":
         from app.services import size_budget
