@@ -145,6 +145,8 @@ export function baseName(file: string): string {
 /**
  * The code-viewer location for a symbol: its file, and its top-level
  * declaration's name (a member opens through its class; the line lands it).
+ * A type that shares its name with a value keeps its suffix (`src/a.ts#A@type`), so
+ * "Show references" stays on the type; the code viewer drops it to find the name.
  */
 export function atOf(id: string): string {
   const qualified = qualifiedOf(id);

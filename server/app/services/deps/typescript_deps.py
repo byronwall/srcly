@@ -6,7 +6,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 import tree_sitter_typescript as tstypescript
 from tree_sitter import Language, Node, Parser
@@ -62,6 +62,10 @@ class TsFileInfo:
     reexports: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     # `export * from "x"`
     star_reexports: List[str] = field(default_factory=list)
+    # local name → (source spec, imported name) of each static import binding ("*" for a namespace)
+    import_locals: Dict[str, Tuple[str, str]] = field(default_factory=dict)
+    # local names `export { a }` or `export default a` exports, in every namespace they have
+    clause_exports: Set[str] = field(default_factory=set)
     declarations: List[SymbolDef] = field(default_factory=list)
     # Top-level declaration nodes, kept for symbol-usage analysis.
     decl_nodes: Dict[str, Node] = field(default_factory=dict)
@@ -131,10 +135,12 @@ def _parse_import(stmt: Node, info: TsFileInfo, line: int) -> None:
     for c in clause.children:
         if c.type == "identifier":
             imp.names.append(ImportedName("default", _text(c), type_only))
+            info.import_locals[_text(c)] = (spec, "default")
         elif c.type == "namespace_import":
             ident = next((x for x in c.children if x.type == "identifier"), None)
             imp.kind = "namespace"
             imp.names.append(ImportedName("*", _text(ident), type_only))
+            info.import_locals[_text(ident)] = (spec, "*")
         elif c.type == "named_imports":
             for s in c.children:
                 if s.type != "import_specifier":
@@ -142,6 +148,7 @@ def _parse_import(stmt: Node, info: TsFileInfo, line: int) -> None:
                 name = _text(s.child_by_field_name("name"))
                 alias = _text(s.child_by_field_name("alias")) or name
                 imp.names.append(ImportedName(name, alias, type_only or _has_type_keyword(s)))
+                info.import_locals[alias] = (spec, name)
     info.imports.append(imp)
 
 
@@ -177,6 +184,7 @@ def _parse_export(stmt: Node, info: TsFileInfo, line: int) -> None:
                 name = _text(s.child_by_field_name("name"))
                 alias = _text(s.child_by_field_name("alias")) or name
                 info.local_exports[alias] = name
+                info.clause_exports.add(name)
         return
 
     is_default = any(c.type == "default" for c in stmt.children)
@@ -191,6 +199,8 @@ def _parse_export(stmt: Node, info: TsFileInfo, line: int) -> None:
         value = stmt.child_by_field_name("value")
         local = _text(value) if value is not None and value.type == "identifier" else "default"
         info.local_exports["default"] = local
+        if local != "default":
+            info.clause_exports.add(local)
         if local == "default":
             info.declarations.append(SymbolDef("default", "value", line, exported=True))
 
@@ -209,7 +219,13 @@ def _record_declaration(node: Node, info: TsFileInfo, exported: bool) -> List[st
             if d.type != "variable_declarator":
                 continue
             name_node = d.child_by_field_name("name")
-            if name_node is None or name_node.type != "identifier":
+            if name_node is None:
+                continue
+            if name_node.type != "identifier":
+                # `const { a, b } = x`: each bound name is a top-level variable.
+                for name in pattern_names(name_node):
+                    names.append(name)
+                    info.declarations.append(SymbolDef(name, "variable", d.start_point[0] + 1, exported))
                 continue
             value = d.child_by_field_name("value")
             kind = "function" if value is not None and value.type in ("arrow_function", "function_expression", "function") else "variable"
@@ -218,6 +234,26 @@ def _record_declaration(node: Node, info: TsFileInfo, exported: bool) -> List[st
             info.declarations.append(SymbolDef(name, kind, d.start_point[0] + 1, exported))
             info.decl_nodes[name] = d
     return names
+
+
+def pattern_names(pattern: Node) -> Iterator[str]:
+    """Every bound identifier in a destructuring pattern."""
+    stack = [pattern]
+    while stack:
+        node = stack.pop()
+        t = node.type
+        if t in ("identifier", "shorthand_property_identifier_pattern"):
+            yield _text(node)
+        elif t == "pair_pattern":
+            v = node.child_by_field_name("value")
+            if v is not None:
+                stack.append(v)
+        elif t in ("object_assignment_pattern", "assignment_pattern"):
+            left = node.child_by_field_name("left")
+            if left is not None:
+                stack.append(left)
+        elif t in ("object_pattern", "array_pattern", "rest_pattern"):
+            stack.extend(node.named_children)
 
 
 class TsModuleResolver:
@@ -318,6 +354,14 @@ def _is_external_spec(spec: str) -> bool:
     return not (spec.startswith(".") or spec.startswith("/"))
 
 
+def _type_split(decls: List[SymbolDef]) -> Set[str]:
+    kinds: Dict[str, Set[str]] = {}
+    for d in decls:
+        kinds.setdefault(d.name, set()).add(d.kind)
+    # A class or an enum is a type and a value at once: an interface of its name merges into it.
+    return {n for n, k in kinds.items() if "type" in k and k & {"variable", "function", "value"} and not k & {"class", "enum"}}
+
+
 class TsProgram:
     """Every TS/JS file of a root parsed once, with module resolution and re-export passing."""
 
@@ -333,6 +377,18 @@ class TsProgram:
         self.resolver = TsModuleResolver(root, self.files)
         self._resolved: Dict[Tuple[Path, str], Optional[Path]] = {}
         self.declared: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in self.infos.items()}
+        # Names a file declares twice, once as a type only (interface, type alias) and once as a value only
+        # (variable, function): `export const A = B; export type A = B`. They are two symbols; see type_split.
+        self.type_split: Dict[Path, Set[str]] = {f: _type_split(i.declarations) for f, i in self.infos.items()}
+
+    def exported_as(self, file: Path, name: str, type_ns: bool) -> bool:
+        """Whether a split name (see type_split) is public in the type or the value namespace."""
+        info = self.infos.get(file)
+        if info is None:
+            return False
+        if name in info.clause_exports:
+            return True
+        return any(d.name == name and d.exported and (d.kind == "type") == type_ns for d in info.declarations)
 
     def resolve(self, spec: str, from_file: Path) -> Optional[Path]:
         key = (from_file.parent, spec) if not spec.startswith(".") else (from_file, spec)
@@ -350,7 +406,14 @@ class TsProgram:
         if info is None:
             return file, name
         if name in info.local_exports:
-            return file, info.local_exports[name]
+            local = info.local_exports[name]
+            # `import { A } from "./a"; export { A }`: the export names an import, so A lives in ./a.
+            src = info.import_locals.get(local)
+            if src is not None and local not in self.declared.get(file, set()) and src[1] != "*":
+                target = self.resolve(src[0], file)
+                if target is not None and target != file:
+                    return self.find_definer(target, src[1], depth + 1, seen)
+            return file, local
         if name in info.reexports:
             spec, imported = info.reexports[name]
             target = self.resolve(spec, file)

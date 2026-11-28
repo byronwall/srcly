@@ -367,7 +367,7 @@ function AppContent(props: { active: boolean }) {
     if (node && scopes.length === 1 && typeof line === "number") {
       const fileNode = node.type === "file" ? node : findTreeNodeByPath(data, treePathFromAt(symbolFile, rootPath()));
       const byLine = findScopeForSymbol(fileNode, scopes[0], line);
-      if (byLine && (node.type === "file" || normalizeScopeName(String(byLine.name ?? "")) === scopes[0])) {
+      if (byLine && (node.type === "file" || normalizeScopeName(String(byLine.name ?? "")) === normalizeScopeName(scopes[0]))) {
         node = byLine;
       } else if (node.type === "file") {
         const path = extractFilePath(node.path, node.type);

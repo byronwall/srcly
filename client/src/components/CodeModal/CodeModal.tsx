@@ -221,7 +221,8 @@ export default function CodeModal(props: CodeModalProps) {
       if (at === null || !name || !props.rootPath) return;
       void searchSymbols({ path: props.rootPath, q: name, limit: 50 }).then((res) => {
         const exact = res.hits.filter((h) => h.name === name);
-        const hit = exact.find((h) => h.file === at) ?? exact[0] ?? res.hits[0];
+        // On a declaration, that declaration: a type and a value of one name are two symbols.
+        const hit = exact.find((h) => h.file === at && h.line === line) ?? exact.find((h) => h.file === at) ?? exact[0] ?? res.hits[0];
         if (!hit) return;
         props.onClose();
         go(refsPatch({ at: hit.id }));

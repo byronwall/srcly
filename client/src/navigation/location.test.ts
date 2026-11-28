@@ -271,6 +271,8 @@ describe("Symbols mode (`symbols`)", () => {
     expect(symbolIdOf("src/store.ts#Store")).toBe("src/store.ts#Store");
     expect(symbolIdOf("a.py#Foo (class)::run")).toBe("a.py#Foo.run");
     expect(symbolIdOf("src/a.tsx#<Panel>")).toBeNull();
+    expect(symbolIdOf("src/a.ts#A@type")).toBe("src/a.ts#A@type");
+    expect(normalizeScopeName("A@type")).toBe("A");
     expect(symbolIdOf("")).toBeNull();
     expect(symbolIdOf("ext:react")).toBeNull();
   });
