@@ -203,3 +203,18 @@ export function UnwrappedAlias() {
   doc.k = "NEW";
   return <b title={s.doc.k}>{s.k}</b>; // @trace we-unwrap-alias backward s.k @trace we-unwrap-field backward s.doc.k
 }
+
+// An old object with its own prototype is replaced, not merged: the omitted field is gone.
+const base = { kind: "doc" };
+export function CustomPrototypeMerge() {
+  const [s, set] = createStore({ doc: Object.assign(Object.create(base) as { k?: string; other: number }, { k: "OLD", other: 0 }) }); // @produces-open we-prototype
+  set("doc", { other: 1 });
+  return <b>{String(s.doc.k)}</b>; // @trace we-prototype backward s.doc.k
+}
+
+// A path updater that returns an array: Solid stores it as it is.
+export function ArrayUpdater() {
+  const [s, set] = createStore({ todos: [{ title: "OLD" }] }); // @produces we-array-updater initialization proven
+  set("todos", (todos) => [...todos, { title: "NEW" }]); // @produces we-array-updater write partial
+  return <b>{s.todos.length}</b>; // @trace we-array-updater backward s.todos
+}
