@@ -76,6 +76,8 @@ export type ProducerHooks = {
   callable(element: ProgramElement): boolean;
   /** An object literal the code changes after building it (`LanguageHost.mutable`): its members are not the field's only value. */
   mutable(pack: ProgramElement): boolean;
+  /** The right side of a compound assignment (`LanguageHost.combinedWrite`): `n += 1` stores n + 1, not 1. */
+  combinedWrite(value: ProgramElement): boolean;
   /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
   mutatedBinding(binding: ProgramElement): boolean;
   /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
@@ -160,6 +162,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     // A field read pushes exactly its field; a path too deep to hold it no longer names the field.
     if (relation.kind === "field-input" && (path.length !== item.path.length + 1 || path.slice(0, -1).join(".") !== item.path.join("."))) return at(current.id, "widened");
     if (item.path.length === 0) return null;
+    // A compound write (`n.count += 1`) stores the old value combined with this one: an operand of the stored value.
+    if (relation.kind === "pack-field" && hooks.combinedWrite(target)) return at(target.id, "operand");
     // Into a caller's argument: only the function's one call site says which value the parameter holds.
     if (relation.kind === "argument-binding" && !hooks.oneCaller(current)) return at(current.id, "callers");
     // A destructured or defaulted binding, or a shifted argument, may hold another field or the default.
