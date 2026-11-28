@@ -145,9 +145,10 @@ export function baseName(file: string): string {
 /**
  * The code-viewer location for a symbol: its file, and its top-level
  * declaration's name (a member opens through its class; the line lands it).
+ * A type that shares its name with a value (`src/a.ts#A@type`) opens at that name.
  */
 export function atOf(id: string): string {
   const qualified = qualifiedOf(id);
   if (!qualified) return fileOf(id);
-  return `${fileOf(id)}#${qualified.split(".")[0]}`;
+  return `${fileOf(id)}#${qualified.split(".")[0].replace(/@type$/, "")}`;
 }

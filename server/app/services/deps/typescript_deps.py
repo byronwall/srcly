@@ -62,6 +62,8 @@ class TsFileInfo:
     reexports: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     # `export * from "x"`
     star_reexports: List[str] = field(default_factory=list)
+    # local name → (source spec, imported name) of each static import binding ("*" for a namespace)
+    import_locals: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     declarations: List[SymbolDef] = field(default_factory=list)
     # Top-level declaration nodes, kept for symbol-usage analysis.
     decl_nodes: Dict[str, Node] = field(default_factory=dict)
@@ -131,10 +133,12 @@ def _parse_import(stmt: Node, info: TsFileInfo, line: int) -> None:
     for c in clause.children:
         if c.type == "identifier":
             imp.names.append(ImportedName("default", _text(c), type_only))
+            info.import_locals[_text(c)] = (spec, "default")
         elif c.type == "namespace_import":
             ident = next((x for x in c.children if x.type == "identifier"), None)
             imp.kind = "namespace"
             imp.names.append(ImportedName("*", _text(ident), type_only))
+            info.import_locals[_text(ident)] = (spec, "*")
         elif c.type == "named_imports":
             for s in c.children:
                 if s.type != "import_specifier":
@@ -142,6 +146,7 @@ def _parse_import(stmt: Node, info: TsFileInfo, line: int) -> None:
                 name = _text(s.child_by_field_name("name"))
                 alias = _text(s.child_by_field_name("alias")) or name
                 imp.names.append(ImportedName(name, alias, type_only or _has_type_keyword(s)))
+                info.import_locals[alias] = (spec, name)
     info.imports.append(imp)
 
 
@@ -318,6 +323,14 @@ def _is_external_spec(spec: str) -> bool:
     return not (spec.startswith(".") or spec.startswith("/"))
 
 
+def _type_split(decls: List[SymbolDef]) -> Set[str]:
+    kinds: Dict[str, Set[str]] = {}
+    for d in decls:
+        kinds.setdefault(d.name, set()).add(d.kind)
+    # A class or an enum is a type and a value at once: an interface of its name merges into it.
+    return {n for n, k in kinds.items() if "type" in k and k & {"variable", "function", "value"} and not k & {"class", "enum"}}
+
+
 class TsProgram:
     """Every TS/JS file of a root parsed once, with module resolution and re-export passing."""
 
@@ -333,6 +346,9 @@ class TsProgram:
         self.resolver = TsModuleResolver(root, self.files)
         self._resolved: Dict[Tuple[Path, str], Optional[Path]] = {}
         self.declared: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in self.infos.items()}
+        # Names a file declares twice, once as a type only (interface, type alias) and once as a value only
+        # (variable, function): `export const A = B; export type A = B`. They are two symbols; see type_split.
+        self.type_split: Dict[Path, Set[str]] = {f: _type_split(i.declarations) for f, i in self.infos.items()}
 
     def resolve(self, spec: str, from_file: Path) -> Optional[Path]:
         key = (from_file.parent, spec) if not spec.startswith(".") else (from_file, spec)
@@ -350,7 +366,14 @@ class TsProgram:
         if info is None:
             return file, name
         if name in info.local_exports:
-            return file, info.local_exports[name]
+            local = info.local_exports[name]
+            # `import { A } from "./a"; export { A }`: the export names an import, so A lives in ./a.
+            src = info.import_locals.get(local)
+            if src is not None and local not in self.declared.get(file, set()) and src[1] != "*":
+                target = self.resolve(src[0], file)
+                if target is not None and target != file:
+                    return self.find_definer(target, src[1], depth + 1, seen)
+            return file, local
         if name in info.reexports:
             spec, imported = info.reexports[name]
             target = self.resolve(spec, file)

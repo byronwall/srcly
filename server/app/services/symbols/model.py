@@ -10,7 +10,10 @@ extends or names another, inside a file as well as across files.
 Ids are ``<file>#<qualified>``: ``src/store.ts#Store`` for a top-level
 declaration (the same id the dependency graph gives it), ``src/store.ts#Store.bump``
 for a member or a nested function. A file's module-level code is the node
-``<file>`` of kind ``module``.
+``<file>`` of kind ``module``. TypeScript keeps types and values apart: when a
+file declares a type-only ``A`` (interface, type alias) and a value-only ``A``
+(variable, function), the value is ``src/a.ts#A`` and the type is
+``src/a.ts#A@type``, and each reference names the one its position uses.
 
 Every reference says how it was resolved, because a name-based extractor
 cannot always be sure:
