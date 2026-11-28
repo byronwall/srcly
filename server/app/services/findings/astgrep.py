@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -32,6 +33,10 @@ _LANG_EXTENSIONS = {
 }
 
 
+# ``id: name``, quoted or not, with or without a trailing comment.
+_RULE_ID = re.compile(r"""^id:[ \t]*["']?([^"'#\s]+)""", re.M)
+
+
 def rule_files(rules_dir: Path) -> list[Path]:
     return sorted(p for p in rules_dir.glob("*.y*ml") if p.suffix in (".yml", ".yaml"))
 
@@ -50,10 +55,9 @@ def _languages(rules: list[Path]) -> tuple[str, ...]:
 def rule_ids(rules: list[Path]) -> tuple[str, ...]:
     """Each rule's ``id:`` line."""
     return tuple(
-        line.split(":", 1)[1].strip().strip("'\"")
+        match
         for path in rules
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if line.startswith("id:")
+        for match in _RULE_ID.findall(path.read_text(encoding="utf-8", errors="replace"))
     )
 
 
@@ -121,7 +125,11 @@ class AstGrepTool(Tool):
         # ast-grep exits 1 when an error-severity rule matches; that is a result, not a failure.
         if out.returncode not in (0, 1) or (out.returncode == 1 and not out.stdout.strip()):
             raise ToolFailed(first_line(out.stderr) or f"exit code {out.returncode}")
-        return parse_output(out.stdout, cwd, self.id), None
+        from app.services.analysis import discover_files
+
+        # No file in a rule's language means the pack checked nothing here.
+        files = [f for f in discover_files(self.root).files if f.endswith(self.extensions)] if self.extensions else []
+        return parse_output(out.stdout, cwd, self.id), files
 
 
 def plan(root: Path, stop: Optional[Path] = None) -> list[Tool]:

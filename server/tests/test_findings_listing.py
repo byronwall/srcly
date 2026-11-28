@@ -46,6 +46,11 @@ def test_findings_lists_one_rule_with_a_count_and_never_reads_a_failed_checker_a
     main(["findings", str(root)])
     assert "Total: N/A (tsc (tsconfig.json) not run" in capsys.readouterr().out
 
+    # ruff ran, but its settings may leave the rule off: no finding is N/A, not 0.
+    (root / "ok.py").write_text("x = 1\n", encoding="utf-8")
+    main(["findings", str(root), "--rule", "B006"])
+    assert "B006: N/A (no finding, and srcly cannot tell whether ruff has this rule switched on" in capsys.readouterr().out
+
     # A checker that found no file to check says nothing about the code.
     (root / "api.ts").unlink()
     (root / "view.ts").unlink()

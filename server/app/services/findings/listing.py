@@ -2,7 +2,8 @@
 
 A count is a number only when every checker that could report the rule ran.
 Otherwise it is N/A with the reason, so a before/after check never reads a
-failed or empty run as 0.
+failed or empty run as 0. A ruff or eslint rule with no finding is N/A too:
+srcly cannot tell whether the project's settings switch it on.
 """
 
 from __future__ import annotations
@@ -34,12 +35,17 @@ def _family(rule: str) -> str:
 def _blockers(
     rule: Optional[str], tools: Sequence[Tool], runs: dict[str, ToolRun], skipped: Skipped, reporters: set[str]
 ) -> list[str]:
-    """Why the count for ``rule`` (``None``: all rules) is not complete; empty when it is."""
+    """
+    Why the count for ``rule`` (``None``: all rules) is not complete; empty
+    when it is. ``reporters``: the tools that found something for ``rule``.
+    """
     checkers, left_out, name = list(tools), list(skipped), "checker"
     if rule is not None:
         owners = [t for t in tools if rule in t.rules]
-        family = None if owners else _family(rule)
-        checkers = owners or [t for t in tools if t.tool == family or t.id in reporters]
+        # An ast-grep id is the project's choice, so it may also be an eslint rule's name.
+        shared = all(t.tool == "ast-grep" for t in owners)
+        family = _family(rule) if not owners else "eslint" if shared else None
+        checkers = [t for t in tools if t in owners or t.tool == family or t.id in reporters]
         left_out = [s for s in skipped if s[0] == family]
         name = " or ".join(t.label for t in owners) or f"{family} run"
     why = [runs[t.id].reason for t in checkers if not runs[t.id].ok]
@@ -47,6 +53,8 @@ def _blockers(
     # ``files`` is None when a tool does not say what it checked.
     if not why and not any(runs[t.id].files != [] for t in checkers):
         why = [f"no {name} checked a file"]
+    if not why and rule is not None and not reporters and not owners and family != "tsc":
+        why = [f"no finding, and srcly cannot tell whether {family} has this rule switched on"]
     return why
 
 
@@ -117,8 +125,8 @@ def render(payload: dict) -> str:
     lines += [f"Not checked: {t['checker']}: {t['reason']}" for t in payload["not_checked"]]
     if payload["unknown_rules"]:
         lines.append(
-            f"No finding and not a known rule: {', '.join(payload['unknown_rules'])}. Check the spelling "
-            f"(a tsc, eslint or ruff rule can be 0). Known rules: {', '.join(payload['known_rules'])}."
+            f"No finding and not a known rule: {', '.join(payload['unknown_rules'])}. Check the spelling. "
+            f"Known rules: {', '.join(payload['known_rules'])}."
         )
     return "\n".join(lines)
 

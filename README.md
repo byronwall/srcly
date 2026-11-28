@@ -94,7 +94,7 @@ Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `co
 
 `uvx srcly refs <name>` lists every declaration of a name and what references each one (`file::symbol` picks one). Use it to find every caller before you move or delete a symbol.
 
-`uvx srcly findings --rule duplicate-type` lists one rule's findings as `path:line rule message`, then the count. Repeat `--rule` for more rules, leave it out for all of them, or add `--format json`. Run it before and after a cleanup: the count reads N/A, with the reason, when a checker that could report the rule did not run.
+`uvx srcly findings --rule duplicate-type` lists one rule's findings as `path:line rule message`, then the count. Repeat `--rule` for more rules, leave it out for all of them, or add `--format json`. Run it before and after a cleanup: the count reads N/A, with the reason, when a checker that could report the rule did not run, and for a ruff or eslint rule with no finding.
 
 `uvx srcly fix` prints a diff of the safe fixes for srcly's own findings, and `--write` applies them: it drops an `export` that only its own file uses, and rewrites a cleanup function returned from `onMount`/`createEffect` (which Solid ignores) to `onCleanup()`. Deleting unreachable files runs only when you name the rule: `srcly fix --rule unreachable-file --write`. Reachability walks the TS import graph from detected entries; add entry globs in `srcly.toml` at the Git root under `[reachability] entries = [...]`.
 

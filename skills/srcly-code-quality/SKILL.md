@@ -58,7 +58,7 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Broad review: `uvx srcly report . --out .srcly --format both`
 - Review a branch or a coding session: `uvx srcly changes . --window branch` (or `24h`, `7d`; `--mode net` drops work that was put back; `--json` for the payload). It lists the edited functions and sections, before → after complexity, and two review buckets: already complex and changed, and new hotspots (complexity crossed 10). Paths are relative to the Git repo root.
 - Every declaration of a name and its callers (before you move or delete a symbol): `uvx srcly refs <name> .` (`file::symbol` picks one)
-- One rule's findings and count (a cleanup's before/after done check): `uvx srcly findings . --rule duplicate-type` (repeat `--rule`; `--format json`). An N/A count means a checker did not run, so it proves nothing
+- One rule's findings and count (a cleanup's before/after done check): `uvx srcly findings . --rule duplicate-type` (repeat `--rule`; `--format json`). An N/A count proves nothing; for a ruff or eslint rule, no finding reads N/A, so run that linter to prove zero
 - Single metric list: `uvx srcly hotspots . --metric complexity --limit 20` (any non-neutral id from `metrics.schema.json`; `--cohort function` ranks functions)
 - Report ranked by another metric: `uvx srcly report . --out .srcly --metric comment_noise`
 - Named 2x2 (members per quadrant in `report.md` + `quadrants.json`): `uvx srcly report . --out .srcly --quadrant activity` ("Hot mess" = complex and changing often; also `blast_radius`, `component_weight`, `comment_noise`)
