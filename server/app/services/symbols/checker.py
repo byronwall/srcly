@@ -73,6 +73,21 @@ def query(root: Path, registry=None) -> Tuple[Optional[SymbolRefsResult], Option
 _HOLDERS = frozenset({"type", "class", "enum", "variable"})
 
 
+def current_hash(root: Path, registry=None) -> Optional[str]:
+    """The program hash of the sources and tsconfigs as they are now (stat calls only), or None when the engine cannot say."""
+    from app.services.dataflow.engine import EngineError
+    from app.services.dataflow.engine import registry as shared
+
+    reg = registry if registry is not None else shared
+    if not reg.probe(root).available or reg.failure(root) is not None:
+        return None
+    try:
+        status = reg.query(root, "status", {})
+    except EngineError:
+        return None
+    return status.get("currentHash") or (status.get("programHash") if status.get("built") and not status.get("stale") else None)
+
+
 class _Files:
     """Each file's symbols, by name and by line span, for the join."""
 
@@ -91,7 +106,9 @@ class _Files:
         if t.name == "*":
             return t.file if t.file in self.modules else None
         want_type = t.meaning == "type"
-        held = [s for s in self.by_name.get((t.file, t.name), ()) if s.line <= t.line <= s.end_line]
+        # The declaration whose name is on that line: a shadowing parameter or an unindexed local
+        # inside a same-named symbol's body never joins it.
+        held = [s for s in self.by_name.get((t.file, t.name), ()) if any(line == t.line for line, _ in s.names)]
         if not held and t.scope == "member":
             # A member the index keeps no symbol for (an interface's field, an object type's member):
             # the type, class or variable that declares it, as a typed receiver gives today.

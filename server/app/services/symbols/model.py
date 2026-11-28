@@ -90,6 +90,9 @@ class Symbol:
     http_methods: List[str] = field(default_factory=list)
     http_path: Optional[str] = None
     http_router: Optional[str] = None
+    # Where the declaration's name is: (line, 1-based UTF-16 column), several when one id holds
+    # same-named locals. TypeScript only; empty for Python.
+    names: List[Tuple[int, int]] = field(default_factory=list)
 
     @property
     def qualified(self) -> str:

@@ -25,6 +25,8 @@ from app.services.deps.common import ImportBinding
 from app.services.deps.typescript_deps import TsFileInfo, TsProgram, _string_value, _text, pattern_names
 from app.services.symbols.model import HTTP_METHODS, FileSymbols, HttpRequest, PendingMember, RefKind, Reference, Symbol, SymbolKind
 
+# An anonymous function value: under `export default`, it is the declaration `default`.
+_FUNCTION_EXPRESSIONS = frozenset({"arrow_function", "function_expression", "function", "generator_function"})
 _FUNCTION_LIKE = {"function_declaration", "generator_function_declaration", "arrow_function", "function_expression", "function", "generator_function"}
 _CLASS_LIKE = {"class_declaration", "abstract_class_declaration"}
 _TYPE_DECLS: Dict[str, SymbolKind] = {"interface_declaration": "type", "type_alias_declaration": "type", "enum_declaration": "enum"}
@@ -61,6 +63,7 @@ class TsFileExtractor:
         self.split = program.type_split.get(path, set())
         self.by_id: Dict[str, Symbol] = {}
         self.scopes: List[_Scope] = [_Scope(symbol=rel, class_id=None)]
+        self._lines: Optional[List[bytes]] = None
 
     # ---- scopes and names ----
 
@@ -132,8 +135,11 @@ class TsFileExtractor:
     def _add(self, name: str, kind: SymbolKind, node: Node, container: Optional[str], exported: bool, suffix: str = "") -> Symbol:
         sid = f"{self.rel}#{name}{suffix}" if container is None or container == self.rel else f"{container}.{name}"
         existing = self.by_id.get(sid)
+        at = self._position(_name_node(node, name))
         if existing is not None:
             existing.end_line = max(existing.end_line, node.end_point[0] + 1)
+            if at not in existing.names:
+                existing.names.append(at)
             return existing
         sym = Symbol(
             id=sid,
@@ -144,12 +150,21 @@ class TsFileExtractor:
             end_line=node.end_point[0] + 1,
             container=None if container == self.rel else container,
             exported=exported,
+            names=[at],
         )
         self.by_id[sid] = sym
         self.out.symbols.append(sym)
         if container is not None and container != self.rel and container in self.by_id:
             self.by_id[container].members[name] = sid
         return sym
+
+    def _position(self, node: Node) -> Tuple[int, int]:
+        """A node's start as a 1-based line and 1-based UTF-16 column, the engine's and the client's unit."""
+        if self._lines is None:
+            self._lines = self.path.read_bytes().split(b"\n")
+        row, byte_col = node.start_point
+        prefix = self._lines[row][:byte_col] if row < len(self._lines) else b""
+        return row + 1, len(prefix.decode("utf-8", errors="replace").encode("utf-16-le")) // 2 + 1
 
     def _declare(self, name: str, kind: SymbolKind, node: Node) -> Symbol:
         """A symbol in the current scope: top-level, or nested in the scope's symbol."""
@@ -276,7 +291,10 @@ class TsFileExtractor:
             if decl is None:
                 if any(c.type == "default" for c in stmt.children):
                     value = stmt.child_by_field_name("value")
-                    if value is not None and value.type not in _FUNCTION_LIKE and value.type not in _CLASS_LIKE and value.type != "class":
+                    if value is not None and value.type in _FUNCTION_EXPRESSIONS:
+                        # `export default () => 1`: the function is `file#default`.
+                        self._declare("default", "function", value)
+                    elif value is not None and value.type not in _FUNCTION_LIKE and value.type not in _CLASS_LIKE and value.type != "class":
                         self._declare("default", "variable", value)
                 return
         for name, kind, node in self._declared_names(decl):
@@ -424,7 +442,11 @@ class TsFileExtractor:
             return
         value = n.child_by_field_name("value")
         if value is not None:
-            if value.type in _FUNCTION_LIKE or value.type in _CLASS_LIKE or value.type == "class":
+            if value.type in _FUNCTION_EXPRESSIONS:
+                self._push(self.top.get("default"))
+                self.visit(value)
+                self._pop()
+            elif value.type in _FUNCTION_LIKE or value.type in _CLASS_LIKE or value.type == "class":
                 self.visit(value)
             else:
                 self._push(self.top.get("default"))
@@ -808,6 +830,24 @@ def _type_parameter_bound(n: Node) -> bool:
             return False  # a nearer `type A` in this block binds the name before any outer generic
         p = p.parent
     return False
+
+
+_NAME_NODES = frozenset({"identifier", "property_identifier", "type_identifier", "private_property_identifier", "shorthand_property_identifier_pattern"})
+
+
+def _name_node(node: Node, name: str) -> Node:
+    """A declaration's name: its `name` or `key` field, else the first identifier spelled `name` in it, else the declaration."""
+    for field_name in ("name", "key"):
+        named = node.child_by_field_name(field_name)
+        if named is not None and _text(named) == name:
+            return named
+    stack = [node]
+    while stack:
+        n = stack.pop(0)
+        if n.type in _NAME_NODES and _text(n) == name:
+            return n
+        stack.extend(n.named_children)
+    return node
 
 
 def _same(a: Optional[Node], b: Optional[Node]) -> bool:

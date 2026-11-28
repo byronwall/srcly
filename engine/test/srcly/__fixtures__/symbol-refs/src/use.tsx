@@ -23,3 +23,11 @@ export function outer() {
   type Local = { ok: boolean };
   return inner;
 }
+
+export class Impl implements Model {
+  id = 1;
+}
+export interface Wider extends Model {
+  extra: boolean;
+}
+import { Model } from "./m";

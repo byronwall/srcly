@@ -18,7 +18,7 @@ from app.services.deps.common import SourceSignature, is_test_path, source_signa
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.dataflow.models import SymbolRefsResult as CheckerResult
 from app.services.symbols.checker import LASTING as LASTING_REASONS
-from app.services.symbols.checker import join
+from app.services.symbols.checker import current_hash, join
 from app.services.symbols.checker import query as query_checker
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
 
@@ -52,6 +52,7 @@ class SymbolIndex:
     unbound: Dict[str, int] = field(default_factory=dict)
     mismatched: List[str] = field(default_factory=list)
     outside_program: int = 0
+    program_hash: Optional[str] = None
     _by_line: Optional[Dict[Tuple[str, int], List[int]]] = None
 
     def __post_init__(self) -> None:
@@ -345,7 +346,8 @@ class SymbolIndex:
 
     def at(self, file: str, line: int, column: int, name: str) -> Tuple[Optional[str], List[str]]:
         """
-        The symbol bound at a source position (1-based line, 1-based UTF-16 column), and the
+        The symbol bound at a source position (1-based line, 1-based UTF-16 column of the
+        identifier's first character), and the
         candidates when the index cannot tell. A reference whose span holds the column wins;
         then a declaration of that name whose lines hold the line. A tree-sitter reference has
         no columns, so it matches by line and target name, and several targets stay candidates.
@@ -361,7 +363,12 @@ class SymbolIndex:
                 return named[0], []
             if named:
                 return None, named
-        declared = [s for s in self.symbols.values() if s.file == file and s.name == name and s.kind != "module" and s.line <= line <= s.end_line]
+        # A declaration's own name, at its column when the index knows it (TypeScript), else on its line.
+        declared = [
+            s
+            for s in self.symbols.values()
+            if s.file == file and s.name == name and s.kind != "module" and ((line, column) in s.names if s.names else s.line == line)
+        ]
         if declared:
             return min(declared, key=lambda s: (s.end_line - s.line, -s.line)).id, []
         return None, []
@@ -465,6 +472,7 @@ def assemble(root: Path, parts: List[FileSymbols], checker: Optional[CheckerResu
         index.binder = "checker"
         index.unbound = dict(bound.unbound)
         index.mismatched = bound.mismatched
+        index.program_hash = bound.program_hash
         index.outside_program = sum(1 for p in parts if Path(p.file).suffix in TS_EXTENSIONS)
     index.members_by_name = members_by_name
     index.http_links, index.http_unmatched = http_links, http_unmatched
@@ -645,7 +653,9 @@ def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-s
         sig = source_signature(files)
         with _lock:
             hit = _cache.get((root, binder))
-        if hit is not None and hit[0] == sig:
+        # A checker index also holds while the Program it came from is current: a tsconfig edit
+        # or a source the walk did not see changes the engine's hash.
+        if hit is not None and hit[0] == sig and (hit[1].binder != "checker" or current_hash(root, registry) == hit[1].program_hash):
             return hit[1]
     parts: List[FileSymbols] = []
     ts_files = [f for f in files if f.suffix in TS_EXTENSIONS]

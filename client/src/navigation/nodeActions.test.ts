@@ -51,6 +51,8 @@ describe("Show references", () => {
     expect(refsPatch({ at: "a/b.ts#X" })).toMatchObject({ view: "graph", symbols: "a/b.ts#X", flow: undefined, anchor: undefined, open: undefined });
     expect(refsPatch({ at: "a.py#Foo (class)::run" }).symbols).toBe("a.py#Foo.run");
     expect(refsPatch({ at: "a/b.ts" }).symbols).toBe("a/b.ts");
+    // An id from the symbol index is the focus as it is, a member's dot included.
+    expect(refsPatch({ symbol: "a/model.ts#Runner.run" }).symbols).toBe("a/model.ts#Runner.run");
     const reason = (target: Parameters<typeof nodeActions>[0]) => nodeActions(target).find((a) => a.id === "refs")?.disabledReason;
     expect(reason({ at: "a", kind: "folder", currentAt: "" })).toBe("Pick a file or symbol");
     expect(reason({ at: "ext:react", kind: "external", currentAt: "" })).toBe("Outside this repo");

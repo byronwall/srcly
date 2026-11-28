@@ -14,7 +14,7 @@ import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
 import { InspectMenu } from "./InspectMenu";
 import { fetchSymbolAt } from "../../symbols/api";
-import { identifierAt } from "../../symbols/identifier";
+import { identifierRangeAt } from "../../symbols/identifier";
 import { refsPatch, traceAnchorPatch } from "../../navigation/nodeActions";
 import { ValueFlowLedger } from "./ValueFlowLedger";
 import { createEffectsQuery, EffectsPanel } from "../../dataflow/EffectsPanel";
@@ -217,12 +217,14 @@ export default function CodeModal(props: CodeModalProps) {
     onReferences: async ({ line, column }) => {
       const at = props.rootPath && props.filePath ? atFromTreePath(props.filePath, props.rootPath) : null;
       const text = (rawCode() ?? "").split("\n")[line - 1] ?? "";
-      const name = identifierAt(text, column);
-      if (at === null || !name || !props.rootPath) return "No name here";
-      const res = await fetchSymbolAt({ path: props.rootPath, file: at, line, column, name });
+      // The identifier's first column: a caret just past its last letter still names it.
+      const word = identifierRangeAt(text, column);
+      if (at === null || !word || !props.rootPath) return "No name here";
+      const name = word.name;
+      const res = await fetchSymbolAt({ path: props.rootPath, file: at, line, column: word.column, name });
       if (!res.id) return res.candidates.length ? `"${name}" could be ${res.candidates.length} symbols here` : `No symbol is bound to "${name}" here`;
       props.onClose();
-      go(refsPatch({ at: res.id }));
+      go(refsPatch({ symbol: res.id }));
       return null;
     },
   });

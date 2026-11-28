@@ -12,3 +12,8 @@ export default function A() {
   return 1;
 }
 export type A = number;
+
+export interface Model {
+  id: number;
+}
+export const Model = { id: 1 };

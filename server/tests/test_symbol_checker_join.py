@@ -92,3 +92,25 @@ def test_a_position_resolves_to_the_reference_there_never_a_name_search(tmp_path
     # A declaration's own name is the declaration; an unbound name is nothing, not the first search hit.
     assert idx.at("src/m.ts", 1, 13, "Row") == ("src/m.ts#Row@type", [])
     assert idx.at("src/m.ts", 14, 3, "shape") == (None, [])
+
+
+def test_a_name_joins_only_the_declaration_on_its_own_line(tmp_path: Path):
+    src = "\n".join(
+        [
+            "export function handler() {",  # 1
+            "  function wrapper(handler: () => void) { handler(); }",  # 2
+            "  return wrapper;",  # 3
+            "}",  # 4
+            "export function getSelection() { return document.getSelection(); }",  # 5
+        ]
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "h.ts").write_text(src, encoding="utf-8")
+    parts, _ = extract_ts(tmp_path, [tmp_path / "src" / "h.ts"])
+    targets = [("src/h.ts", "wrapper", 2, "value", "local"), ("src/h.ts", "handler", 2, "value", "local")]
+    # `handler()` on line 2 calls the parameter, declared on line 2: not the function on line 1.
+    idx = assemble(tmp_path, parts, _result(targets, [(2, 43, 50, "call", 0, 1, None)], file="src/h.ts"))
+    assert [r for r in idx.references if r.target == "src/h.ts#handler"] == []
+    # The DOM method inside the one-line wrapper is not the wrapper; its own name is.
+    assert idx.at("src/h.ts", 5, 50, "getSelection") == (None, [])
+    assert idx.at("src/h.ts", 5, 17, "getSelection") == ("src/h.ts#getSelection", [])
