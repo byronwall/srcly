@@ -1,6 +1,8 @@
 import type { EvidenceSlice } from "../analysis/evidence-slice";
 import { keepsIdentity, packedField, SPREAD, stepFieldPath, type FieldPath, type PackFieldCache } from "../analysis/evidence-slice-fields";
 import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
+import type { StateEffect } from "./host";
+import type { Span } from "./selection";
 import { proofStrength, relationTraits, throughState } from "./kinds";
 
 /** How a producer's value reached the read: as a state's first value, a later write to that state, or out of a call's return. */
@@ -82,6 +84,12 @@ export type ProducerHooks = {
   combinedWrite(value: ProgramElement): boolean;
   /** A binding whose object the code changes (`LanguageHost.mutatedBinding`). */
   mutatedBinding(binding: ProgramElement): boolean;
+  /** The write-effect model of the state at this element (`LanguageHost.stateEffects`); null when the host has none. */
+  stateEffects(state: ProgramElement): StateEffect[] | null;
+  /** The expressions a function written in place returns at every exit (`LanguageHost.ownReturns`); null when it may end another way. */
+  ownReturns(fn: ProgramElement): Span[] | null;
+  /** A value that may be a plain object (`LanguageHost.mayObject`): one a store setter could merge. */
+  mayObject(value: ProgramElement): boolean;
   /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
   returnUnsure(ret: ProgramElement): boolean | "async" | "callback" | "method";
   /** A call that passes arguments (`LanguageHost.hasArguments`). */
@@ -97,6 +105,14 @@ export type ProducerHooks = {
 const MAX_WORK = 4000;
 /** Elements whose inputs are operands or a condition, not the value itself: a field of the result is no field of an input. */
 const OPERATIONS = new Set(["derived", "selection"]);
+
+const sameSpan = (a: Span, b: Span) => a.startLine === b.startLine && a.startColumn === b.startColumn && a.endLine === b.endLine && a.endColumn === b.endColumn;
+const inSpan = (inner: Span, outer: Span) => {
+  const before = (l1: number, c1: number, l2: number, c2: number) => l1 < l2 || (l1 === l2 && c1 <= c2);
+  return before(outer.startLine, outer.startColumn, inner.startLine, inner.startColumn) && before(inner.endLine, inner.endColumn, outer.endLine, outer.endColumn);
+};
+/** Whether a read of this path from a state's root (outermost field first) and a write under this prefix name different fields at some level. */
+const disjoint = (read: readonly string[], prefix: readonly string[]) => read.some((field, index) => index < prefix.length && prefix[index] !== field);
 
 const within = (inner: ProgramElement, outer: ProgramElement) => {
   const a = inner.location.span;
@@ -157,6 +173,30 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     return !!known && !known.includes(null) && !known.includes(field);
   };
 
+  /**
+   * The write-effect model, by the state each write reaches: every state the
+   * walk passes and the field paths it reads there. A write the slice does
+   * not hold (`resolved` false) may change any of those reads its prefix
+   * does not rule out.
+   */
+  const effectCache = new Map<string, StateEffect[] | null>();
+  const effectsOf = (state: ProgramElement) => (effectCache.has(state.id) ? effectCache.get(state.id)! : effectCache.set(state.id, hooks.stateEffects(state)).get(state.id)!);
+  const statePaths = new Map<string, FieldPath[]>();
+  /** The model's effect whose value is this element (`exact`), or holds it, among the states the walk passed. */
+  const effectAt = (value: ProgramElement, exact: boolean) => {
+    for (const id of statePaths.keys()) {
+      const state = byId.get(id)!;
+      if (state.location.file !== value.location.file) continue;
+      // The value itself, under or with its parentheses and assertions: not an object inside it (`set({ user: { … } })` replaces `user`).
+      const hit = effectsOf(state)?.find((effect) => effect.value && effect.argument && (exact ? sameSpan(effect.value, value.location.span) : inSpan(effect.value, value.location.span) && inSpan(value.location.span, effect.argument)));
+      if (hit) return hit;
+    }
+    return null;
+  };
+  /** A merge at the root (Solid's `setStore({ other })`) keeps the fields its object does not name: the stored value is the old object, changed. */
+  const mergedInto = (value: ProgramElement) => effectAt(value, true)?.effect === "merge";
+  /** A value a merging setter is handed that may be an object: it may be merged into the old one, so it is not surely the value stored. */
+  const mayMerge = (value: ProgramElement) => !!effectAt(value, false)?.merges && hooks.mayObject(value);
   type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean; caveats: ProducerStop[] };
   /** Why one step back from `current` to `target` cannot carry the field exactly, and where to say so; null when it can. */
   const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath, via: ProducerVia[]): ProducerStop | null => {
@@ -206,7 +246,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       const returns = slice.elements.filter((other) => other.kind === "return" && within(other, element));
       return returns.length > 0 && returns.every((ret) => { const unsure = hooks.returnUnsure(ret); return unsure === false || unsure === "callback"; }) && slice.relations.some((relation) => relation.kind === "return-expression" && returns.some((ret) => ret.id === relation.to));
     }
-    if (members(element) !== null) return false;
+    // An object merged in that lacks the field leaves the old value; a replacement that lacks it changes it.
+    if (members(element) !== null) return lacks(element, field) && mergedInto(element);
     const raw = element.attributes?.fields;
     const names = typeof raw === "string" ? Object.values(JSON.parse(raw) as Record<string, string>) : [];
     return names.length > 0 && !names.includes(field);
@@ -216,6 +257,39 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const seedCaveats: ProducerStop[] = [];
   const caveat = (list: ProducerStop[], elementId: string, reason: ProducerStopReason) =>
     list.some((item) => item.elementId === elementId && item.reason === reason) ? list : [...list, { elementId, reason }];
+  const seedCaveat = (elementId: string, reason: ProducerStopReason) => seedCaveats.splice(0, seedCaveats.length, ...caveat(seedCaveats, elementId, reason));
+  /**
+   * A write step the model says the slice cannot place (a store path with a
+   * computed key): no producer, its caveat stands for it, unless its literal
+   * prefix names another field than the read (`set("items", pick, …)`
+   * against a read of `left`).
+   */
+  const unplaced = (state: ProgramElement, value: ProgramElement, path: FieldPath) => {
+    // The setter call that holds this value most closely is the one that wrote it (`set("dirty", true)` inside another call's updater).
+    const holding = (effectsOf(state) ?? []).filter((item) => state.location.file === value.location.file && inSpan(value.location.span, item.span));
+    const effect = holding.reduce<StateEffect | null>((best, item) => (!best || inSpan(item.span, best.span) ? item : best), null);
+    // Only a path with a computed key: an updater made elsewhere keeps the edges the collector made for it, under its caveat.
+    if (!effect || effect.resolved || effect.effect !== "path") return false;
+    if (!disjoint([...path].reverse(), effect.prefix)) seedCaveat(state.id, "write");
+    return true;
+  };
+  /** A function written in place at a setter call, with a return at every exit the slice holds: those returns are the values stored. */
+  const updaterReturns = (fn: ProgramElement) => {
+    const spans = hooks.callable(fn) ? hooks.ownReturns(fn) : null;
+    const returned = spans?.map((span) => slice.elements.find((element) => element.location.file === fn.location.file && sameSpan(element.location.span, span)));
+    // A merging setter may merge an object return into the old value (`set("user", () => ({ name }))`): only a primitive is stored as it is.
+    if (returned?.some((element) => element && effectAt(fn, false)?.merges && hooks.mayObject(element))) return null;
+    return returned && returned.every((element) => element) ? (returned as ProgramElement[]) : null;
+  };
+  /** Writes the slice does not hold, by the state they reach: each may change a read whose path its prefix does not rule out. */
+  const unresolvedWrites = () => {
+    for (const [id, paths] of statePaths) {
+      const state = byId.get(id)!;
+      for (const effect of effectsOf(state) ?? []) {
+        if (!effect.resolved && paths.some((path) => !disjoint([...path].reverse(), effect.prefix))) seedCaveat(state.id, effect.effect === "alias" ? "mutable" : "write");
+      }
+    }
+  };
   const seen = new Set<string>([`${seedId}||`]);
   const found = new Map<string, FieldProducer>();
   const stops = new Map<string, ProducerStop>();
@@ -243,6 +317,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     const item = queue.shift()!;
     const current = byId.get(item.id);
     if (!current) continue;
+    if (isState(item.id)) (statePaths.get(item.id) ?? statePaths.set(item.id, []).get(item.id)!).push(item.path);
     const named = item.path.length > 0;
     if (named && OPERATIONS.has(current.kind)) {
       stop(item, current.id, "operand");
@@ -276,6 +351,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
       }
       const step: ProducerVia | null = init ? "initialization" : throughState(relation.proof.kind) && relation.status !== "proven" && isState(item.id) ? "write" : relation.kind === "return-value" || relation.kind === "return-expression" ? "return" : null;
       const via = step && item.via.at(-1) !== step ? [...item.via, step] : item.via;
+      // A write the model says the slice cannot place (a store path with a computed key) is no producer: its caveat stands for it.
+      if (step === "write" && unplaced(current, target, item.path)) continue;
       const block = blocked(relation, item, current, target, path, via);
       let caveats = item.caveats;
       if (block && !SOFT_STOPS.has(block.reason)) {
@@ -303,9 +380,29 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         if (field === item.path[item.path.length - 1] && !settled(current, field)) caveats = caveat(caveats, current.id, "unnamed-member");
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
           if (hooks.mutable(current)) caveats = caveat(caveats, current.id, "mutable");
+          // An object a store setter may merge in at this path (`set("doc", { other })`) is not surely the value stored: the old object may be, changed.
+          if (via.includes("write") && mayMerge(target)) {
+            seedCaveat(target.id, "write");
+            continue;
+          }
           // A state setter handed a function as the value itself (`setDoc("title", rename)`, not a member of an object it is handed)
           // stores what the function returns, never the function: its return is the value, wherever the state goes next.
-          if (via.includes("write") && members(current) === null && hooks.mayCall(target)) caveats = caveat(caveats, target.id, "callback");
+          if (via.includes("write") && members(current) === null && hooks.mayCall(target)) {
+            const returned = updaterReturns(target);
+            if (returned) {
+              for (const element of returned) {
+                const key = `${element.id}|${current.id}|${via.join(",")}`;
+                const known = found.get(key);
+                if (known) known.caveats = caveats.reduce((list, item) => caveat(list, item.elementId, item.reason), known.caveats);
+                else found.set(key, { elementId: element.id, packId: current.id, field, via, status: "partial", caveats });
+              }
+              continue;
+            }
+            // Otherwise what it returns may be any value: the whole answer is unsure, and a function is never the value stored.
+            seedCaveat(target.id, "write");
+            if (hooks.callable(target)) continue;
+            caveats = caveat(caveats, target.id, "callback");
+          }
           const key = `${target.id}|${current.id}|${via.join(",")}`;
           const known = found.get(key);
           if (known) known.caveats = caveats.reduce((list, item) => caveat(list, item.elementId, item.reason), known.caveats);
@@ -329,6 +426,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     // an object with no such field leaves the read undefined on this path.
     if (named && !continued && !(firstStateStep(item.via) === "write" && leavesField(current, item.path[item.path.length - 1]))) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
   }
+  unresolvedWrites();
   const producers = [...found.values()].map((producer) => ({ ...producer, caveats: seedCaveats.reduce((list, item) => caveat(list, item.elementId, item.reason), producer.caveats) }));
   return { producers, open, stops: [...stops.values()] };
 }

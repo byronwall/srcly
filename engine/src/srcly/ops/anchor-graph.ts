@@ -214,6 +214,9 @@ class AnchorGraphBuilder {
           mayCall: (value) => this.host.mayCall?.(value.location.file, value.location.span) ?? false,
           combinedWrite: (value) => this.host.combinedWrite?.(value.location.file, value.location.span) ?? false,
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
+          stateEffects: (state) => this.host.stateEffects?.(state.location.file, state.location.span) ?? null,
+          ownReturns: (fn) => this.host.ownReturns?.(fn.location.file, fn.location.span) ?? null,
+          mayObject: (value) => this.host.mayObject?.(value.location.file, value.location.span) ?? true,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
           optionalCall: (call) => this.host.optionalCall?.(call.location.file, call.location.span) ?? false,
@@ -882,8 +885,9 @@ class AnchorGraphBuilder {
         return source.length > 160 ? `${source.slice(0, 159)}…` : source;
       };
       const caveats = fact.caveats
-        .map((item) => ({ nodeId: this.resolve(item.elementId), reason: item.reason }))
-        .filter((item, index, all) => this.nodes.has(item.nodeId) && all.findIndex((other) => other.nodeId === item.nodeId && other.reason === item.reason) === index);
+        // A caveat at an element the graph does not draw still holds: it moves to the producer's own box.
+        .map((item) => ({ nodeId: this.nodes.has(this.resolve(item.elementId)) ? this.resolve(item.elementId) : nodeId, reason: item.reason }))
+        .filter((item, index, all) => all.findIndex((other) => other.nodeId === item.nodeId && other.reason === item.reason) === index);
       out.push({ nodeId, packNodeId, field: fact.field, via: fact.via, status: fact.status, text: text(value), packText: text(pack), caveats });
     }
     return out;
