@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { createStore } from "solid-js/store";
 
-// A setter handed a function as the value stores what it returns; a function
-// that is a member of an object the setter is handed is stored as it is.
+// A setter handed a function as the value stores what it returns, never the
+// function: a named one leaves the answer unsure; a function that is a member
+// of an object the setter is handed is stored as it is.
 // The producer oracle runs both.
 
 export function UpdaterIntoOtherStore(props: { named: string }) {
-  const [one, setOne] = createStore({ head: { title: "" } }); // @produces su-other initialization proven
+  const [one, setOne] = createStore({ head: { title: "" } }); // @produces su-other initialization proven @caveat su-other write
   const rename = () => props.named;
-  setOne("head", "title", rename); // @produces su-other write partial @caveat su-other callback
+  setOne("head", "title", rename);
   const [two] = createStore({ head: one.head });
   return <b>{two.head.title}</b>; // @trace su-other backward two.head.title
 }
