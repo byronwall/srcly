@@ -695,11 +695,27 @@ class TsFileExtractor:
     def _visit_type_decl(self, n: Node) -> None:
         name_node = n.child_by_field_name("name")
         sym = self._declare(_text(name_node), _TYPE_DECLS[n.type], n)
+        if n.type == "type_alias_declaration":
+            sym.typed_as = self._instance_of(n.child_by_field_name("value"))
         self._push(sym.id)
         for c in n.named_children:
             if not _same(c, name_node):
                 self.visit(c)
         self._pop()
+
+    def _instance_of(self, value: Optional[Node]) -> Optional[str]:
+        """The class an alias's instances are: `type A = B` is B, `type A = InstanceType<typeof A>` the value A."""
+        if value is None:
+            return None
+        if value.type == "type_identifier":
+            return self.resolve_type_name(_text(value))
+        if value.type == "generic_type" and _text(value.child_by_field_name("name")) == "InstanceType":
+            args = next((c for c in value.named_children if c.type == "type_arguments"), None)
+            query = next((c for c in args.named_children), None) if args is not None else None
+            target = next((c for c in query.named_children), None) if query is not None and query.type == "type_query" else None
+            if target is not None and target.type == "identifier":
+                return self.resolve_name(_text(target))[0]
+        return None
 
     def _note_request(self, n: Node, kind: RefKind) -> None:
         """`fetch("/api/x", {method})`, `x.fetch(...)`, `new URL("/api/x", base)`, `api.post("/x")`: a same-origin request."""

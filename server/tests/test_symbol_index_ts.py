@@ -266,6 +266,10 @@ def test_type_and_value_of_one_name_are_two_symbols(tmp_path: Path):
                 "export function adapt<Collector>(Collector: number, input: Collector): Collector { return input; }",
                 "export function outer<Store>() { function inner() { type Store = number; let hit: Store = 2; } }",
                 "export function annotated(c: Collector) { c.run(); }",
+                "class Other { run() {} }",
+                "export const Alias = class { run() {} };",
+                "export type Alias = Other;",
+                "export function aliased(a: Alias) { a.run(); }",
                 "export default function Pub() {}",
                 "type Pub = number;",
             ]
@@ -291,6 +295,7 @@ def test_type_and_value_of_one_name_are_two_symbols(tmp_path: Path):
     assert ("src/app.ts#d", "type", "src/collector.ts#Collector@type", "exact") in r
     assert ("src/collector.ts#use", "call", "src/collector.ts#Collector.run", "typed") in r  # `new` names the constructor
     assert ("src/collector.ts#annotated", "call", "src/collector.ts#Collector.run", "typed") in r  # `x: A` of an instance type
+    assert ("src/collector.ts#aliased", "call", "src/collector.ts#Other.run", "typed") in r  # the alias's class, not the value's
     assert ("src/collector.ts#outer.inner", "type", "src/collector.ts#outer.inner.Store", "exact") in r  # nearest binding wins
     assert ("src/app.ts#Sub", "extends", "src/collector.ts#Collector", "exact") in r  # a class base is a value
     assert not any(t == "src/collector.ts#Collector" and k == "type" for _s, k, t, _r in r)
