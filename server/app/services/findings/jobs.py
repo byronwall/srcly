@@ -19,9 +19,11 @@ MAX_JOBS = 8
 
 
 class FindingsJob:
-    def __init__(self, root: Path, fingerprint: Optional[str]) -> None:
+    def __init__(self, root: Path, fingerprint: Optional[str], signature: str = "") -> None:
         self.root = root
         self.fingerprint = fingerprint
+        self.signature = signature
+        """The planned tools' signatures: a checker can read files outside ``root``."""
         self._result: Optional[FindingsResult] = None
         self._done = threading.Event()
 
@@ -54,13 +56,14 @@ class FindingsJobManager:
         self._lock = threading.Lock()
 
     def start(self, root: Path, fingerprint: Optional[str]) -> FindingsJob:
-        """The job for ``root`` at ``fingerprint``, started if new."""
+        """The job for ``root`` at ``fingerprint`` and the same tool signatures, started if new."""
         root = root.resolve()
+        signature = runner.tools_signature(root) if fingerprint is not None else ""
         with self._lock:
             for job in reversed(self._jobs):
-                if job.root == root and job.fingerprint == fingerprint and fingerprint is not None:
+                if job.root == root and job.fingerprint == fingerprint and fingerprint is not None and job.signature == signature:
                     return job
-            job = FindingsJob(root, fingerprint)
+            job = FindingsJob(root, fingerprint, signature)
             self._jobs.append(job)
             del self._jobs[:-MAX_JOBS]
         threading.Thread(target=job.run, name="srcly-findings-job", daemon=True).start()

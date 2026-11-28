@@ -60,21 +60,26 @@ def _base(root: Path) -> Path:
     return root if root.is_dir() else root.parent
 
 
-def parse_output(stdout: str, root: Path, tool_id: str, display: Optional[Path] = None) -> tuple[list[Finding], list[str]]:
-    """The script's JSON as findings. Declarations show relative to ``display`` (the tsconfig's folder)."""
+def parse_output(stdout: str, root: Path, tool_id: str, project: Optional[Path] = None) -> tuple[list[Finding], list[str]]:
+    """The script's JSON as findings.
+
+    ``project`` (the repository root) is the one base for test classification
+    and shown paths, so a scan of one file judges it like a scan of its
+    folder, and two tsconfigs that check one cast give one message.
+    """
     try:
         data = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise ToolFailed(f"unreadable JSON output ({exc.msg})") from exc
     if data.get("error"):
         raise ToolFailed(str(data["error"]))
-    base = _base(root)
-    shown = display or base
+    shown = project if project is not None and project.is_dir() else _base(root)
 
     def keep(file: str) -> bool:
         path = Path(file)
         if path != root and root not in path.parents:
             return False
+        base = shown if shown in path.parents else _base(root)
         return not is_test_path(path.relative_to(base).as_posix())
 
     files = [f for f in data.get("files", []) if keep(f)]
@@ -142,16 +147,19 @@ class CopiedTypeCastTool(Tool):
         )
         self.config = config
         self.node = node
+        self.project = label_base
 
     def signature(self) -> str:
-        return f"{super().signature()}|inputs={project_inputs(self.config.parent)}"
+        # The checker can read any file in the repository (a workspace package, `../shared`).
+        inputs = self.project if self.project.is_dir() else self.config.parent
+        return f"{super().signature()}|inputs={project_inputs(inputs)}"
 
     def check(self):
         root = self.root.resolve()
         out = run_process([self.node, str(SCRIPT), str(self.config), str(root)], self.config.parent, self.timeout)
         if out.returncode != 0:
             raise ToolFailed(first_line(out.stderr or out.stdout) or f"exit code {out.returncode}")
-        return parse_output(out.stdout, root, self.id, self.config.parent)
+        return parse_output(out.stdout, root, self.id, self.project)
 
 
 def _configs(root: Path, stop: Optional[Path]) -> list[tuple[Path, str]]:

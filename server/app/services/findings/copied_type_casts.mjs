@@ -27,11 +27,12 @@ if (!config || configError.length) {
   console.log(JSON.stringify({ error: `tsconfig: ${configError[0] ?? "unreadable"}` }));
   process.exit(0);
 }
-const program = ts.createProgram({
-  rootNames: config.fileNames,
-  options: { ...config.options, noEmit: true },
-  projectReferences: config.projectReferences,
-});
+const options = { ...config.options, noEmit: true };
+const host = ts.createCompilerHost(options);
+// Read a project reference's sources, as editors do, not its built `.d.ts`:
+// an unbuilt reference (TS6305) would otherwise leave its types unresolved and read as a clean 0.
+host.useSourceOfProjectReferenceRedirect = () => true;
+const program = ts.createProgram({ rootNames: config.fileNames, options, projectReferences: config.projectReferences, host });
 const checker = program.getTypeChecker();
 // The scan root: a folder, or one file.
 const scope = path.resolve(scopeDir);
@@ -58,7 +59,19 @@ const NAMED = ts.SymbolFlags.TypeAlias | ts.SymbolFlags.Interface | ts.SymbolFla
 // type parameters and anything else are left out.
 function named(type) {
   if (type.flags & ts.TypeFlags.TypeParameter) return null;
-  let sym = type.aliasSymbol ?? type.getSymbol();
+  return declared(type.aliasSymbol ?? type.getSymbol());
+}
+
+// The cast's target as written: `as Other` names `Other` even when
+// `type Other = Doc` folds to `Doc` in the checker. Imports resolve to what they bind.
+function written(typeNode) {
+  if (!ts.isTypeReferenceNode(typeNode)) return null;
+  let sym = checker.getSymbolAtLocation(typeNode.typeName);
+  if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
+  return declared(sym);
+}
+
+function declared(sym) {
   if (sym && sym.flags & ts.SymbolFlags.EnumMember) sym = sym.parent;
   const decl = sym?.declarations?.[0];
   if (!sym || !decl || !(sym.flags & NAMED)) return null;
@@ -91,12 +104,18 @@ for (const sf of program.getSourceFiles()) {
 function check(sf, node) {
   let src = checker.getTypeAtLocation(node.expression);
   let tgt = checker.getTypeFromTypeNode(node.type);
+  let tgtNode = node.type;
   // `fetchDoc(id) as Promise<DocDetail>`: the copy hides in the payload.
   const ps = unwrapPromise(src), pt = unwrapPromise(tgt);
-  if (ps && pt) [src, tgt] = [ps, pt];
-  const a = named(src), b = named(tgt);
+  if (ps && pt) {
+    [src, tgt] = [ps, pt];
+    const args = ts.isTypeReferenceNode(tgtNode) ? tgtNode.typeArguments : undefined;
+    tgtNode = args?.length === 1 ? args[0] : null;
+  }
+  const a = named(src), b = (tgtNode && written(tgtNode)) ?? named(tgt);
   if (!a || !b || a.name !== b.name || a.sym === b.sym) return;
-  if (a.file === b.file && a.line === b.line) return;
+  // One declaration reached as a merged and an unmerged symbol (a global augmentation) is not a copy.
+  if (a.sym.declarations.some((d) => b.sym.declarations.includes(d))) return;
   // Two library declarations (DOM's and Node's `ReadableStream`) are not the project's copy.
   if (!a.own && !b.own) return;
   const start = sf.getLineAndCharacterOfPosition(node.getStart(sf));

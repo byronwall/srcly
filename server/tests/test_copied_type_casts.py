@@ -9,6 +9,7 @@ import pytest
 from app.services.dataflow.availability import ENGINE_DIR
 from app.services.findings import copied_type_casts, listing
 from app.services.findings.model import FindingsResult
+from app.services.findings.runner import run_tools
 from app.services.findings.tools import run
 
 TS = ENGINE_DIR / "node_modules" / "typescript"
@@ -30,7 +31,7 @@ def project(root: Path, config: str = '{ "compilerOptions": { "strict": true, "l
 
 
 def findings_of(root: Path, scan: Path | None = None):
-    tools = copied_type_casts.plan(scan or root)
+    tools = copied_type_casts.plan(scan or root, root)
     assert [t.id for t in tools] == ["srcly-casts:tsconfig.json"]
     result, findings = run(tools[0])
     return result, {(Path(f.path).relative_to(root).as_posix(), f.line): f.message for f in findings}
@@ -71,8 +72,13 @@ def test_a_cast_onto_a_same_name_copy_is_reported_and_other_casts_are_not(tmp_pa
         # False: a one-member enum's value is not a type named after the member; type parameters are not copies.
         "type Unknown = { u: 1 };\n"
         "export const i = Only.Unknown as Unknown;\n"
-        "export function j<T>(x: T) { return <T,>(y: T) => x as T; }\n",
+        "export function j<T>(x: T) { return <T,>(y: T) => x as T; }\n"
+        # False: an alias with another name is not a same-name copy, even though the checker folds it to `Doc`.
+        "type Other = Shared;\n"
+        'export const k = fetchDoc("1") as Promise<Other>;\n',
     )
+    # Tests are skipped, also when the scan is that one file.
+    write(root, "src/tests/case.ts", 'import { status } from "../api";\ntype Status = "open" | "done";\nexport const t = status() as Status;\n')
     # Tests are skipped.
     write(root, "src/view.test.ts", 'import { status } from "./api";\ntype Status = "open" | "done";\nexport const t = status() as Status;\n')
 
@@ -84,6 +90,31 @@ def test_a_cast_onto_a_same_name_copy_is_reported_and_other_casts_are_not(tmp_pa
         '`fetchDoc("1") as Promise<Doc>` casts the `Doc` from src/api.ts:1 to a different `Doc`, declared in src/view.ts:2.'
     )
     assert "`Status` from src/api.ts:2" in got[("src/view.ts", 5)]
+    _, one = findings_of(root, root / "src/tests/case.ts")
+    assert one == {}
+
+
+def test_two_configs_that_check_one_cast_report_it_once(tmp_path: Path):
+    root = project(tmp_path, '{ "include": ["pkg"] }\n')
+    write(root, "pkg/tsconfig.json", "{}\n")
+    write(root, "pkg/api.ts", "export type Doc = { id: string };\nexport declare const doc: Doc;\n")
+    write(root, "pkg/view.ts", 'import { doc } from "./api";\ntype Doc = { id: string };\nexport const a = doc as Doc;\n')
+    tools = copied_type_casts.plan(root)
+    assert [t.id for t in tools] == ["srcly-casts:pkg/tsconfig.json", "srcly-casts:tsconfig.json"]
+    result = run_tools(root, tools)
+    assert [(f.line, f.rule) for f in result.findings] == [(3, "copied-type-cast")]
+    assert "from pkg/api.ts:1" in result.findings[0].message
+
+
+def test_an_unbuilt_project_reference_is_read_from_its_sources(tmp_path: Path):
+    root = project(tmp_path, '{ "files": ["app/view.ts"], "references": [{ "path": "./lib" }], "compilerOptions": { "strict": true } }\n')
+    write(root, "lib/tsconfig.json", '{ "compilerOptions": { "composite": true, "outDir": "out" }, "include": ["*.ts"] }\n')
+    write(root, "lib/api.ts", "export type Doc = { id: string };\nexport declare const doc: Doc;\n")
+    write(root, "app/view.ts", 'import { doc } from "../lib/api";\ntype Doc = { id: string };\nexport const a = doc as Doc;\n')
+    tool = next(t for t in copied_type_casts.plan(root) if t.id == "srcly-casts:tsconfig.json")
+    result, findings = run(tool)
+    assert result.status == "ok", result.reason
+    assert [(Path(f.path).relative_to(root).as_posix(), f.line) for f in findings] == [("app/view.ts", 3)]
 
 
 def test_one_file_as_the_root_is_checked_and_a_change_outside_it_is_a_new_signature(tmp_path: Path):
@@ -96,7 +127,7 @@ def test_one_file_as_the_root_is_checked_and_a_change_outside_it_is_a_new_signat
     assert list(got) == [("src/ui/view.ts", 3)]
     assert "`Doc` from src/api.ts:1" in got[("src/ui/view.ts", 3)]
     # The checker reads api.ts, outside the scanned folder, so it is part of the cache signature.
-    tool = copied_type_casts.plan(root / "src/ui")[0]
+    tool = copied_type_casts.plan(root / "src/ui", root)[0]
     before = tool.signature()
     write(root, "src/api.ts", "export type ApiDoc = { id: string };\nexport declare const doc: ApiDoc;\n")
     os.utime(root / "src/api.ts", ns=(1, 1))

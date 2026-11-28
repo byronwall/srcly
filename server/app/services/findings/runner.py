@@ -164,6 +164,14 @@ class FindingsCache:
 findings_cache = FindingsCache()
 
 
+def tools_signature(root: Path) -> str:
+    """The signatures of the tools ``collect`` would plan for ``root``; empty when planning fails."""
+    try:
+        return "\n".join(sorted(t.signature() for t in plan_tools(root)))
+    except Exception:  # noqa: BLE001 - the job reports a planning failure itself
+        return ""
+
+
 def cache_key(root: Path, fingerprint: str, tools: Sequence[Tool], portable: bool) -> str:
     signatures = "\n".join(sorted(t.signature() for t in tools))
     raw = f"format={FINDINGS_FORMAT};{root.resolve()};{fingerprint};{portable};{signatures}"
