@@ -8,28 +8,51 @@ failed or empty run as 0.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Optional, Sequence
 
+from app.services.findings import typescript
 from app.services.findings.model import FindingsResult, ToolRun
 from app.services.findings.runner import collect, plan_tools
 from app.services.findings.tools import Tool
 
+Skipped = Sequence[tuple[str, str, str]]
+"""Configured checks that were not planned: (tool, label, reason)."""
 
-def _blockers(rule: Optional[str], tools: Sequence[Tool], runs: dict[str, ToolRun]) -> list[str]:
+
+def _family(rule: str) -> str:
+    """The project tool that names rules this way."""
+    if re.fullmatch(r"TS\d+", rule):
+        return "tsc"
+    if re.fullmatch(r"[A-Z]+\d+", rule) or rule in ("syntax", "invalid-syntax"):
+        return "ruff"
+    return "eslint"
+
+
+def _blockers(
+    rule: Optional[str], tools: Sequence[Tool], runs: dict[str, ToolRun], skipped: Skipped, reporters: set[str]
+) -> list[str]:
     """Why the count for ``rule`` (``None``: all rules) is not complete; empty when it is."""
-    owners = [t for t in tools if rule in t.rules]
-    if owners:
-        out = [runs[t.id].reason for t in owners if not runs[t.id].ok]
-        if not out and all(runs[t.id].files == [] for t in owners):
-            out = [f"{t.label} found no files it checks" for t in owners]
-        return out
-    # Not one of srcly's own rules: any project tool that failed might have reported it.
-    return [runs[t.id].reason for t in tools if not runs[t.id].ok and (rule is None or not t.rules)]
+    checkers, left_out, name = list(tools), list(skipped), "checker"
+    if rule is not None:
+        owners = [t for t in tools if rule in t.rules]
+        family = None if owners else _family(rule)
+        checkers = owners or [t for t in tools if t.tool == family or t.id in reporters]
+        left_out = [s for s in skipped if s[0] == family]
+        name = " or ".join(t.label for t in owners) or f"{family} run"
+    why = [runs[t.id].reason for t in checkers if not runs[t.id].ok]
+    why += [f"{label} not run: {reason}" for _, label, reason in left_out]
+    # ``files`` is None when a tool does not say what it checked.
+    if not why and not any(runs[t.id].files != [] for t in checkers):
+        why = [f"no {name} checked a file"]
+    return why
 
 
-def build(root: Path, result: FindingsResult, tools: Sequence[Tool], rules: Sequence[str] = ()) -> dict:
+def build(
+    root: Path, result: FindingsResult, tools: Sequence[Tool], rules: Sequence[str] = (), skipped: Skipped = ()
+) -> dict:
     """The payload both formats print. Paths are relative to ``root``."""
     runs = {r.id: r for r in result.tools}
     wanted = list(dict.fromkeys(rules))
@@ -51,21 +74,31 @@ def build(root: Path, result: FindingsResult, tools: Sequence[Tool], rules: Sequ
         )
     found = Counter(row["rule"] for row in rows)
 
+    reporters: dict[str, set[str]] = {}
+    for row in rows:
+        reporters.setdefault(row["rule"], set()).add(row["tool"])
+
     def entry(of: Sequence[Optional[str]], n: int) -> dict:
-        why = list(dict.fromkeys(reason for rule in of for reason in _blockers(rule, tools, runs)))
+        why = list(
+            dict.fromkeys(
+                reason for rule in of for reason in _blockers(rule, tools, runs, skipped, reporters.get(rule, set()))
+            )
+        )
         return {"count": None if why else n, "found": n, "reason": "; ".join(why)}
 
-    own = sorted(r for t in tools for r in t.rules)
+    known = sorted({r for t in tools for r in t.rules})
     return {
         "root": str(root),
+        "filter": wanted,
         # The total over the wanted rules (all rules without a filter).
         **entry(wanted or [None], len(rows)),
         "rules": [{"rule": rule, **entry([rule], found[rule])} for rule in wanted or sorted(found)],
         # A misspelled rule would otherwise read as a clean 0.
-        "unknown_rules": [r for r in wanted if r not in own and not found[r]],
-        "srcly_rules": own,
+        "unknown_rules": [r for r in wanted if r not in known and not found[r]],
+        "known_rules": known,
         "findings": rows,
-        "not_checked": [{"checker": r.label, "reason": r.reason} for r in result.tools if not r.ok],
+        "not_checked": [{"checker": r.label, "reason": r.reason} for r in result.tools if not r.ok]
+        + [{"checker": label, "reason": reason} for _, label, reason in skipped],
     }
 
 
@@ -79,13 +112,13 @@ def render(payload: dict) -> str:
     if lines:
         lines.append("")
     lines += [f"{e['rule']}: {count(e)}" for e in payload["rules"]]
-    if len(payload["rules"]) != 1:
+    if len(payload["filter"]) != 1:
         lines.append(f"Total: {count(payload)}")
     lines += [f"Not checked: {t['checker']}: {t['reason']}" for t in payload["not_checked"]]
     if payload["unknown_rules"]:
         lines.append(
-            f"No finding and not a srcly rule: {', '.join(payload['unknown_rules'])}. Check the spelling "
-            f"(a tsc, eslint, ruff or ast-grep rule can be 0). srcly rules: {', '.join(payload['srcly_rules'])}."
+            f"No finding and not a known rule: {', '.join(payload['unknown_rules'])}. Check the spelling "
+            f"(a tsc, eslint or ruff rule can be 0). Known rules: {', '.join(payload['known_rules'])}."
         )
     return "\n".join(lines)
 
@@ -93,9 +126,11 @@ def render(payload: dict) -> str:
 def run(root: Path, rules: Sequence[str] = (), fmt: str = "md", refresh: bool = False) -> str:
     """The findings for ``root`` (from the cache ``report`` fills while files are unchanged)."""
     from app.services import cache
+    from app.services.analysis import find_repo_root
 
     root = root.resolve()
-    tools = plan_tools(root)
+    stop = find_repo_root(root if root.is_dir() else root.parent)
+    tools = plan_tools(root, stop=stop)
     result = collect(root, fingerprint=cache.fingerprint(root), tools=tools, use_cache=not refresh)
-    payload = build(root, result, tools, rules)
+    payload = build(root, result, tools, rules, typescript.unscheduled(root, stop))
     return json.dumps(payload, indent=2) if fmt == "json" else render(payload)

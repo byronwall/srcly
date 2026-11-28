@@ -37,8 +37,18 @@ def test_findings_lists_one_rule_with_a_count_and_never_reads_a_failed_checker_a
     broken.rules = DuplicateTypeTool.rules
     assert "duplicate-type: N/A (srcly duplicate types failed: timed out" in listing.render(listing.build(root, run_tools(root, [broken]), [broken], ["duplicate-type"]))
 
+    # A tsconfig without tsc: its rules and the unfiltered total are N/A, srcly's own rule is not.
+    (root / "tsconfig.json").write_text("{}", encoding="utf-8")
+    main(["findings", str(root), "--rule", "TS2322", "--rule", "duplicate-type", "--format", "json"])
+    got = json.loads(capsys.readouterr().out)
+    assert [(r["rule"], r["count"]) for r in got["rules"]] == [("TS2322", None), ("duplicate-type", 1)]
+    assert "no node_modules/.bin/tsc" in got["rules"][0]["reason"]
+    main(["findings", str(root)])
+    assert "Total: N/A (tsc (tsconfig.json) not run" in capsys.readouterr().out
+
     # A checker that found no file to check says nothing about the code.
     (root / "api.ts").unlink()
     (root / "view.ts").unlink()
     empty = [DuplicateTypeTool(root)]
-    assert listing.build(root, run_tools(root, empty), empty, ["duplicate-type"])["count"] is None
+    for rules in (["duplicate-type"], ["F401"], []):
+        assert listing.build(root, run_tools(root, empty), empty, rules)["count"] is None

@@ -54,8 +54,8 @@ class Tool:
     exclude_dirs: tuple[Path, ...] = field(default_factory=tuple)
     """Folders left to other tools."""
     rules: ClassVar[tuple[str, ...]] = ()
-    """Every rule this tool reports, for srcly's own tools. Empty: a project
-    tool, whose rules are not known ahead."""
+    """Every rule this tool can report, when known ahead (srcly's own tools and
+    the ast-grep pack). Empty for tsc, eslint and ruff."""
 
     def check(self) -> tuple[list[Finding], Optional[list[str]]]:
         """Run and return (findings, files checked or None). Raise ``ToolFailed``."""

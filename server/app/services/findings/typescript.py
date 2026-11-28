@@ -251,19 +251,39 @@ class EslintTool(Tool):
 # -- planning ----------------------------------------------------------------
 
 
+def _configured(root: Path, stop: Optional[Path]) -> list[tuple[str, Path, Optional[Path], str]]:
+    """Every tsc and eslint config: (tool, config, binary, why it is not run; empty when it is)."""
+    out: list[tuple[str, Path, Optional[Path], str]] = []
+    for tool, configs, limit in (
+        ("tsc", tsconfigs(root, stop), MAX_TSC_PROJECTS),
+        ("eslint", eslint_configs(root, stop), MAX_ESLINT_PROJECTS),
+    ):
+        for index, config in enumerate(configs):
+            binary = find_up(config.parent, f"node_modules/.bin/{tool}")
+            why = ""
+            if index >= limit:
+                why = f"over the limit of {limit} {tool} projects"
+            elif binary is None:
+                why = f"no node_modules/.bin/{tool}"
+            out.append((tool, config, binary, why))
+    return out
+
+
 def plan(root: Path, stop: Optional[Path] = None) -> list[Tool]:
     """Project tsc/eslint runs for ``root`` (none when the project has neither)."""
     label_base = stop or root
-    tools: list[Tool] = []
-    for config in tsconfigs(root, stop)[:MAX_TSC_PROJECTS]:
-        binary = find_up(config.parent, "node_modules/.bin/tsc")
-        if binary is not None:
-            tools.append(TscTool(root, config, binary, label_base))
-    for config in eslint_configs(root, stop)[:MAX_ESLINT_PROJECTS]:
-        binary = find_up(config.parent, "node_modules/.bin/eslint")
-        if binary is not None:
-            tools.append(EslintTool(root, config, binary, label_base))
-    return tools
+    kinds = {"tsc": TscTool, "eslint": EslintTool}
+    return [kinds[tool](root, config, binary, label_base) for tool, config, binary, why in _configured(root, stop) if not why]
+
+
+def unscheduled(root: Path, stop: Optional[Path] = None) -> list[tuple[str, str, str]]:
+    """Configured checks that ``plan`` leaves out: (tool, label, reason)."""
+    label_base = stop or root
+    return [
+        (tool, f"{tool} ({rel_label(config, label_base)})", why)
+        for tool, config, _, why in _configured(root, stop)
+        if why
+    ]
 
 
 def project_dirs(tools: list[Tool]) -> list[Path]:

@@ -47,6 +47,16 @@ def _languages(rules: list[Path]) -> tuple[str, ...]:
     return tuple(out)
 
 
+def rule_ids(rules: list[Path]) -> tuple[str, ...]:
+    """Each rule's ``id:`` line."""
+    return tuple(
+        line.split(":", 1)[1].strip().strip("'\"")
+        for path in rules
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.startswith("id:")
+    )
+
+
 def find_binary(root: Path, stop: Optional[Path]) -> Optional[Path]:
     env = os.environ.get("SRCLY_AST_GREP")
     if env:
@@ -100,6 +110,7 @@ class AstGrepTool(Tool):
         )
         self.binary = binary
         self.rules_dir = rules_dir
+        self.rules = rule_ids(rules)
 
     def check(self):
         cwd = self.root if self.root.is_dir() else self.root.parent
@@ -120,5 +131,7 @@ def plan(root: Path, stop: Optional[Path] = None) -> list[Tool]:
     binary = find_binary(root, stop)
     if binary is None:
         reason = "ast-grep is not installed (pnpm add -D @ast-grep/cli, or set SRCLY_AST_GREP)"
-        return [MissingTool("ast-grep", "ast-grep", "ast-grep", root, _languages(rule_files(rules_dir)), reason)]
+        missing = MissingTool("ast-grep", "ast-grep", "ast-grep", root, _languages(rule_files(rules_dir)), reason)
+        missing.rules = rule_ids(rule_files(rules_dir))
+        return [missing]
     return [AstGrepTool(root, binary, rules_dir)]

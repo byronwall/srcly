@@ -98,7 +98,7 @@ uvx srcly findings . --rule duplicate-type --rule await-in-loop --format json
 
 It runs the same checks as `report` and shares their cache, so a second run on unchanged files is quick. The first run takes as long as all the checks, even with `--rule`. `--refresh` reruns them.
 
-A count is N/A, with the reason, when a checker that could report the rule failed, timed out or found no file to check. In JSON, `count` is then `null` and `found` holds what the other checkers reported. For one of Srcly's own rules, only its own checker matters. For any other rule, a failed checker whose rules are not known ahead (tsc, eslint, ruff, ast-grep) makes the count N/A. A misspelled rule is named in a note (`unknown_rules`), so it does not pass for a clean 0. The exit code is 0 either way, so read the count.
+A count is N/A, with the reason, when a checker that could report the rule failed, timed out, was configured but not run (no `node_modules/.bin` binary, or over the project limit) or checked no file. In JSON, `count` is then `null` and `found` holds what the other checkers reported. Only the rule's own checkers matter: Srcly's own rules and ast-grep rule ids are known, a `TS2322` rule belongs to tsc, an `F401` rule to ruff, and any other name to eslint. The total without `--rule` needs every checker. A misspelled rule is N/A or is named in a note (`unknown_rules`), so it does not pass for a clean 0. The exit code is 0 either way, so read the count.
 
 ## Fix and check
 
