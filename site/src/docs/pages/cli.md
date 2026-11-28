@@ -87,6 +87,19 @@ uvx srcly changes . --window custom --since 2026-11-01T00:00:00 --until 2026-11-
 
 `--window` is `branch` (the default: this branch against its merge base), `24h`, `7d`, or `custom` with `--base`/`--head` or `--since`/`--until`. `--mode touched` (the default) lists every chunk a commit changed, with reverted work; `--mode net` compares the base and head snapshots only. `--ref` picks the branch whose first-parent history is read. Uncommitted edits are included when the head is the checked-out commit; `--no-worktree` leaves them out. `--json` prints the same payload the app reads. See [Review changes](../changes/) for the window, chunk and bucket rules.
 
+## List findings
+
+`findings` prints each lint, type and srcly finding as `path:line rule message`, then a count per rule. Paths are relative to the analyzed folder. `--rule` filters by rule id (`duplicate-type`, `F401`, `TS2322`) and may be repeated:
+
+```bash
+uvx srcly findings . --rule duplicate-type
+uvx srcly findings . --rule duplicate-type --rule await-in-loop --format json
+```
+
+It runs the same checks as `report` and shares their cache, so a second run on unchanged files is quick. The first run takes as long as all the checks, even with `--rule`. `--refresh` reruns them.
+
+A count is N/A, with the reason, when a checker that could report the rule failed, timed out or found no file to check. In JSON, `count` is then `null` and `found` holds what the other checkers reported. For one of Srcly's own rules, only its own checker matters. For any other rule, a failed checker whose rules are not known ahead (tsc, eslint, ruff, ast-grep) makes the count N/A. A misspelled rule is named in a note (`unknown_rules`), so it does not pass for a clean 0. The exit code is 0 either way, so read the count.
+
 ## Fix and check
 
 `fix` prints a diff of supported mechanical fixes. It applies changes only with `--write`:

@@ -235,6 +235,8 @@ def check_files(root: Path, files: list[str], tool_id: str, deadline: float) -> 
 
 
 class DuplicateTypeTool(Tool):
+    rules = ("duplicate-type",)
+
     def __init__(self, root: Path, files: Optional[list[str]] = None) -> None:
         super().__init__(
             id="srcly-dup-types",

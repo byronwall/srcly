@@ -91,6 +91,8 @@ def check_source(path: str, source: bytes, tool_id: str) -> list[Finding]:
 
 
 class BuiltinTsTool(Tool):
+    rules = ("explicit-any", "ts-nocheck", "ts-ignore-without-reason", "non-null-chain")
+
     def __init__(self, root: Path, skip_dirs: Iterable[Path] = (), files: Optional[list[str]] = None) -> None:
         super().__init__(
             id="srcly-ts",

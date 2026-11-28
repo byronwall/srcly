@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "changes", "fix", "check", "refs", "trace", "impact"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "changes", "findings", "fix", "check", "refs", "trace", "impact"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -100,6 +100,7 @@ def _main(argv: list[str] | None = None) -> None:
             "  hotspots  rank files or functions by one metric\n"
             "  compare   metric and dependency changes between two git refs\n"
             "  changes   the code chunks a branch or time window edited, and what to review first\n"
+            "  findings  every finding, one per line, with a count per rule (--rule)\n"
             "  fix       show, then apply (--write), safe fixes for srcly's own findings\n"
             "  check     --ratchet: fail when a file over the size budget grows\n"
             "  trace     where a value comes from and goes (data flow), or --effects\n"
@@ -493,6 +494,21 @@ def _run_headless(argv: list[str]) -> None:
     )
     fix_parser.add_argument("--write", action="store_true", help="Apply the fixes. Without it, print the diff.")
 
+    findings_parser = subparsers.add_parser(
+        "findings", help="List every lint, type and srcly finding as path:line rule message, with a count per rule."
+    )
+    findings_parser.add_argument("path", nargs="?", help="Folder to check. Defaults to the enclosing Git repo root.")
+    findings_parser.add_argument(
+        "--rule",
+        action="append",
+        default=None,
+        help="Only this rule, such as duplicate-type or F401. May be repeated.",
+    )
+    findings_parser.add_argument("--format", choices=("md", "json"), default="md", help="md (default) or json.")
+    findings_parser.add_argument(
+        "--refresh", action="store_true", help="Rerun lint and type checks instead of reusing cached results."
+    )
+
     check_parser = subparsers.add_parser("check", help="Fail when a code file over the size budget grows.")
     check_parser.add_argument("path", nargs="?", help="Path to check. Defaults to the enclosing Git repo root.")
     check_parser.add_argument(
@@ -532,6 +548,11 @@ def _dispatch(args) -> None:
         from app.services.findings import fixes
 
         print(fixes.run(_resolve_target_path(args.path), set(args.rule or ()), apply=args.write))
+        return
+    if args.command == "findings":
+        from app.services.findings import listing
+
+        print(listing.run(_resolve_target_path(args.path), args.rule or (), args.format, refresh=args.refresh))
         return
     if args.command == "refs":
         from app.services.symbols import refs

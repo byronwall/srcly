@@ -127,6 +127,8 @@ def check_source(path: str, source: bytes, tool_id: str) -> list[Finding]:
 
 
 class SolidTool(Tool):
+    rules = ("solid-returned-cleanup",)
+
     def __init__(self, root: Path, files: Optional[list[str]] = None) -> None:
         super().__init__(
             id="srcly-solid",

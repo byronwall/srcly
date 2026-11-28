@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import ClassVar, Optional, Sequence
 
 from app.services.findings.model import Finding, Source, ToolRun
 
@@ -53,6 +53,9 @@ class Tool:
     """Binary and config files whose change should invalidate cached findings."""
     exclude_dirs: tuple[Path, ...] = field(default_factory=tuple)
     """Folders left to other tools."""
+    rules: ClassVar[tuple[str, ...]] = ()
+    """Every rule this tool reports, for srcly's own tools. Empty: a project
+    tool, whose rules are not known ahead."""
 
     def check(self) -> tuple[list[Finding], Optional[list[str]]]:
         """Run and return (findings, files checked or None). Raise ``ToolFailed``."""
