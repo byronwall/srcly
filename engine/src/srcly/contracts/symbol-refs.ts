@@ -28,6 +28,8 @@ export const symbolRefSchema = z.strictObject({
   column: z.number().int().positive(),
   endColumn: z.number().int().positive(),
   kind: symbolRefKindSchema,
+  /** The nearest named declaration around the ref, an index into `targets`; null for module code. */
+  source: z.number().int().nonnegative().nullable(),
   /** An index into `targets`; null when the checker binds nothing here (`unbound` says why). */
   target: z.number().int().nonnegative().nullable(),
   unbound: z.enum(["unresolved", "any"]).nullable(),
@@ -37,7 +39,7 @@ export const symbolRefsResultSchema = z.strictObject({
   outcome: outcomeSchema,
   ...generationFields,
   reason: z.string().nullable(),
-  /** Each declaration that some ref binds to, once. */
+  /** Each declaration that some ref binds to or sits in, once. */
   targets: z.array(symbolRefTargetSchema),
   files: z.array(z.strictObject({ file: z.string(), refs: z.array(symbolRefSchema) })),
   counts: z.strictObject({

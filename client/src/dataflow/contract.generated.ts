@@ -748,6 +748,7 @@ export type SymbolRefsResult = {
       column: number;
       endColumn: number;
       kind: "call" | "instantiate" | "read" | "write" | "type" | "extends" | "implements";
+      source: number | null;
       target: number | null;
       unbound: "unresolved" | "any" | null;
     }[];

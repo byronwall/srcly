@@ -16,6 +16,9 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolPath, SymbolSearchHit, SymbolStats
 from app.services.deps.common import SourceSignature, is_test_path, source_signature, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS
+from app.services.dataflow.models import SymbolRefsResult as CheckerResult
+from app.services.symbols.checker import join
+from app.services.symbols.checker import query as query_checker
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
 
 # Lines kept per merged edge in a response.
@@ -41,6 +44,13 @@ class SymbolIndex:
     http_unmatched: int = 0
     # member name → ids of every method / field with that name, for name-only resolution
     members_by_name: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
+    # Who bound the TypeScript references: "checker" (the data-flow engine) or "tree-sitter", and why not the checker.
+    binder: str = "tree-sitter"
+    binder_reason: Optional[str] = None
+    # Checker mode: unbound references by reason, module declarations no symbol holds, TS files outside the Program.
+    unbound: Dict[str, int] = field(default_factory=dict)
+    mismatched: List[str] = field(default_factory=list)
+    outside_program: int = 0
 
     def __post_init__(self) -> None:
         for i, r in enumerate(self.references):
@@ -340,6 +350,11 @@ class SymbolIndex:
             built_ms=self.built_ms,
             http_links=self.http_links,
             http_unmatched=self.http_unmatched,
+            binder=self.binder,
+            binder_reason=self.binder_reason,
+            unbound=dict(self.unbound),
+            mismatched=len(self.mismatched),
+            outside_program=self.outside_program,
         )
 
 
@@ -353,8 +368,12 @@ def _weaker(a: str, b: str) -> str:
 # ---- building ----
 
 
-def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
-    """Merge every file's symbols, settle member references, drop references to nothing."""
+def assemble(root: Path, parts: List[FileSymbols], checker: Optional[CheckerResult] = None) -> SymbolIndex:
+    """
+    Merge every file's symbols, settle member references, drop references to nothing.
+    With a checker result, the TypeScript files it covers take their references from it
+    (no member guesses); the rest keep tree-sitter's.
+    """
     started = time.monotonic()
     symbols: Dict[str, Symbol] = {}
     for part in parts:
@@ -369,8 +388,18 @@ def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
         if sym.kind in ("method", "field"):
             members_by_name[sym.name].append(sym.id)
 
+    bound = join(checker, symbols) if checker is not None else None
+    checked = bound.files if bound is not None else set()
+    bound_parts = [p for p in parts if p.file in checked]
+    parts = [p for p in parts if p.file not in checked]
+
     references: List[Reference] = []
     unresolved = 0
+    if bound is not None:
+        for r in bound.references:
+            if r.target in symbols and r.source in symbols:
+                references.append(r)
+                _note_base(r, symbols)
     for part in parts:
         for r in part.references:
             if r.target in symbols and r.source in symbols:
@@ -395,8 +424,13 @@ def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
             elif settled.source in symbols and settled.source != settled.target:
                 references.append(settled)
 
-    http_links, http_unmatched = _link_http(parts, symbols, references)
-    index = SymbolIndex(root=root, symbols=symbols, references=references, files=len(parts), unresolved_members=unresolved)
+    http_links, http_unmatched = _link_http(parts + bound_parts, symbols, references)
+    index = SymbolIndex(root=root, symbols=symbols, references=references, files=len(parts) + len(bound_parts), unresolved_members=unresolved)
+    if bound is not None:
+        index.binder = "checker"
+        index.unbound = dict(bound.unbound)
+        index.mismatched = bound.mismatched
+        index.outside_program = sum(1 for p in parts if Path(p.file).suffix in TS_EXTENSIONS)
     index.members_by_name = members_by_name
     index.http_links, index.http_unmatched = http_links, http_unmatched
     index.built_ms = int((time.monotonic() - started) * 1000)
@@ -558,19 +592,24 @@ def _demote(kind: RefKind) -> RefKind:
     return "write" if kind == "write" else "read"
 
 
-_cache: Dict[Path, Tuple[SourceSignature, SymbolIndex]] = {}
+_cache: Dict[Tuple[Path, str], Tuple[SourceSignature, SymbolIndex]] = {}
 _lock = threading.Lock()
 
 SOURCE_EXTENSIONS = TS_EXTENSIONS | {".py"}
 
 
-def build_symbol_index(root: Path, use_cache: bool = True) -> SymbolIndex:
+def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-sitter", registry=None) -> SymbolIndex:
+    """
+    The index of a root. ``binder="checker"`` binds TypeScript references with the data-flow
+    engine when it can, and falls back to tree-sitter with the reason; ``"tree-sitter"`` never
+    starts the engine. ``registry`` is the engine registry to use (the server's by default).
+    """
     root = root.resolve()
     files = walk_source_files(root, SOURCE_EXTENSIONS)
     if use_cache:
         sig = source_signature(files)
         with _lock:
-            hit = _cache.get(root)
+            hit = _cache.get((root, binder))
         if hit is not None and hit[0] == sig:
             return hit[1]
     parts: List[FileSymbols] = []
@@ -586,8 +625,14 @@ def build_symbol_index(root: Path, use_cache: bool = True) -> SymbolIndex:
 
         py_parts, _py_program = extract_py(root, py_files)
         parts.extend(py_parts)
-    index = assemble(root, parts)
+    checked: Optional[CheckerResult] = None
+    reason: Optional[str] = None
+    if ts_files and binder == "checker":
+        checked, reason = query_checker(root, registry)
+    index = assemble(root, parts, checked)
+    if index.binder != "checker":
+        index.binder_reason = reason if binder == "checker" else "asked"
     if use_cache:
         with _lock:
-            _cache[root] = (sig, index)
+            _cache[(root, binder)] = (sig, index)
     return index

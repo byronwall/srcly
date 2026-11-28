@@ -105,6 +105,9 @@ class Reference:
     resolution: Resolution = "exact"
     # An HTTP reference: the request as matched, `GET /api/items/{id}`.
     via: Optional[str] = None
+    # A checker-bound reference: the identifier's 1-based UTF-16 columns, end exclusive. None from tree-sitter.
+    column: Optional[int] = None
+    end_column: Optional[int] = None
 
 
 @dataclass

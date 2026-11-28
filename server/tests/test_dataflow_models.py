@@ -23,6 +23,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("functionEffects", models.FunctionEffectsResult),
         ("routePath", models.RoutePathResult),
         ("fileExports", models.FileExportsResult),
+        ("symbolRefs", models.SymbolRefsResult),
         ("fileSignals", models.FileSignalsResult),
         ("flowSignature", models.FlowSignatureResult),
     ],

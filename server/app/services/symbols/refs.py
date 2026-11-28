@@ -54,6 +54,9 @@ def build(idx: SymbolIndex, query: str, tests: bool = True) -> dict:
     return {
         "query": query,
         "root": str(idx.root),
+        # Who bound the TypeScript names: the engine's checker, or tree-sitter with the reason.
+        "binder": idx.binder,
+        "binderReason": idx.binder_reason,
         "declarations": [
             {
                 "id": s.id,
@@ -82,7 +85,9 @@ def render(payload: dict, limit: int) -> str:
         if payload["suggestions"]:
             lines.append("Did you mean: " + ", ".join(payload["suggestions"]))
         return "\n".join(lines)
-    out = [f"{payload['query']}: {_count(len(decls), 'declaration')}"]
+    binder = payload.get("binder", "tree-sitter")
+    how = "bound by the TypeScript checker" if binder == "checker" else f"bound by tree-sitter names ({payload.get('binderReason') or 'no checker'})"
+    out = [f"{payload['query']}: {_count(len(decls), 'declaration')} · {how}"]
     for d in decls:
         flag = "exported" if d["exported"] else "not exported"
         out.append("")
@@ -109,5 +114,13 @@ def render(payload: dict, limit: int) -> str:
 
 
 def run(root: Path, query: str, fmt: str = "md", limit: int = 20, tests: bool = True) -> str:
-    payload = build(build_symbol_index(root, use_cache=False), query, tests=tests)
+    from app.services.dataflow.engine import EngineRegistry
+
+    # The checker binds TypeScript names when Node and the engine are there; this run's engine closes with it.
+    registry = EngineRegistry()
+    try:
+        idx = build_symbol_index(root, use_cache=False, binder="checker", registry=registry)
+    finally:
+        registry.close_all()
+    payload = build(idx, query, tests=tests)
     return json.dumps(payload, indent=2) if fmt == "json" else render(payload, limit)
