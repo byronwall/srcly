@@ -3,7 +3,16 @@
 // It loads the project's own `typescript` (resolved from the tsconfig), so the
 // checker sees the project the way its tsc does. Prints one JSON object.
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
+
+const realpath = (file) => {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return path.resolve(file);
+  }
+};
 
 const [configPath, scopeDir] = process.argv.slice(2);
 let ts;
@@ -27,7 +36,7 @@ if (!config || configError.length) {
   console.log(JSON.stringify({ error: `tsconfig: ${configError[0] ?? "unreadable"}` }));
   process.exit(0);
 }
-const options = { ...config.options, noEmit: true };
+const options = { ...config.options, noEmit: true, disableSourceOfProjectReferenceRedirect: false };
 const host = ts.createCompilerHost(options);
 // Read a project reference's sources, as editors do, not its built `.d.ts`:
 // an unbuilt reference (TS6305) would otherwise leave its types unresolved and read as a clean 0.
@@ -50,6 +59,11 @@ function unwrapPromise(type) {
   return args?.length === 1 ? args[0] : null;
 }
 
+const isLibPromise = (sym) =>
+  sym?.getName() === "Promise" &&
+  !!sym.declarations?.length &&
+  sym.declarations.every((d) => program.isSourceFileDefaultLibrary(d.getSourceFile()));
+
 // Only these declare a type with a name another file can copy.
 const NAMED = ts.SymbolFlags.TypeAlias | ts.SymbolFlags.Interface | ts.SymbolFlags.Class | ts.SymbolFlags.Enum;
 
@@ -65,6 +79,7 @@ function named(type) {
 // The cast's target as written: `as Other` names `Other` even when
 // `type Other = Doc` folds to `Doc` in the checker. Imports resolve to what they bind.
 function written(typeNode) {
+  while (ts.isParenthesizedTypeNode(typeNode)) typeNode = typeNode.type;
   if (!ts.isTypeReferenceNode(typeNode)) return null;
   let sym = checker.getSymbolAtLocation(typeNode.typeName);
   if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
@@ -80,6 +95,7 @@ function declared(sym) {
     sym,
     name: sym.getName(),
     file: path.resolve(sf.fileName),
+    real: realpath(sf.fileName),
     line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
     own: isOwn(sf),
   };
@@ -109,13 +125,19 @@ function check(sf, node) {
   const ps = unwrapPromise(src), pt = unwrapPromise(tgt);
   if (ps && pt) {
     [src, tgt] = [ps, pt];
+    // The written argument is the payload only for `Promise<X>` itself; an alias such as
+    // `Wrapped<T> = Promise<{ data: T }>` may wrap or replace it, so the checker's payload decides.
+    while (ts.isParenthesizedTypeNode(tgtNode)) tgtNode = tgtNode.type;
+    const isPromise = ts.isTypeReferenceNode(tgtNode) && isLibPromise(checker.getSymbolAtLocation(tgtNode.typeName));
     const args = ts.isTypeReferenceNode(tgtNode) ? tgtNode.typeArguments : undefined;
-    tgtNode = args?.length === 1 ? args[0] : null;
+    tgtNode = isPromise && args?.length === 1 ? args[0] : null;
   }
   const a = named(src), b = (tgtNode && written(tgtNode)) ?? named(tgt);
   if (!a || !b || a.name !== b.name || a.sym === b.sym) return;
   // One declaration reached as a merged and an unmerged symbol (a global augmentation) is not a copy.
   if (a.sym.declarations.some((d) => b.sym.declarations.includes(d))) return;
+  // One file loaded twice (`preserveSymlinks`, a workspace link and a relative path) is one declaration.
+  if (a.real === b.real && a.line === b.line) return;
   // Two library declarations (DOM's and Node's `ReadableStream`) are not the project's copy.
   if (!a.own && !b.own) return;
   const start = sf.getLineAndCharacterOfPosition(node.getStart(sf));

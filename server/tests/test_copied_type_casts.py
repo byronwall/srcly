@@ -75,7 +75,11 @@ def test_a_cast_onto_a_same_name_copy_is_reported_and_other_casts_are_not(tmp_pa
         "export function j<T>(x: T) { return <T,>(y: T) => x as T; }\n"
         # False: an alias with another name is not a same-name copy, even though the checker folds it to `Doc`.
         "type Other = Shared;\n"
-        'export const k = fetchDoc("1") as Promise<Other>;\n',
+        'export const k = fetchDoc("1") as Promise<Other>;\n'
+        'export const l = fetchDoc("1") as (Promise<(Other)>);\n'
+        # False: an alias that wraps its argument; the payload is anonymous, not `Doc`.
+        "type Wrapped<T> = Promise<{ data: T }>;\n"
+        'export const m = fetchDoc("1") as unknown as Promise<Shared> as Wrapped<Doc>;\n',
     )
     # Tests are skipped, also when the scan is that one file.
     write(root, "src/tests/case.ts", 'import { status } from "../api";\ntype Status = "open" | "done";\nexport const t = status() as Status;\n')
@@ -107,7 +111,7 @@ def test_two_configs_that_check_one_cast_report_it_once(tmp_path: Path):
 
 
 def test_an_unbuilt_project_reference_is_read_from_its_sources(tmp_path: Path):
-    root = project(tmp_path, '{ "files": ["app/view.ts"], "references": [{ "path": "./lib" }], "compilerOptions": { "strict": true } }\n')
+    root = project(tmp_path, '{ "files": ["app/view.ts"], "references": [{ "path": "./lib" }], "compilerOptions": { "strict": true, "disableSourceOfProjectReferenceRedirect": true } }\n')
     write(root, "lib/tsconfig.json", '{ "compilerOptions": { "composite": true, "outDir": "out" }, "include": ["*.ts"] }\n')
     write(root, "lib/api.ts", "export type Doc = { id: string };\nexport declare const doc: Doc;\n")
     write(root, "app/view.ts", 'import { doc } from "../lib/api";\ntype Doc = { id: string };\nexport const a = doc as Doc;\n')
