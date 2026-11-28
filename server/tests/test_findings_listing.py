@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.run import main
 from app.services.findings import listing
+from app.services.findings.astgrep import rule_ids
 from app.services.findings.duplicate_types import DuplicateTypeTool
 from app.services.findings.runner import run_tools
 from app.services.findings.tools import MissingTool
@@ -36,6 +37,15 @@ def test_findings_lists_one_rule_with_a_count_and_never_reads_a_failed_checker_a
     broken = MissingTool("srcly-dup-types", "srcly-dup-types", "srcly duplicate types", root, (".ts",), "timed out")
     broken.rules = DuplicateTypeTool.rules
     assert "duplicate-type: N/A (srcly duplicate types failed: timed out" in listing.render(listing.build(root, run_tools(root, [broken]), [broken], ["duplicate-type"]))
+
+    # An ast-grep id may also be an eslint rule's name: a failed eslint blocks it. A trailing comment is not part of the id.
+    (root / "pack.yml").write_text('id: no-debugger # ours\nlanguage: typescript\n', encoding="utf-8")
+    assert rule_ids([root / "pack.yml"]) == ("no-debugger",)
+    pack = MissingTool("ast-grep", "ast-grep", "ast-grep", root, (".ts",), "")
+    pack.rules = ("no-debugger",)
+    pack.check = lambda: ([], [str(root / "view.ts")])
+    both = [pack, tools[1]]
+    assert listing.build(root, run_tools(root, both), both, ["no-debugger"])["count"] is None
 
     # A tsconfig without tsc: its rules and the unfiltered total are N/A, srcly's own rule is not.
     (root / "tsconfig.json").write_text("{}", encoding="utf-8")
