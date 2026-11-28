@@ -2,6 +2,14 @@
 
 Status: proposed, not built. Retire this folder when the last milestone lands.
 
+## Diagrams
+
+Draftably sources in this folder. Open them with `draftably open docs/intent/checker-symbol-index`.
+
+- [goals.draft](goals.draft): the goals, the design choices and the proof, on one map.
+- [binding.draft](binding.draft): how one request is bound, with the tree-sitter fallback.
+- [delivery.draft](delivery.draft): the milestones, the M0 gate and the compare loop.
+
 ## Problem
 
 The TypeScript symbol index (`server/app/services/symbols/typescript.py`) binds each name with tree-sitter and its own scope rules. #486 fixed three gaps after three Codex rounds and left five open. All five are binding questions that the TypeScript checker already answers:
