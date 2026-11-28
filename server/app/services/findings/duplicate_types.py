@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from app.config import MAX_ANALYZED_FILE_BYTES
 from app.services.deps.common import is_test_path
 from app.services.findings.model import Finding
 from app.services.findings.tools import Tool, ToolTimeout, timeout_for
@@ -69,12 +70,38 @@ def _field_name(member) -> Optional[str]:
     return text
 
 
+_LITERALS = frozenset({"string", "template_string", "template_literal_type"})
+
+
+def _tokens(node, out: list[str]) -> None:
+    """Leaf tokens, with string literals kept whole and comments dropped."""
+    if node.type == "comment":
+        return
+    if node.type in _LITERALS or node.child_count == 0:
+        out.append(node.text.decode("utf-8", "replace"))
+        return
+    for child in node.children:
+        _tokens(child, out)
+
+
 def _type_text(member) -> str:
-    """The declared type, without whitespace: `: string | null` for a property, the signature for a method."""
-    name = member.child_by_field_name("name")
-    rest = member.text[name.end_byte - member.start_byte :] if name is not None else member.text
-    text = b"".join(rest.split()).decode("utf-8", "replace")
-    return text.lstrip("?").rstrip(";,")
+    """The declared type as tokens: `: string | null` for a property, the signature for a method.
+
+    Formatting and comments between tokens do not count; the text inside a
+    literal type such as `"In Progress"` does.
+    """
+    out: list[str] = []
+    seen_name = False
+    for child in member.children:
+        if not seen_name:
+            seen_name = child == member.child_by_field_name("name")
+            continue
+        _tokens(child, out)
+    while out and out[0] == "?":
+        out.pop(0)
+    while out and out[-1] in (";", ","):
+        out.pop()
+    return " ".join(out)
 
 
 def _fields(body) -> frozenset[tuple[str, str]]:
@@ -104,8 +131,11 @@ def object_types(path: str, source: bytes, rel: str) -> list[ObjectType]:
     for stmt in root.named_children:
         if stmt.type == "export_statement":
             decl = stmt.child_by_field_name("declaration")
+            value = stmt.child_by_field_name("value")
             if decl is not None:
                 found.append((decl, True))
+            elif value is not None and value.type == "identifier":
+                exported_names.add(value.text.decode("utf-8", "replace"))  # `export default Options;`
             elif stmt.child_by_field_name("source") is None:
                 for clause in (c for c in stmt.named_children if c.type == "export_clause"):
                     for spec in (s for s in clause.named_children if s.type == "export_specifier"):
@@ -134,13 +164,15 @@ def object_types(path: str, source: bytes, rel: str) -> list[ObjectType]:
     return types
 
 
-def find_copies(types: list[ObjectType]) -> list[tuple[ObjectType, ObjectType, int]]:
+def find_copies(types: list[ObjectType], deadline: float = float("inf")) -> list[tuple[ObjectType, ObjectType, int]]:
     """(copy, exported original, shared field count) for every local copy of an exported type."""
     by_name: dict[str, list[ObjectType]] = defaultdict(list)
     for t in types:
         by_name[t.name].append(t)
     copies = []
     for group in by_name.values():
+        if time.monotonic() > deadline:
+            raise ToolTimeout("while matching types")
         originals = [t for t in group if t.exported]
         for local in (t for t in group if not t.exported):
             best: Optional[tuple[int, ObjectType]] = None
@@ -172,14 +204,19 @@ def check_files(root: Path, files: list[str], tool_id: str, deadline: float) -> 
         if rel.endswith(".d.ts") or is_test_path(rel):
             continue
         try:
+            # Files the scan leaves unanalyzed (generated bundles) stay out here too.
+            if full.stat().st_size > MAX_ANALYZED_FILE_BYTES:
+                continue
             source = full.read_bytes()
         except OSError:
             continue
         checked.append(str(full))
         abs_of[rel] = str(full)
         types.extend(object_types(rel, source, rel))
+    if time.monotonic() > deadline:
+        raise ToolTimeout("while parsing files")
     findings = []
-    for local, orig, shared in find_copies(types):
+    for local, orig, shared in find_copies(types, deadline):
         findings.append(
             Finding(
                 abs_of[local.path],
