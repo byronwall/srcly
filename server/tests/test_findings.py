@@ -155,6 +155,7 @@ def test_plain_repo_runs_srcly_defaults(plain_repo: Path) -> None:
         ("srcly-reach", "srcly reachability", "srcly defaults"),
         ("srcly-solid", "srcly Solid rules", "srcly defaults"),
         ("srcly-async", "srcly await-in-loop", "srcly defaults"),
+        ("srcly-dup-types", "srcly duplicate types", "srcly defaults"),
     ]
     result = run_tools(plain_repo, tools)
     assert result.status == "ok" and all(t.ok for t in result.tools)
@@ -176,7 +177,7 @@ def test_plain_repo_runs_srcly_defaults(plain_repo: Path) -> None:
     # Folders sum their checked files; the root says which tools ran.
     assert tree["metrics"]["finding_count"] == 3 + 4
     assert tree["metrics"]["error_count"] == 1
-    assert [t["label"] for t in tree["findings"]["tools"]] == ["ruff (srcly defaults)", "srcly TS rules", "srcly reachability", "srcly Solid rules", "srcly await-in-loop"]
+    assert [t["label"] for t in tree["findings"]["tools"]] == ["ruff (srcly defaults)", "srcly TS rules", "srcly reachability", "srcly Solid rules", "srcly await-in-loop", "srcly duplicate types"]
     assert tree["findings"]["status"] == "ok"
     Node.model_validate(tree)
 
@@ -214,9 +215,10 @@ def test_project_tsc_and_eslint_run_and_srcly_rules_cover_the_rest(tools_repo: P
         ("srcly-reach", "srcly defaults"),
         ("srcly-solid", "srcly defaults"),
         ("srcly-async", "srcly defaults"),
+        ("srcly-dup-types", "srcly defaults"),
     ]
-    # Reachability and await-in-loop have their own tests and check every file.
-    result = run_tools(tools_repo, [t for t in tools if t.id not in ("srcly-reach", "srcly-async")])
+    # Reachability, await-in-loop and duplicate types have their own tests and check every file.
+    result = run_tools(tools_repo, [t for t in tools if t.id not in ("srcly-reach", "srcly-async", "srcly-dup-types")])
     assert all(t.ok for t in result.tools), [t.reason for t in result.tools]
 
     tsc = next(f for f in result.findings if f.tool.startswith("tsc:"))
@@ -242,7 +244,7 @@ def test_project_tsc_and_eslint_run_and_srcly_rules_cover_the_rest(tools_repo: P
 
 def test_portable_mode_skips_project_tools(tools_repo: Path) -> None:
     """Compare snapshots have no node_modules: both sides use only portable checkers."""
-    assert [t.id for t in plan_tools(tools_repo, portable=True)] == ["ruff", "srcly-ts", "srcly-reach", "srcly-solid", "srcly-async"]
+    assert [t.id for t in plan_tools(tools_repo, portable=True)] == ["ruff", "srcly-ts", "srcly-reach", "srcly-solid", "srcly-async", "srcly-dup-types"]
 
 
 def test_solution_tsconfig_expands_to_its_references(tmp_path: Path) -> None:

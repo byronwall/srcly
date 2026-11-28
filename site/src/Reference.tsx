@@ -44,6 +44,7 @@ const checkers: [string, string][] = [
   ['srcly TS rules', 'TS files no project tool covers: explicit any, @ts-ignore without a reason, @ts-nocheck, chains of non-null assertions'],
   ['srcly reachability', 'Unreachable files and unused exports, walking imports from detected entries'],
   ['srcly Solid rules, await-in-loop', 'Solid cleanups returned from onMount or createEffect, and await inside a loop'],
+  ['srcly duplicate types', 'A local object type that copies a type another file exports (fields matched by name and type)'],
   ['ast-grep', 'Your own YAML rules in .srcly/rules/'],
 ];
 
