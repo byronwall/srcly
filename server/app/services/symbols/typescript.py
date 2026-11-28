@@ -32,12 +32,8 @@ _NAMED_CLASS_MEMBERS = {"method_definition", "abstract_method_signature", "metho
 # The id suffix of a type-only declaration that shares its name with a value-only one in the same file
 # (`export const A = B; export type A = B`). The value keeps `file#A`; the type is `file#A@type`.
 TYPE_ID_SUFFIX = "@type"
-# Nodes that make what they hold a type: `import("./m").Row` under one of them names the export Row.
-_TYPE_ROOTS = {
-    "type_annotation", "type_arguments", "type_alias_declaration", "interface_declaration", "extends_type_clause",
-    "implements_clause", "constraint", "default_type", "union_type", "intersection_type", "array_type", "generic_type",
-    "lookup_type", "index_type_query", "tuple_type", "function_type", "object_type",
-}
+# The members of the promise `import("./m")` is in code; any other `import("./m").X` is the type X.
+_PROMISE_MEMBERS = {"then", "catch", "finally"}
 
 
 @dataclass
@@ -220,12 +216,11 @@ class TsFileExtractor:
         prop = node.child_by_field_name("property")
         if obj is None:
             return
-        if obj.type == "call_expression" and _import_spec(obj) is not None:
-            ns = _type_context(node)
-            if ns is not None:
-                # `import("./m").Row` in a type: the export Row of ./m, as a static `import type` would bind it.
-                self._ref(self._inline_import(obj, _text(prop), ns == "type"), "type", node)
-                return
+        if obj.type == "call_expression" and _import_spec(obj) is not None and _text(prop) not in _PROMISE_MEMBERS:
+            # `import("./m").Row`: the export Row of ./m, as a static `import type` would bind it. Only a type
+            # can say this (tree-sitter often parses it as code or an error), and `typeof` makes it the value.
+            self._ref(self._inline_import(obj, _text(prop), not _in_typeof(node)), "type", node)
+            return
         if obj.type in ("identifier", "this", "super"):
             receiver, note = self._receiver(obj)
             if receiver is not None and note == "typed":
@@ -772,21 +767,13 @@ def _import_spec(call: Node) -> Optional[str]:
     return _string_value(next((a for a in args.named_children), None))
 
 
-def _type_context(n: Node) -> Optional[str]:
-    """"type" when a node sits in a type, "value" in `typeof …`, None in code."""
-    child, p = n, n.parent
-    while p is not None:
+def _in_typeof(n: Node) -> bool:
+    p = n.parent
+    while p is not None and p.type not in ("program", "statement_block", "type_annotation", "type_arguments"):
         if p.type == "type_query":
-            return "value"
-        if p.type in _TYPE_ROOTS:
-            return "type"
-        if p.type in ("as_expression", "satisfies_expression"):
-            # `x as T`, `x satisfies T`: the operand is code, what follows the keyword a type.
-            return None if _same(child, p.named_children[0] if p.named_children else None) else "type"
-        if p.type in _FUNCTION_LIKE or p.type.endswith("statement") or p.type in ("program", "statement_block", "variable_declarator", "arguments"):
-            return None
-        child, p = p, p.parent
-    return None
+            return True
+        p = p.parent
+    return False
 
 
 def _type_parameter_bound(n: Node) -> bool:
@@ -799,6 +786,10 @@ def _type_parameter_bound(n: Node) -> bool:
         params = p.child_by_field_name("type_parameters")
         if params is not None and any(_text(tp.child_by_field_name("name")) == name for tp in params.named_children):
             return True
+        if p.type == "statement_block" and any(
+            c.type in _TYPE_DECLS and _text(c.child_by_field_name("name")) == name for c in p.named_children
+        ):
+            return False  # a nearer `type A` in this block binds the name before any outer generic
         p = p.parent
     return False
 

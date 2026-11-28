@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -508,6 +508,11 @@ def _member_of(cls: Symbol, name: str, symbols: Dict[str, Symbol], skip_self: bo
 
 def _settle(p: PendingMember, symbols: Dict[str, Symbol], members_by_name: Dict[str, List[str]]) -> Optional[Reference]:
     receiver = symbols.get(p.receiver) if p.receiver else None
+    if receiver is not None and receiver.kind == "type" and receiver.id.endswith("@type") and p.kind != "type":
+        # `x: A` where `type A = InstanceType<typeof A>`: the instance's members are the value A's.
+        value = symbols.get(receiver.id[: -len("@type")])
+        if value is not None:
+            return _settle(replace(p, receiver=value.id, receiver_note="typed"), symbols, members_by_name)
     if receiver is not None:
         resolution = "typed" if p.receiver_note == "typed" else "exact"
         if receiver.kind == "module":
