@@ -63,6 +63,18 @@ The Zod schemas in `engine/src/srcly/contracts/` are the source of truth. `pnpm 
 
 The last result per root is saved on disk. The app colors the treemap and marks code-viewer lines from it while the file is unchanged. The app never starts tier 2 itself.
 
+## Symbol binding (`symbolRefs`)
+
+srcly's symbol index (`srcly refs`, Symbols mode, Show references) takes its TypeScript references from the checker. Tree-sitter still makes every declaration and id (`file#Name`, `file#Class.member`, `file#Name@type`), so ids never depend on Node.
+
+- `symbolRefs` walks every identifier of the Program's own files. For each one it reports the reference kind (from syntax), the enclosing named declaration, and the declaration the checker binds: file, name, name position and meaning. The meaning is `type` for an interface or type alias; `typeof x`, `implements` and a type-only clause follow their position. An import or export clause's name is a `clause`: it locates a symbol and makes no edge. A union's member reports each member type's declaration (`also`).
+- The join is exact. A target joins the tree-sitter symbol whose name is at the same line and UTF-16 column (`Symbol.names`). A member with no symbol joins the type, class, enum or variable that holds it. A reference with no enclosing declaration is module code. Anything that joins nothing stays out of the graph; unbound names are counted by reason.
+- Projects: a tsconfig whose module resolution differs from the primary's (`paths`, `baseUrl`, `moduleResolution`, conditions, JSX import source) binds in its own Program, built on first use. A workspace package imported through its built `.d.ts` is followed to its source: the declaration map, else `dist/x.d.ts` → `src/x.ts`. The checker then looks up the same export path there.
+- One binder per file. Python files, and TypeScript files outside the Program (tests, configs), keep tree-sitter references and position lookup. Without Node, an engine or a tsconfig, the whole index is tree-sitter, and `binder`/`binderReason` say so.
+- Freshness: the index cache key holds the source files and every `tsconfig*.json`/`jsconfig*.json`. Any change refreshes the engine before the next `symbolRefs`. A cached checker index holds while the engine's current program hash matches; a cached fallback holds while the engine is still missing.
+- Proof at product scope: `cd server && SRCLY_ENGINE_DEV=1 uv run python scripts/compare_binders.py <root>` compares both binders on every TypeScript reference and buckets the differences. On 2026-11-28 it found 39,141 of srcly's 40,736 tree-sitter references and 47,451 of explorEDA's 49,092 in the checker index. The rest were mostly name guesses and JSX tags bound to locals. Cost: `cd engine && node --expose-gc --max-old-space-size=4096 --import tsx scripts/symbol-refs-probe.ts --root <repo>`.
+- Known limits: a non-solution root tsconfig that includes an app's files hides the app's own config; the `dist` → `src` guess applies when a built package has no declaration map; after a recorded engine crash, Symbols stays on tree-sitter until the failure clears.
+
 ## Library models
 
 What a library does is data: rows in `engine/models/*.json`, checked against `engine/models/library-models.schema.json`. The engine names no framework in code. The research behind this is in `docs/research/dataflow-library-models-2026-11/README.md`.
@@ -110,6 +122,8 @@ Development Mac, Node 22, TypeScript 5.9.3, one cold run each (2026-10-23 and 20
 | --- | ---: | ---: | ---: |
 | srcly `client/` (26K lines, 126 files) | 3.0 s | 130 s | 2.4 GB |
 | visual-notes `app/` (65K lines, 487 files, 43 routes) | 13.9 s | 44 s | 2.0 GB |
+
+`symbolRefs`, one cold run each (2026-11-27), heap after a full GC: srcly 2.1 s build and 4.1 s walk, 783 MB; visual-notes 3.4 s and 5.0 s, 1,051 MB; explorEDA 3.0 s and 10.8 s, 1,389 MB (two extra Programs for its apps).
 
 - Cold `hello` is about 0.6 s. A warm `valueFlow` on srcly's client is 1 ms at p50 and 3 ms at p95.
 - After the backbone-first work, the first drawn route box on visual-notes `/tasks` takes about 11 s cold and 3.4 s on reopen from the result cache.

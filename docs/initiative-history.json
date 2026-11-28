@@ -233,5 +233,21 @@
       "pgm task-start-the-data-flow-batch-run-from-the-app: start the tier-2 run from the app. Today only the CLI starts it.",
       "Dropped: dataflow_defensive_ops (a per-sink count double-counts shared guards) and a findings/dataflow.py tool (findings reach report.md and marks from the saved result)."
     ]
+  },
+  {
+    "title": "Checker-bound TypeScript symbol index",
+    "slug": "checker-symbol-index",
+    "outcome": "completed",
+    "retired_at": "2026-11-28",
+    "summary": "srcly refs, Symbols mode and Show references bind TypeScript names with the engine's checker (symbolRefs), joined to tree-sitter ids by name position; Show references resolves by source position; tree-sitter stays the fallback. compare_binders.py found 96% of tree-sitter's references in the checker index on srcly and explorEDA. Reconciled against origin/main 210341ef.",
+    "reason": "M0 (cost spike) to M3 (position lookup) shipped in #487 after three Codex rounds. Byron approved retirement.",
+    "documentation": [
+      "docs/dataflow-engine.md",
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "210341ef",
+    "follow_ups": [
+      "Open from #487: per-file tsconfig ownership when a root config overlaps an app's; a verified source for built packages without declaration maps; a retry policy after an engine crash."
+    ]
   }
 ]
