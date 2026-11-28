@@ -1,5 +1,6 @@
 import main, { tick, Runner } from "lib";
 import * as lib from "lib";
+import { run } from "kit/entry";
 
 export function app() {
   tick();
@@ -8,5 +9,4 @@ export function app() {
   new lib.Runner()["run"]();
   return main();
 }
-import { run } from "kit/entry";
 export const mapped = run();

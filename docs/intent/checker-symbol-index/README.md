@@ -169,17 +169,19 @@ Run it on srcly and explorEDA (`f44a5c63` or newer). Done when:
 
 | Root | Tree-sitter refs | Checker refs | Agree | Mismatched ids | TS files outside the Program | Unbound |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| srcly (this branch) | 40,464 | 61,113 | 38,879 (96.1%) | 5 | 176 | 615 unresolved, 815 `any` |
-| explorEDA `f44a5c63` | 49,092 | 74,720 | 47,445 (96.6%) | 3 | 452 | 1,657 unresolved, 40 `any` |
+| srcly (this branch) | 40,736 | 61,653 | 39,141 (96.1%) | 11 | 179 | 1,175 unresolved, 811 `any` |
+| explorEDA `f44a5c63` | 49,092 | 85,223 | 47,451 (96.7%) | 3 | 452 | 1,676 unresolved, 40 `any` |
+
+The join is exact: a target joins the tree-sitter symbol whose name is at the same line and UTF-16 column. A member with no symbol joins the type, class, enum or variable that holds it. A union's member counts once for each member type that declares it.
 
 The buckets, by size (explorEDA; srcly has the same shape):
 
-- Checker only, `read → type` (24,861): a member read through a receiver whose type tree-sitter cannot see (inferred, returned, destructured, a union). The member has no symbol, so it joins the type that declares it, as tree-sitter's `typed` rule does for an annotated receiver.
-- Checker only, `call → function` (622), `call → type` (410), `read → variable` (1,113): calls through re-exports and closures, interface method calls, fields of object constants (zod schemas).
-- Tree-sitter only, `typed · read → type` (1,412): the checker binds the member somewhere more exact (a union member's own interface, a base interface, the TypeScript library behind `type Ts = typeof TypeScript`), or the type is mapped and has no declaration.
+- Checker only, `read → type` (35,343): a member read through a receiver whose type tree-sitter cannot see (inferred, returned, destructured, a union). The member has no symbol, so it joins the type that declares it, as tree-sitter's `typed` rule does for an annotated receiver.
+- Checker only, `call → function` (622), `call → type` (413), `read → variable` (1,117): calls through re-exports and closures, interface method calls, fields of object constants (zod schemas).
+- Tree-sitter only, `typed · read → type` (1,406): the checker binds the member somewhere more exact (a union member's own interface, a base interface, the TypeScript library behind `type Ts = typeof TypeScript`), or the type is mapped and has no declaration.
 - Tree-sitter only, `name · call → method/field` (111): name guesses the checker refuses, such as a TypeScript call bound to the Python method `BodyWalker.literal`.
 - Tree-sitter only, `exact · call → function/variable` (74): mostly JSX intrinsic tags (`<span>`, `<line>`) that tree-sitter bound to a local of the same name.
-- Mismatched ids: srcly's 5 are `declare function` declarations, which the index keeps no symbol for. explorEDA's 3 are in `FieldListRow.tsx`, where tree-sitter makes no symbol after `<option.icon … />`.
+- Mismatched ids: srcly's 11 are `declare function` declarations (7), which the index keeps no symbol for, and files the index does not walk (4, untracked `engine/tmp` output). explorEDA's 3 are in `FieldListRow.tsx`, where tree-sitter makes no symbol after `<option.icon … />`.
 - Outside the Program: test files (the engine's Program leaves them out), configs and docs scripts. They keep tree-sitter references.
 
 Spot checks by hand: the `Legend.span`, `BoxCell.line` and `RowChart.span` rows (JSX tags), `PlotManager.onKeyDown` (four locals that tree-sitter merges into one symbol), `CoverageMatrix.tsx:103` (a `@/` path in `apps/demo`, which needed its own tsconfig's Program), and `PageFileDrop.tsx` (a workspace package's `.d.ts`, followed to source).

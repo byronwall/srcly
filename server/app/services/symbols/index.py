@@ -53,9 +53,10 @@ class SymbolIndex:
     mismatched: List[str] = field(default_factory=list)
     outside_program: int = 0
     program_hash: Optional[str] = None
-    # Checker mode: each bound name's span by (file, line), and the TS files tree-sitter bound instead.
+    # Checker mode: each bound name's span by (file, line), and the files the checker bound
+    # (every other file, Python included, keeps tree-sitter's references and lookup).
     positions: Dict[Tuple[str, int], List[Tuple[int, int, str]]] = field(default_factory=dict)
-    unchecked_files: Set[str] = field(default_factory=set)
+    checked_files: Set[str] = field(default_factory=set)
     _by_line: Optional[Dict[Tuple[str, int], List[int]]] = None
 
     def __post_init__(self) -> None:
@@ -357,7 +358,7 @@ class SymbolIndex:
         Never a search by name alone.
         """
         here = [self.references[i] for i in self._refs_on_line().get((file, line), [])]
-        if self.binder == "checker" and file not in self.unchecked_files:
+        if file in self.checked_files:
             # Every bound name the checker saw, edges or not: an import's name, a recursive call.
             bound = sorted({target for start, end, target in self.positions.get((file, line), ()) if start <= column < end})
             if len(bound) == 1:
@@ -485,7 +486,7 @@ def assemble(root: Path, parts: List[FileSymbols], checker: Optional[CheckerResu
         index.mismatched = bound.mismatched
         index.program_hash = bound.program_hash
         index.positions = dict(bound.positions)
-        index.unchecked_files = {p.file for p in parts if Path(p.file).suffix in TS_EXTENSIONS}
+        index.checked_files = set(bound.files)
         index.outside_program = sum(1 for p in parts if Path(p.file).suffix in TS_EXTENSIONS)
     index.members_by_name = members_by_name
     index.http_links, index.http_unmatched = http_links, http_unmatched

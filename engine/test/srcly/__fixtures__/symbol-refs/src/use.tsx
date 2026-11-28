@@ -1,4 +1,4 @@
-import A, { Store } from "./m";
+import A, { Store, Model, Other } from "./m";
 import * as m from "./m";
 
 declare function pick<T>(): T;
@@ -30,8 +30,10 @@ export class Impl implements Model {
 export interface Wider extends Model {
   extra: boolean;
 }
-import { Model } from "./m";
-import { Other } from "./m";
 export function either(x: Store | Other) {
   return (x.bump satisfies () => number)() + x.bump();
 }
+import type { Row as Imported } from "./m";
+export let imported: Imported | undefined;
+import anon from "./anon";
+export const anonValue = anon();

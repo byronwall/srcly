@@ -144,3 +144,28 @@ def test_one_line_shadowing_and_positions_without_edges(tmp_path: Path):
     # Show references still finds the function at its recursive call.
     assert idx.at("src/h.ts", 1, src.rindex("handler()") + 1, "handler") == ("src/h.ts#handler", [])
     assert idx.at("src/h.ts", 1, src.index("handler();") + 1, "handler") == (None, [])
+
+
+def test_module_code_on_a_declaration_line_and_python_lookups_keep_their_binder(tmp_path: Path):
+    from app.services.symbols.python import extract_py
+
+    src = "export function run() {}; run();"
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "r.ts").write_text(src, encoding="utf-8")
+    (tmp_path / "src" / "p.py").write_text("def go():\n    return 1\n\n\ndef main():\n    return go()\n", encoding="utf-8")
+    ts_parts, _ = extract_ts(tmp_path, [tmp_path / "src" / "r.ts"])
+    py_parts, _ = extract_py(tmp_path, [tmp_path / "src" / "p.py"])
+    call = src.rindex("run") + 1
+    result = SymbolRefsResult.model_validate(
+        {
+            "outcome": "ok", "generation": 1, "programHash": "h", "tsconfig": "", "typescript": "5", "nullProof": True, "reason": None,
+            "targets": [{"file": "src/r.ts", "name": "run", "line": 1, "column": 17, "meaning": "value", "scope": "module"}],
+            "files": [{"file": "src/r.ts", "refs": [{"line": 1, "column": call, "endColumn": call + 3, "kind": "call", "source": None, "target": 0, "unbound": None}]}],
+            "counts": {"files": 1, "bound": 1, "unbound": 0, "external": 0},
+        }
+    )
+    idx = assemble(tmp_path, ts_parts + py_parts, result)
+    # No enclosing declaration is module code, even on the declaration's own line.
+    assert ("src/r.ts", "src/r.ts#run") in {(r.source, r.target) for r in idx.references}
+    # A Python file keeps tree-sitter's lookup in a checker index.
+    assert idx.at("src/p.py", 6, 12, "go") == ("src/p.py#go", [])

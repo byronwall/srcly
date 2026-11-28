@@ -51,15 +51,22 @@ describe("symbolRefs binds every identifier with the checker", () => {
   });
 
   it("binds a union member to every class's own member, and a call through `satisfies` stays a call", () => {
-    const union = at(36, "bump");
+    const union = at(34, "bump");
     expect(union).toMatchObject({ kind: "call", to: { name: "bump", line: 6 } });
     expect((union.also ?? []).map((i) => result.targets[i])).toMatchObject([{ name: "bump", line: 21 }]);
-    expect(at(36, "bump()")).toMatchObject({ kind: "call" });
+    expect(at(34, "bump()")).toMatchObject({ kind: "call" });
   });
 
   it("locates an import clause's name without making it a use", () => {
-    expect(at(34, "Other")).toMatchObject({ clause: true, to: { name: "Other", line: 20, column: 14 } });
-    expect(at(36, "bump()").clause).toBeUndefined();
+    expect(at(1, "Other")).toMatchObject({ clause: true, to: { name: "Other", line: 20, column: 14 } });
+    expect(at(34, "bump()").clause).toBeUndefined();
+    // A type-only clause names the type side of a split name, like its uses.
+    expect(at(36, "Row")).toMatchObject({ clause: true, to: { name: "Row", line: 1, meaning: "type" } });
+    expect(at(36, "Imported")).toMatchObject({ clause: true, to: { name: "Row", line: 1, meaning: "type" } });
+  });
+
+  it("anchors an anonymous default function where tree-sitter names it, after `default`", () => {
+    expect(at(39, "anon()")).toMatchObject({ kind: "call", to: { file: "src/anon.ts", name: "default", line: 1, column: 16 } });
   });
 
   it("binds a forward reference to a block-local alias", () => {
@@ -80,12 +87,12 @@ describe("symbolRefs follows a workspace package's built .d.ts to its source", (
   const lib = "packages/kit/src/index.ts";
 
   it("binds named, namespace, class-member, bracket and default uses to the source", () => {
-    expect(at(5, "tick")).toMatchObject({ kind: "call", to: { file: lib, name: "tick", line: 1 } });
     expect(at(6, "tick")).toMatchObject({ kind: "call", to: { file: lib, name: "tick", line: 1 } });
-    expect(at(7, "Runner")).toMatchObject({ kind: "instantiate", to: { file: lib, name: "Runner", line: 5 } });
-    expect(at(7, "run")).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6, scope: "member" } });
-    expect(at(8, '"run"')).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6 } });
-    expect(at(9, "main")).toMatchObject({ kind: "call", to: { file: lib, name: "main", line: 11 } });
+    expect(at(7, "tick")).toMatchObject({ kind: "call", to: { file: lib, name: "tick", line: 1 } });
+    expect(at(8, "Runner")).toMatchObject({ kind: "instantiate", to: { file: lib, name: "Runner", line: 5 } });
+    expect(at(8, "run")).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6, scope: "member" } });
+    expect(at(9, '"run"')).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6 } });
+    expect(at(10, "main")).toMatchObject({ kind: "call", to: { file: lib, name: "main", line: 11 } });
   });
 
   it("follows a declaration map over the conventional path", () => {

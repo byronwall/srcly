@@ -160,8 +160,9 @@ def join(result: SymbolRefsResult, symbols: Dict[str, Symbol]) -> CheckerRefs:
                 out.positions[(f.file, r.line)].append((r.column, r.endColumn, target))
             if r.clause:
                 continue
-            # The enclosing declaration's symbol, else the innermost symbol holding the line.
-            source = (targets[r.source] if r.source is not None else None) or files.source(f.file, r.line)
+            # The enclosing declaration's symbol; module code when the checker names none; the
+            # innermost symbol holding the line only when the enclosing one has no symbol.
+            source = f.file if r.source is None else (targets[r.source] or files.source(f.file, r.line))
             for target in bound:
                 if source != target:
                     out.references.append(Reference(source=source, target=target, kind=r.kind, line=r.line, column=r.column, end_column=r.endColumn))
