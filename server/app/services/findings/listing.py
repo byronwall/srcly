@@ -14,13 +14,16 @@ from collections import Counter
 from pathlib import Path
 from typing import Optional, Sequence
 
-from app.services.findings import typescript
+from app.services.findings import copied_type_casts, typescript
 from app.services.findings.model import FindingsResult, ToolRun
 from app.services.findings.runner import collect, plan_tools
 from app.services.findings.tools import Tool
 
 Skipped = Sequence[tuple[str, str, str]]
 """Configured checks that were not planned: (tool, label, reason)."""
+
+SKIPPED_RULES = {"srcly-casts": (copied_type_casts.RULE,)}
+"""The rules a skipped srcly checker would have reported."""
 
 
 def _family(rule: str) -> str:
@@ -42,11 +45,14 @@ def _blockers(
     checkers, left_out, name = list(tools), list(skipped), "checker"
     if rule is not None:
         owners = [t for t in tools if rule in t.rules]
+        skipped_owners = [s for s in skipped if rule in SKIPPED_RULES.get(s[0], ())]
         # An ast-grep id is the project's choice, so it may also be an eslint rule's name.
         shared = all(t.tool == "ast-grep" for t in owners)
-        family = _family(rule) if not owners else "eslint" if shared else None
+        family = None if owners or skipped_owners else _family(rule)
+        if owners and shared:
+            family = "eslint"
         checkers = [t for t in tools if t in owners or t.tool == family or t.id in reporters]
-        left_out = [s for s in skipped if s[0] == family]
+        left_out = [s for s in skipped if s[0] == family or s in skipped_owners]
         name = " or ".join(t.label for t in owners) or f"{family} run"
     why = [runs[t.id].reason for t in checkers if not runs[t.id].ok]
     why += [f"{label} not run: {reason}" for _, label, reason in left_out]
@@ -140,5 +146,6 @@ def run(root: Path, rules: Sequence[str] = (), fmt: str = "md", refresh: bool = 
     stop = find_repo_root(root if root.is_dir() else root.parent)
     tools = plan_tools(root, stop=stop)
     result = collect(root, fingerprint=cache.fingerprint(root), tools=tools, use_cache=not refresh)
-    payload = build(root, result, tools, rules, typescript.unscheduled(root, stop))
+    skipped = typescript.unscheduled(root, stop) + copied_type_casts.unscheduled(root, stop)
+    payload = build(root, result, tools, rules, skipped)
     return json.dumps(payload, indent=2) if fmt == "json" else render(payload)

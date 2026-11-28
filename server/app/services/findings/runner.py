@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Sequence
 
-from app.services.findings import astgrep, async_loops, builtin_ts, duplicate_types, reachability, ruff, solid, typescript
+from app.services.findings import astgrep, async_loops, builtin_ts, copied_type_casts, duplicate_types, reachability, ruff, solid, typescript
 from app.services.findings.model import Finding, FindingsResult, ToolRun
 from app.services.findings.tools import Tool, run
 
@@ -36,7 +36,8 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
     - srcly's reachability check over the whole TS import graph, and its
       Solid rules on every file that imports ``solid-js``, and its
       await-in-loop rule on every non-test JS/TS file, and its duplicate-type
-      rule over every non-test TS file;
+      rule over every non-test TS file, and its copied-type-cast rule (a
+      type-checked Node script) per project tsconfig;
     - the project's ast-grep rule pack in ``.srcly/rules/``, when it has one.
     """
     root = root.resolve()
@@ -54,6 +55,7 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
         solid.SolidTool(root),
         async_loops.AwaitInLoopTool(root),
         duplicate_types.DuplicateTypeTool(root),
+        *([] if portable else copied_type_casts.plan(root, stop)),
     ]
 
 
@@ -160,6 +162,14 @@ class FindingsCache:
 
 
 findings_cache = FindingsCache()
+
+
+def tools_signature(root: Path) -> str:
+    """The signatures of the tools ``collect`` would plan for ``root``; empty when planning fails."""
+    try:
+        return "\n".join(sorted(t.signature() for t in plan_tools(root)))
+    except Exception:  # noqa: BLE001 - the job reports a planning failure itself
+        return ""
 
 
 def cache_key(root: Path, fingerprint: str, tools: Sequence[Tool], portable: bool) -> str:

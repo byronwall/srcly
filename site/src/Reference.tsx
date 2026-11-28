@@ -45,6 +45,7 @@ const checkers: [string, string][] = [
   ['srcly reachability', 'Unreachable files and unused exports, walking imports from detected entries'],
   ['srcly Solid rules, await-in-loop', 'Solid cleanups returned from onMount or createEffect, and await inside a loop'],
   ['srcly duplicate types', 'A local object type that copies a type another file exports (fields matched by name and type)'],
+  ['srcly copied-type casts', 'A cast onto a type with the same name as the operand\'s type but another declaration (type-checked, per tsconfig)'],
   ['ast-grep', 'Your own YAML rules in .srcly/rules/'],
 ];
 

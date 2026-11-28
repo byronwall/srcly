@@ -94,6 +94,7 @@ Progress, version banners and cache warnings go to stderr, so stdout stays parse
 - TSX render branching, prop count, inline handlers, and nesting: UI complexity and test-surface risk.
 - `any` usage and TS ignore directives: type-safety debt.
 - `duplicate-type`: a local type copies one another file exports. Run `srcly refs <name>`, move the callers to the exported type, delete the copy and any casts that hid it, all in one change. Compare `srcly findings . --rule duplicate-type` before and after.
+- `copied-type-cast`: a cast onto a same-name copy of the value's type (`fetchDoc(id) as Promise<DocDetail>`, `t.status as RunStatus` onto a local copy of a Prisma enum). Import the one declaration, delete the copy, drop the cast; tsc then checks the two sides. Fix it together with any `duplicate-type` hit on the same name.
 - Import coupling and dependency graph density: dependency-boundary review targets.
 - TODOs in complex files: maintenance markers worth validating.
 - Low comment density only matters when paired with complexity, public API behavior, or non-obvious domain logic.
