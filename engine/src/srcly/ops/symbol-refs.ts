@@ -168,8 +168,9 @@ function builtSources(tier1: TsTier1, root: string) {
     const map = `${file.fileName}.map`;
     if (fs.existsSync(map)) {
       try {
-        const sources = (JSON.parse(fs.readFileSync(map, "utf8")) as { sources?: unknown; sourceRoot?: unknown }).sources;
-        const first = Array.isArray(sources) && typeof sources[0] === "string" ? path.resolve(path.dirname(map), sources[0]) : undefined;
+        const parsed = JSON.parse(fs.readFileSync(map, "utf8")) as { sources?: unknown; sourceRoot?: unknown };
+        const base = typeof parsed.sourceRoot === "string" ? path.resolve(path.dirname(map), parsed.sourceRoot) : path.dirname(map);
+        const first = Array.isArray(parsed.sources) && typeof parsed.sources[0] === "string" ? path.resolve(base, parsed.sources[0]) : undefined;
         const hit = first ? program.getSourceFile(first.split(path.sep).join("/")) : undefined;
         return hit && !hit.isDeclarationFile ? hit : undefined;
       } catch {

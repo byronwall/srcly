@@ -685,8 +685,10 @@ def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-s
             hit = _cache.get((root, binder))
         if hit is not None and hit[0] == sig and _still_current(root, hit[1], registry):
             return hit[1]
-        # A config the engine's own hash may not cover changed: rebuild its Program.
-        refresh = hit is not None and hit[0][1] != configs
+        # A source or config changed since the cached index: rebuild the engine's Program too.
+        # Its own hash covers only the files it holds, so a new file that changes where an
+        # import resolves, or an extended config, would not mark it stale.
+        refresh = hit is not None and hit[0] != sig
     parts: List[FileSymbols] = []
     ts_files = [f for f in files if f.suffix in TS_EXTENSIONS]
     if ts_files:
