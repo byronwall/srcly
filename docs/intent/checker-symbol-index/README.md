@@ -128,6 +128,19 @@ M0 gate, on `~/Projects/visual-notes`, under `node --max-old-space-size=4096`, o
 
 If M0 fails, stop and record the numbers here. The five findings then stay as named limits.
 
+### M0 result (2026-11-27): go
+
+`engine/scripts/symbol-refs-spike.ts` binds every identifier with `getSymbolAtLocation` and alias resolution, one run per root, `node --expose-gc --max-old-space-size=4096`. Heap is after a full GC.
+
+| Root | Files | Build | Walk | Heap built → walked | RSS | JSON | Bound | Unbound | External |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| srcly `client/` | 196 | 1.4 s | 1.6 s | 319 → 396 MB | 664 MB | 2.8 MB | 41,467 | 821 | 14,152 |
+| visual-notes | 691 | 3.1 s | 4.5 s | 555 → 885 MB | 1,157 MB | 3.7 MB | 44,571 | 4,141 | 21,694 |
+| srcly (whole repo) | 707 | 2.4 s | 4.7 s | 542 → 771 MB | 1,050 MB | 12.7 MB | 151,560 | 2,476 | 55,922 |
+| explorEDA | 819 | 3.2 s | 6.8 s | 604 → 886 MB | 1,187 MB | 15.9 MB | 163,849 | 6,096 | 49,865 |
+
+Every root is well inside the gate: a walk of 7 s at most, heap under 900 MB, JSON under 16 MB.
+
 ## Fallback
 
 No Node, no engine, no tsconfig, crash, timeout or `memory-limit`: the index is tree-sitter only, exactly as today, with `binder: "tree-sitter"` and the reason. The fallback does not try to approximate the checker. That keeps one binder per answer, and the tree-sitter code stays as it is and gets no new rules.
