@@ -130,7 +130,7 @@ If M0 fails, stop and record the numbers here. The five findings then stay as na
 
 ### M0 result (2026-11-27): go
 
-`engine/scripts/symbol-refs-spike.ts` binds every identifier with `getSymbolAtLocation` and alias resolution, one run per root, `node --expose-gc --max-old-space-size=4096`. Heap is after a full GC.
+A throwaway spike bound every identifier with `getSymbolAtLocation` and alias resolution, one run per root (the op's cost is now `cd engine && node --expose-gc --max-old-space-size=4096 --import tsx scripts/symbol-refs-probe.ts --root <repo>`), `node --expose-gc --max-old-space-size=4096`. Heap is after a full GC.
 
 | Root | Files | Build | Walk | Heap built → walked | RSS | JSON | Bound | Unbound | External |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

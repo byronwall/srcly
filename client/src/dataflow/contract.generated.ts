@@ -724,3 +724,38 @@ export type FlowSignatureResult = {
   }[];
   skippedScopes: number;
 };
+
+/** Result of the `symbolRefs` op. */
+export type SymbolRefsResult = {
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  nullProof: boolean;
+  reason: string | null;
+  targets: {
+    file: string;
+    name: string;
+    line: number;
+    meaning: "value" | "type";
+    scope: "module" | "member" | "local";
+  }[];
+  files: {
+    file: string;
+    refs: {
+      line: number;
+      column: number;
+      endColumn: number;
+      kind: "call" | "instantiate" | "read" | "write" | "type" | "extends" | "implements";
+      target: number | null;
+      unbound: "unresolved" | "any" | null;
+    }[];
+  }[];
+  counts: {
+    files: number;
+    bound: number;
+    unbound: number;
+    external: number;
+  };
+};

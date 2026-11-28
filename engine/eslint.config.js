@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "tmp/**", "examples/bad-ish-solid/**", "examples/pattern-catalog/**", "examples/value-flow-js/**"],
+    ignores: ["dist/**", "node_modules/**", "tmp/**", "examples/bad-ish-solid/**", "examples/pattern-catalog/**", "examples/value-flow-js/**", "test/srcly/__fixtures__/symbol-refs/**"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
