@@ -277,7 +277,9 @@ export function symbolIdOf(at: string): string | null {
   if (!scopes.length) return file;
   const names = scopes.map((s) => normalizeScopeName(s));
   if (names.some((n) => !/^[A-Za-z_$#][\w$#]*$/.test(n))) return null;
-  return `${file}#${names.join(".")}`;
+  // A type that shares its name with a value keeps its own id (`src/a.ts#A@type`).
+  const suffix = scopes[scopes.length - 1].endsWith(TYPE_ID_SUFFIX) ? TYPE_ID_SUFFIX : "";
+  return `${file}#${names.join(".")}${suffix}`;
 }
 
 /** Data flow mode: a route, or an anchor. */
@@ -352,8 +354,12 @@ export function treePathFromAt(at: string, root: string): string {
  * "(class) Foo", "run (async)"); graph symbols are bare. Compare them bare.
  */
 export function normalizeScopeName(name: string): string {
-  return name.replace(/\([^)]*\)/g, "").trim();
+  const bare = name.replace(/\([^)]*\)/g, "").trim();
+  return bare.endsWith(TYPE_ID_SUFFIX) ? bare.slice(0, -TYPE_ID_SUFFIX.length) : bare;
 }
+
+/** The symbol index's id suffix for a type-only declaration named like a value of its file. */
+export const TYPE_ID_SUFFIX = "@type";
 
 /** Last path segment ("/a/b/" → "b"). */
 export function baseName(path: string): string {

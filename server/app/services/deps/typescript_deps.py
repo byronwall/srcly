@@ -6,7 +6,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 import tree_sitter_typescript as tstypescript
 from tree_sitter import Language, Node, Parser
@@ -64,6 +64,8 @@ class TsFileInfo:
     star_reexports: List[str] = field(default_factory=list)
     # local name → (source spec, imported name) of each static import binding ("*" for a namespace)
     import_locals: Dict[str, Tuple[str, str]] = field(default_factory=dict)
+    # local names `export { a }` or `export default a` exports, in every namespace they have
+    clause_exports: Set[str] = field(default_factory=set)
     declarations: List[SymbolDef] = field(default_factory=list)
     # Top-level declaration nodes, kept for symbol-usage analysis.
     decl_nodes: Dict[str, Node] = field(default_factory=dict)
@@ -182,6 +184,7 @@ def _parse_export(stmt: Node, info: TsFileInfo, line: int) -> None:
                 name = _text(s.child_by_field_name("name"))
                 alias = _text(s.child_by_field_name("alias")) or name
                 info.local_exports[alias] = name
+                info.clause_exports.add(name)
         return
 
     is_default = any(c.type == "default" for c in stmt.children)
@@ -196,6 +199,8 @@ def _parse_export(stmt: Node, info: TsFileInfo, line: int) -> None:
         value = stmt.child_by_field_name("value")
         local = _text(value) if value is not None and value.type == "identifier" else "default"
         info.local_exports["default"] = local
+        if local != "default":
+            info.clause_exports.add(local)
         if local == "default":
             info.declarations.append(SymbolDef("default", "value", line, exported=True))
 
@@ -214,7 +219,13 @@ def _record_declaration(node: Node, info: TsFileInfo, exported: bool) -> List[st
             if d.type != "variable_declarator":
                 continue
             name_node = d.child_by_field_name("name")
-            if name_node is None or name_node.type != "identifier":
+            if name_node is None:
+                continue
+            if name_node.type != "identifier":
+                # `const { a, b } = x`: each bound name is a top-level variable.
+                for name in pattern_names(name_node):
+                    names.append(name)
+                    info.declarations.append(SymbolDef(name, "variable", d.start_point[0] + 1, exported))
                 continue
             value = d.child_by_field_name("value")
             kind = "function" if value is not None and value.type in ("arrow_function", "function_expression", "function") else "variable"
@@ -223,6 +234,26 @@ def _record_declaration(node: Node, info: TsFileInfo, exported: bool) -> List[st
             info.declarations.append(SymbolDef(name, kind, d.start_point[0] + 1, exported))
             info.decl_nodes[name] = d
     return names
+
+
+def pattern_names(pattern: Node) -> Iterator[str]:
+    """Every bound identifier in a destructuring pattern."""
+    stack = [pattern]
+    while stack:
+        node = stack.pop()
+        t = node.type
+        if t in ("identifier", "shorthand_property_identifier_pattern"):
+            yield _text(node)
+        elif t == "pair_pattern":
+            v = node.child_by_field_name("value")
+            if v is not None:
+                stack.append(v)
+        elif t in ("object_assignment_pattern", "assignment_pattern"):
+            left = node.child_by_field_name("left")
+            if left is not None:
+                stack.append(left)
+        elif t in ("object_pattern", "array_pattern", "rest_pattern"):
+            stack.extend(node.named_children)
 
 
 class TsModuleResolver:
@@ -349,6 +380,15 @@ class TsProgram:
         # Names a file declares twice, once as a type only (interface, type alias) and once as a value only
         # (variable, function): `export const A = B; export type A = B`. They are two symbols; see type_split.
         self.type_split: Dict[Path, Set[str]] = {f: _type_split(i.declarations) for f, i in self.infos.items()}
+
+    def exported_as(self, file: Path, name: str, type_ns: bool) -> bool:
+        """Whether a split name (see type_split) is public in the type or the value namespace."""
+        info = self.infos.get(file)
+        if info is None:
+            return False
+        if name in info.clause_exports:
+            return True
+        return any(d.name == name and d.exported and (d.kind == "type") == type_ns for d in info.declarations)
 
     def resolve(self, spec: str, from_file: Path) -> Optional[Path]:
         key = (from_file.parent, spec) if not spec.startswith(".") else (from_file, spec)

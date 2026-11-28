@@ -511,8 +511,9 @@ def _settle(p: PendingMember, symbols: Dict[str, Symbol], members_by_name: Dict[
     if receiver is not None:
         resolution = "typed" if p.receiver_note == "typed" else "exact"
         if receiver.kind == "module":
-            # `ns.A` in a type names the type A of a file that also has a value A (`file#A@type`).
-            hit = (symbols.get(f"{receiver.id}#{p.member}@type") if p.kind in ("type", "extends", "implements") else None) or symbols.get(
+            # `ns.A` in a type names the type A of a file that also has a value A (`file#A@type`);
+            # a class's `extends ns.A` is code, so it names the value.
+            hit = (symbols.get(f"{receiver.id}#{p.member}@type") if p.kind == "type" else None) or symbols.get(
                 f"{receiver.id}#{p.member}"
             )
             if hit is not None:

@@ -22,7 +22,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 from tree_sitter import Node
 
 from app.services.deps.common import ImportBinding
-from app.services.deps.typescript_deps import TsFileInfo, TsProgram, _string_value, _text
+from app.services.deps.typescript_deps import TsFileInfo, TsProgram, _string_value, _text, pattern_names
 from app.services.symbols.model import HTTP_METHODS, FileSymbols, HttpRequest, PendingMember, RefKind, Reference, Symbol, SymbolKind
 
 _FUNCTION_LIKE = {"function_declaration", "generator_function_declaration", "arrow_function", "function_expression", "function", "generator_function"}
@@ -44,7 +44,7 @@ _TYPE_ROOTS = {
 class _Scope:
     symbol: Optional[str]
     class_id: Optional[str]
-    # local name → the type name it was declared with (`x: Store`, `new Store()`), or None
+    # local name → the type name it was declared with (`x: Store`, or `new Store` for `new Store()`), or None
     locals: Dict[str, Optional[str]] = field(default_factory=dict)
     # nested symbols declared directly in this scope, by name
     named: Dict[str, str] = field(default_factory=dict)
@@ -87,8 +87,12 @@ class TsFileExtractor:
             return None
         if name is None:
             return target
-        split = type_ns and name in self.program.type_split.get(file, set())
-        return f"{target}#{name}{TYPE_ID_SUFFIX if split else ''}"
+        if name in self.program.type_split.get(file, set()):
+            # One side of a split name can be private: `export default function A` beside a `type A`.
+            if not self.program.exported_as(file, name, type_ns):
+                return None
+            return f"{target}#{name}{TYPE_ID_SUFFIX if type_ns else ''}"
+        return f"{target}#{name}"
 
     def _binding_id(self, b: ImportBinding, type_ns: bool = False) -> Optional[str]:
         return self._export_id(b.target_file, None if b.namespace else b.target_symbol, type_ns)
@@ -121,6 +125,12 @@ class TsFileExtractor:
             return self._binding_id(b, type_ns=True)
         return None
 
+    def resolve_declared(self, declared: str) -> Optional[str]:
+        """The class a `_declared_type` names: `new A` is the value A (the constructor), `A` the type A."""
+        if declared.startswith(_NEW):
+            return self.resolve_name(declared[len(_NEW) :])[0]
+        return self.resolve_type_name(declared)
+
     # ---- symbols ----
 
     def _add(self, name: str, kind: SymbolKind, node: Node, container: Optional[str], exported: bool, suffix: str = "") -> Symbol:
@@ -150,7 +160,10 @@ class TsFileExtractor:
         at_top = len(self.scopes) == 1
         container = None if at_top else self.scope.symbol
         split = at_top and kind == "type" and name in self.split
-        exported = (name in self.exported) if at_top else self._container_exported()
+        if at_top and name in self.split and kind in ("type", "variable", "function"):
+            exported = self.program.exported_as(self.path, name, kind == "type")
+        else:
+            exported = (name in self.exported) if at_top else self._container_exported()
         sym = self._add(name, kind, node, container, exported, TYPE_ID_SUFFIX if split else "")
         if split:
             self.top_types[name] = sym.id
@@ -197,7 +210,7 @@ class TsFileExtractor:
             if sid is not None:
                 return sid, ""
             if type_name:
-                return self.resolve_type_name(type_name), "typed"
+                return self.resolve_declared(type_name), "typed"
             return None, "local"
         return None, "expression"
 
@@ -237,6 +250,10 @@ class TsFileExtractor:
         if target is None or not name:
             return None
         d_file, d_name = self.program.find_definer(target, name)
+        exports = self.program.infos[d_file].local_exports if d_file in self.program.infos else {}
+        # Only a public name: `import("./m").A` of a file whose A is private (or only its default) names nothing.
+        if (name not in exports) if d_file == target else (d_name not in exports.values()):
+            return None
         return self._export_id(d_file, d_name, type_ns)
 
     # ---- the walk ----
@@ -364,7 +381,8 @@ class TsFileExtractor:
                 self.visit(inner)
             return
         if t == "type_identifier":
-            self._ref(self.resolve_type_name(_text(n)), self._type_ref_kind(n), n)
+            if not _type_parameter_bound(n):
+                self._ref(self.resolve_type_name(_text(n)), self._type_ref_kind(n), n)
             return
         if t in ("identifier", "shorthand_property_identifier"):
             self._ref(self.resolve_name(_text(n))[0], "read", n)
@@ -373,7 +391,7 @@ class TsFileExtractor:
             param = n.child_by_field_name("parameter")
             self._push(None)
             if param is not None:
-                for name in _pattern_names(param):
+                for name in pattern_names(param):
                     self.scope.locals[name] = None
             body = n.child_by_field_name("body")
             if body is not None:
@@ -457,7 +475,7 @@ class TsFileExtractor:
             elif pattern.type == "this":
                 continue
             else:
-                for name in _pattern_names(pattern):
+                for name in pattern_names(pattern):
                     scope.locals[name] = None
 
     def _visit_parameter_types(self, params: Node) -> None:
@@ -504,7 +522,7 @@ class TsFileExtractor:
                         if value is None or value.type not in _FUNCTION_LIKE:
                             scope.locals.setdefault(_text(name_node), _declared_type(node))
                     else:
-                        for name in _pattern_names(name_node):
+                        for name in pattern_names(name_node):
                             scope.locals.setdefault(name, None)
             elif t == "function_declaration":
                 continue
@@ -529,11 +547,11 @@ class TsFileExtractor:
                     if not is_fn:
                         type_name = _declared_type(d)
                         if type_name:
-                            sym.typed_as = self.resolve_type_name(type_name)
+                            sym.typed_as = self.resolve_declared(type_name)
                 else:
                     self.scope.locals[name] = _declared_type(d)
             else:
-                for name in _pattern_names(name_node):
+                for name in pattern_names(name_node):
                     if not at_top:
                         self.scope.locals[name] = None
                     else:
@@ -756,16 +774,33 @@ def _import_spec(call: Node) -> Optional[str]:
 
 def _type_context(n: Node) -> Optional[str]:
     """"type" when a node sits in a type, "value" in `typeof …`, None in code."""
-    p = n.parent
+    child, p = n, n.parent
     while p is not None:
         if p.type == "type_query":
             return "value"
         if p.type in _TYPE_ROOTS:
             return "type"
+        if p.type in ("as_expression", "satisfies_expression"):
+            # `x as T`, `x satisfies T`: the operand is code, what follows the keyword a type.
+            return None if _same(child, p.named_children[0] if p.named_children else None) else "type"
         if p.type in _FUNCTION_LIKE or p.type.endswith("statement") or p.type in ("program", "statement_block", "variable_declarator", "arguments"):
             return None
-        p = p.parent
+        child, p = p, p.parent
     return None
+
+
+def _type_parameter_bound(n: Node) -> bool:
+    """A type name that a generic parameter (`<Row>`) declares or binds: not a reference to an outer type."""
+    name = _text(n)
+    if n.parent is not None and n.parent.type == "type_parameter" and _same(n.parent.child_by_field_name("name"), n):
+        return True
+    p = n.parent
+    while p is not None:
+        params = p.child_by_field_name("type_parameters")
+        if params is not None and any(_text(tp.child_by_field_name("name")) == name for tp in params.named_children):
+            return True
+        p = p.parent
+    return False
 
 
 def _same(a: Optional[Node], b: Optional[Node]) -> bool:
@@ -808,26 +843,6 @@ def _literal_method(options: Optional[Node]) -> Optional[str]:
     return None
 
 
-def _pattern_names(pattern: Node) -> Iterator[str]:
-    """Every bound identifier in a destructuring pattern."""
-    stack = [pattern]
-    while stack:
-        node = stack.pop()
-        t = node.type
-        if t in ("identifier", "shorthand_property_identifier_pattern"):
-            yield _text(node)
-        elif t == "pair_pattern":
-            v = node.child_by_field_name("value")
-            if v is not None:
-                stack.append(v)
-        elif t in ("object_assignment_pattern", "assignment_pattern"):
-            left = node.child_by_field_name("left")
-            if left is not None:
-                stack.append(left)
-        elif t in ("object_pattern", "array_pattern", "rest_pattern"):
-            stack.extend(node.named_children)
-
-
 def _annotation_name(type_node: Optional[Node]) -> Optional[str]:
     """`: Store` → "Store"; anything else (unions, generics, object types) is not an instance type."""
     if type_node is None:
@@ -836,6 +851,9 @@ def _annotation_name(type_node: Optional[Node]) -> Optional[str]:
     if inner is not None and inner.type == "type_identifier":
         return _text(inner)
     return None
+
+
+_NEW = "new "  # a `_declared_type` from a `new` initializer: the constructor, a value
 
 
 def _declared_type(declarator: Node) -> Optional[str]:
@@ -847,7 +865,7 @@ def _declared_type(declarator: Node) -> Optional[str]:
     if value is not None and value.type == "new_expression":
         ctor = value.child_by_field_name("constructor")
         if ctor is not None and ctor.type == "identifier":
-            return _text(ctor)
+            return _NEW + _text(ctor)
     return None
 
 

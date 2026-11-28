@@ -208,6 +208,7 @@ def test_refs_flags_and_stats(tmp_path: Path):
 def test_inline_type_import_names_the_export(tmp_path: Path):
     write(tmp_path, "src/types.ts", "export type Row = { id: string };\nexport const LIMIT = 3;\n")
     write(tmp_path, "src/index.ts", 'export * from "./types";\n')
+    write(tmp_path, "src/private.ts", "export default function Secret() {}\ntype Secret = number;\nfunction Hidden() {}\n")
     write(
         tmp_path,
         "src/worker.ts",
@@ -216,6 +217,9 @@ def test_inline_type_import_names_the_export(tmp_path: Path):
                 'const tables: Record<string, import("./types").Row[]> = {};',
                 'export function first(r: import("./index").Row): typeof import("./types").LIMIT { return 3; }',
                 'export const later = import("./types").then((m) => m.LIMIT);',
+                'export const cast = {} as import("./types").Row;',
+                'export const checked = { id: "a" } satisfies import("./types").Row;',
+                'export const hidden: import("./private").Secret = 1;',
             ]
         ),
     )
@@ -223,6 +227,9 @@ def test_inline_type_import_names_the_export(tmp_path: Path):
     assert ("src/worker.ts#tables", "type", "src/types.ts#Row", "exact") in r
     assert ("src/worker.ts#first", "type", "src/types.ts#Row", "exact") in r  # through the barrel
     assert ("src/worker.ts#first", "type", "src/types.ts#LIMIT", "exact") in r  # `typeof` names the value
+    assert ("src/worker.ts#cast", "type", "src/types.ts#Row", "exact") in r  # `x as T`, `x satisfies T`
+    assert ("src/worker.ts#checked", "type", "src/types.ts#Row", "exact") in r
+    assert not any(s == "src/worker.ts#hidden" and t.startswith("src/private.ts#") for s, _k, t, _r in r)  # not a public name
     # A dynamic import in code is a promise, not a reference to the module's exports.
     assert not any(s == "src/worker.ts#later" and t.startswith("src/types.ts#") for s, _k, t, _r in r)
 
@@ -231,7 +238,11 @@ def test_import_then_reexport_follows_to_the_definer(tmp_path: Path):
     write(tmp_path, "src/types.ts", "export interface Saved { id: string }\nexport default function make() {}\n")
     write(tmp_path, "src/Widget.tsx", 'import { type Saved } from "./types";\nimport make from "./types";\nexport type { Saved };\nexport { make as build };\n')
     write(tmp_path, "src/App.tsx", 'import { type Saved, build } from "./Widget";\nexport function App(s: Saved) { return build(); }\n')
+    # A destructured local of the re-exported name is the module's own value: it wins over the import.
+    write(tmp_path, "src/Both.ts", 'import { type Saved } from "./types";\nconst { Saved } = { Saved: 1 };\nexport { Saved };\n')
+    write(tmp_path, "src/use.ts", 'import { Saved } from "./Both";\nexport const v = Saved;\n')
     r = refs(build_symbol_index(tmp_path, use_cache=False))
+    assert ("src/use.ts#v", "read", "src/Both.ts#Saved", "exact") in r
     assert ("src/App.tsx#App", "type", "src/types.ts#Saved", "exact") in r
     assert ("src/App.tsx#App", "call", "src/types.ts#make", "exact") in r
 
@@ -242,24 +253,28 @@ def test_type_and_value_of_one_name_are_two_symbols(tmp_path: Path):
         "src/collector.ts",
         "\n".join(
             [
-                "class Impl { run() {} }",
-                "export const Collector = Impl;",
-                "export type Collector = Impl;",
+                "export const Collector = class { run() {} };",
+                "export type Collector = InstanceType<typeof Collector>;",
                 "export interface Store { n: number }",
                 "export class Store {}",
-                "export function use(c: Collector) { return new Collector(); }",
+                "export function use(c: Collector) { const x = new Collector(); x.run(); return c; }",
+                "export function adapt<Collector>(Collector: number, input: Collector): Collector { return input; }",
+                "export default function Pub() {}",
+                "type Pub = number;",
             ]
         ),
     )
     write(
         tmp_path,
         "src/app.ts",
-        'import { Collector } from "./collector";\nimport * as col from "./collector";\nexport const c: Collector = new Collector();\nexport let d: col.Collector;\n',
+        'import { Collector } from "./collector";\nimport * as col from "./collector";\nexport const c: Collector = new Collector();\nexport let d: col.Collector;\n'
+        "export class Sub extends col.Collector {}\n",
     )
     idx = build_symbol_index(tmp_path, use_cache=False)
     s = idx.symbols
     value, typ = s["src/collector.ts#Collector"], s["src/collector.ts#Collector@type"]
-    assert (value.kind, value.line, typ.kind, typ.line, typ.name) == ("variable", 2, "type", 3, "Collector")
+    assert (value.kind, value.line, typ.kind, typ.line, typ.name) == ("variable", 1, "type", 2, "Collector")
+    assert s["src/collector.ts#Pub"].exported and not s["src/collector.ts#Pub@type"].exported
     assert "src/collector.ts#Store@type" not in s  # an interface merges into its class
     r = refs(idx)
     assert ("src/collector.ts#use", "type", "src/collector.ts#Collector@type", "exact") in r
@@ -267,4 +282,8 @@ def test_type_and_value_of_one_name_are_two_symbols(tmp_path: Path):
     assert ("src/app.ts#c", "type", "src/collector.ts#Collector@type", "exact") in r
     assert ("src/app.ts#c", "instantiate", "src/collector.ts#Collector", "exact") in r
     assert ("src/app.ts#d", "type", "src/collector.ts#Collector@type", "exact") in r
+    assert ("src/collector.ts#use", "call", "src/collector.ts#Collector.run", "typed") in r  # `new` names the constructor
+    assert ("src/app.ts#Sub", "extends", "src/collector.ts#Collector", "exact") in r  # a class base is a value
     assert not any(t == "src/collector.ts#Collector" and k == "type" for _s, k, t, _r in r)
+    # `<Collector>` declares a generic parameter: neither it nor its uses name the module's type.
+    assert not any(s == "src/collector.ts#adapt" and t.startswith("src/collector.ts#Collector") for s, _k, t, _r in r)
