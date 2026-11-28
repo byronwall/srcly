@@ -5,10 +5,10 @@ import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
 import { builtinTsModel } from "../analysis/library-models";
-import { cellCall } from "../analysis/cells";
+import { cellCall, cellHas, cellSite, pairShaped } from "../analysis/cells";
 import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
-import type { BindingState, HostCandidate, LanguageHost } from "./host";
+import type { BindingState, HostCandidate, LanguageHost, StateEffect } from "./host";
 import { candidatesAt, sliceWhole, sourceFileFor, spanOf, type Span } from "./selection";
 import type { TsTier1 } from "./session";
 
@@ -64,54 +64,65 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   };
   /** A value that carries no object to change: every member of its type is a primitive. */
   const isPrimitive = (type: TypeScript.Type) => (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.ESSymbolLike | ts.TypeFlags.EnumLike | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void)) !== 0);
+  // `await x` can be x itself (a value that is not a promise, or a promise that settles to it): the same object.
+  const unwrap = (node: TypeScript.Node) => {
+    let top = node;
+    while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
+    return top;
+  };
+  /**
+   * The one effect analysis for an object value: whether the code may change
+   * the object this use names (a binding's use, or a getter's call `doc()`).
+   * Read-only uses (a field read of a primitive, a test) say no; a write
+   * through any access chain, or an escape (handed to a function, a
+   * component, a container, out of a function) says yes. Handed to a plain
+   * name (`const sub = doc()`), it is that name's uses that decide.
+   */
+  const changes = (use: TypeScript.Node, seen: Set<TypeScript.Node>): boolean => {
+    // `export default state`, `export default (state as State)`.
+    if (ts.isExportAssignment(unwrap(use).parent)) return true;
+    // `x.a.b`, `x["a"]`: the access chain that starts at this use.
+    let top: TypeScript.Node = unwrap(use);
+    while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
+    const up = top.parent;
+    const assigned = ts.isBinaryExpression(up) && up.left === top && up.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && up.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+    const stepped = (ts.isPrefixUnaryExpression(up) || ts.isPostfixUnaryExpression(up)) && (up.operator === ts.SyntaxKind.PlusPlusToken || up.operator === ts.SyntaxKind.MinusMinusToken);
+    const whole = top === unwrap(use);
+    // Written (`x.a = …`, `x = …`, `[x.a] = …`, `({ x } = …)`, `for (x of …)`).
+    if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
+    // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
+    const type = checker.getTypeAtLocation(top);
+    if (isPrimitive(type)) return false;
+    // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
+    if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
+    // Handed out of a function (`() => n`, `return n`, `yield n`), used as a parameter's default (`d = n`) or a class field's (`held = n`): written wherever that goes.
+    if (ts.isReturnStatement(up) || ts.isYieldExpression(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up) || ts.isPropertyDeclaration(up)) && up.initializer === top)) return true;
+    // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
+    if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
+    if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
+    if (ts.isConditionalExpression(up) && up.condition !== top) return true;
+    // Its own method called (`state.apply(patch)`), which may write it through `this`.
+    if ((ts.isPropertyAccessExpression(top) || ts.isElementAccessExpression(top)) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
+    // Handed to a component (`<Editor note={note} />`, `<Editor {...doc} />`), which may write it through its props.
+    if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && componentTag(up.parent.parent.parent.tagName)) return true;
+    if (ts.isJsxSpreadAttribute(up) && componentTag(up.parent.parent.tagName)) return true;
+    // Handed to a tag function (``tag`${note}` ``), which may write it.
+    if (ts.isTemplateSpan(up) && ts.isTaggedTemplateExpression(up.parent.parent)) return true;
+    // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
+    if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
+    if (ts.isVariableDeclaration(up) && up.initializer === top) return !ts.isIdentifier(up.name) || changedBinding(up, undefined, seen);
+    return ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+  };
   /** `installed`: the assignment that put the object in the binding (`o = { … }`), which is no write to it. */
-  const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration, installed?: TypeScript.Node): boolean => {
+  const changedBinding = (declaration: TypeScript.VariableDeclaration | TypeScript.ParameterDeclaration, installed?: TypeScript.Node, seen = new Set<TypeScript.Node>()): boolean => {
     if (!ts.isIdentifier(declaration.name)) return true;
+    // A name handed to itself (`a = b; b = a`) adds nothing new.
+    if (seen.has(declaration)) return false;
+    seen.add(declaration);
     const name = declaration.name;
     const symbol = checker.getSymbolAtLocation(name);
     if (!symbol) return true;
     if (ts.isVariableDeclaration(declaration) && (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0) return true;
-    // `await x` can be x itself (a value that is not a promise, or a promise that settles to it): the same object.
-    const unwrap = (node: TypeScript.Node) => {
-      let top = node;
-      while (ts.isAsExpression(top.parent) || ts.isSatisfiesExpression(top.parent) || ts.isParenthesizedExpression(top.parent) || ts.isNonNullExpression(top.parent) || ts.isAwaitExpression(top.parent)) top = top.parent;
-      return top;
-    };
-    const changes = (use: TypeScript.Identifier) => {
-      // `export default state`, `export default (state as State)`.
-      if (ts.isExportAssignment(unwrap(use).parent)) return true;
-      // `x.a.b`, `x["a"]`: the access chain that starts at this use.
-      let top: TypeScript.Node = unwrap(use);
-      while ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) && top.parent.expression === top) top = unwrap(top.parent);
-      const up = top.parent;
-      const assigned = ts.isBinaryExpression(up) && up.left === top && up.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && up.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
-      const stepped = (ts.isPrefixUnaryExpression(up) || ts.isPostfixUnaryExpression(up)) && (up.operator === ts.SyntaxKind.PlusPlusToken || up.operator === ts.SyntaxKind.MinusMinusToken);
-      const whole = top === unwrap(use);
-      // Written (`x.a = …`, `x = …`, `[x.a] = …`, `({ x } = …)`, `for (x of …)`).
-      if (assigned || stepped || ts.isDeleteExpression(up) || destructuredTarget(top) || ((ts.isForOfStatement(up) || ts.isForInStatement(up)) && up.initializer === top)) return true;
-      // A primitive (`console.log(n.title)`, `string | undefined`) carries no object to change.
-      const type = checker.getTypeAtLocation(top);
-      if (isPrimitive(type)) return false;
-      // A Solid DOM ref (`<input ref={refs.input} />`) assigns the element to it at mount.
-      if (!whole && ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && up.parent.name.getText() === "ref") return true;
-      // Handed out of a function (`() => n`, `return n`, `yield n`), used as a parameter's default (`d = n`) or a class field's (`held = n`): written wherever that goes.
-      if (ts.isReturnStatement(up) || ts.isYieldExpression(up) || (ts.isArrowFunction(up) && up.body === top) || ((ts.isParameter(up) || ts.isBindingElement(up) || ts.isPropertyDeclaration(up)) && up.initializer === top)) return true;
-      // Shared with another holder: a fallback or branch (`incoming ?? x`), a copy that shares its members (`{ ...x }`), a container (`[x]`, `{ k: x }`).
-      if (ts.isSpreadElement(up) || ts.isSpreadAssignment(up) || ts.isArrayLiteralExpression(up) || (ts.isPropertyAssignment(up) && up.initializer === top) || ts.isShorthandPropertyAssignment(up)) return true;
-      if (ts.isBinaryExpression(up) && up.right === top || ts.isBinaryExpression(up) && up.left === top && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(up.operatorToken.kind)) return true;
-      if (ts.isConditionalExpression(up) && up.condition !== top) return true;
-      // Its own method called (`state.apply(patch)`), which may write it through `this`.
-      if ((ts.isPropertyAccessExpression(top) || ts.isElementAccessExpression(top)) && ts.isCallExpression(up) && up.expression === top && !isPrimitive(checker.getTypeAtLocation(top.expression))) return true;
-      // Handed to a component (`<Editor note={note} />`, `<Editor {...doc} />`), which may write it through its props.
-      if (ts.isJsxExpression(up) && ts.isJsxAttribute(up.parent) && componentTag(up.parent.parent.parent.tagName)) return true;
-      if (ts.isJsxSpreadAttribute(up) && componentTag(up.parent.parent.tagName)) return true;
-      // Handed to a tag function (``tag`${note}` ``), which may write it.
-      if (ts.isTemplateSpan(up) && ts.isTaggedTemplateExpression(up.parent.parent)) return true;
-      // Handed to a function (which may write it: `rename(note)`, `Object.assign(note, …)`), or to another name (`const sub = doc.note`).
-      if ((ts.isCallExpression(up) || ts.isNewExpression(up)) && up.arguments?.includes(top as TypeScript.Expression)) return true;
-      if (ts.isVariableDeclaration(up) && up.initializer === top) return true;
-      return ts.isBinaryExpression(up) && up.right === top && up.operatorToken.kind === ts.SyntaxKind.EqualsToken;
-    };
     let found = false;
     const visit = (node: TypeScript.Node) => {
       if (found) return;
@@ -119,12 +130,120 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) found = true;
       // The assignment that installed the object is no write to it, unless its value goes on (`f(o = { … })`, `a = o = { … }`).
       else if (node === installed) found = !ts.isExpressionStatement(node.parent.parent);
-      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node)) found = true;
+      else if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol && changes(node, seen)) found = true;
       else ts.forEachChild(node, visit);
     };
     // A local binding is used only in its own file; an exported one may be changed anywhere.
     visit(declaration.getSourceFile());
     return found;
+  };
+  /** Each use of a binding's name in its own file (a shorthand member `{ set }` included), not the name itself. */
+  const usesOf = (name: TypeScript.Identifier) => {
+    const symbol = checker.getSymbolAtLocation(name);
+    const out: TypeScript.Identifier[] = [];
+    if (!symbol) return out;
+    const visit = (node: TypeScript.Node) => {
+      if (ts.isIdentifier(node) && node !== name && node.text === name.text && (ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node)) === symbol) out.push(node);
+      else if (ts.isExportSpecifier(node) && checker.getExportSpecifierLocalTargetSymbol(node) === symbol) out.push(node.name as TypeScript.Identifier);
+      else ts.forEachChild(node, visit);
+    };
+    visit(name.getSourceFile());
+    return out;
+  };
+  /** A type-only use (`typeof setDoc`), which runs nothing. */
+  const typeOnly = (node: TypeScript.Node) => {
+    for (let up: TypeScript.Node | undefined = node.parent; up; up = up.parent) {
+      if (ts.isTypeNode(up)) return true;
+      if (ts.isExpression(up) || ts.isStatement(up)) return false;
+    }
+    return false;
+  };
+  /** A store path key the code names (`"doc"`, `0`, a constant of one literal type), or null when it is computed. */
+  const literalKey = (node: TypeScript.Expression): string | null => {
+    if (ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) return node.text;
+    const type = checker.getTypeAtLocation(node);
+    return type.isStringLiteral() || type.isNumberLiteral() ? String(type.value) : null;
+  };
+  const effects = new WeakMap<TypeScript.VariableDeclaration, StateEffect[] | null>();
+  /**
+   * The write-effect model of one state pair: every use of its setter and of
+   * its value, classified once by the state they reach. A setter called
+   * directly with a value is a write the slice holds; any other use of it
+   * (handed on, bound, called with nothing, under a computed key) is one the
+   * slice may not hold. A value handle's uses go through `changes`, the same
+   * analysis `mutable` uses.
+   */
+  const pairEffects = (declaration: TypeScript.VariableDeclaration): StateEffect[] | null => {
+    if (effects.has(declaration)) return effects.get(declaration)!;
+    const site = cellSite(ts, checker, declaration);
+    const pattern = declaration.name;
+    let out: StateEffect[] | null = null;
+    if (site && pairShaped(site.row) && ts.isArrayBindingPattern(pattern)) {
+      out = [];
+      const sourceFile = declaration.getSourceFile();
+      const at = (node: TypeScript.Node) => spanOf(sourceFile, node);
+      const add = (effect: StateEffect["effect"], node: TypeScript.Node, resolved: boolean, value: TypeScript.Node | null = null, prefix: string[] = []) => out!.push({ effect, span: at(node), value: value ? at(value) : null, resolved, prefix });
+      const exported = (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0;
+      const [first, second, ...rest] = pattern.elements;
+      // A rest element, or a handle under a nested pattern, is a handle the model does not follow.
+      if (rest.some((element) => !ts.isOmittedExpression(element)) || [first, second].some((element) => element && ts.isBindingElement(element) && (!ts.isIdentifier(element.name) || element.dotDotDotToken))) add("escape", pattern, false);
+      const setter = second && ts.isBindingElement(second) && ts.isIdentifier(second.name) ? second.name : null;
+      // The setter writes what it is handed: `ReturnValue.Member[1].Parameter[0]`. A dispatch (`useReducer`) writes only through its reducer.
+      const writes = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0]");
+      // A setter that takes a path first (Solid's `setStore("doc", "title", v)`) merges a plain object into the old one, and its store is a read-only proxy.
+      const paths = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0..]");
+      if (setter && writes) {
+        if (exported) add("escape", setter, false);
+        for (const use of usesOf(setter)) {
+          if (typeOnly(use)) continue;
+          const top = unwrap(use);
+          const call = ts.isCallExpression(top.parent) && top.parent.expression === top ? top.parent : null;
+          if (!call) {
+            add("escape", use, false);
+            continue;
+          }
+          const args = call.arguments;
+          // Called with nothing, the setter stores undefined; a spread hands it values the model cannot place.
+          if (!args.length || args.some((arg) => ts.isSpreadElement(arg))) {
+            add("replace", call, false);
+            continue;
+          }
+          const value = args[args.length - 1];
+          const fn = ts.isArrowFunction(unwrap(value)) || ts.isFunctionExpression(unwrap(value));
+          if (!paths) {
+            add(fn ? "updater" : "replace", call, true, value);
+            continue;
+          }
+          const keys = args.slice(0, -1).map(literalKey);
+          const computed = keys.indexOf(null);
+          if (computed >= 0) {
+            add("path", call, false, value, keys.slice(0, computed) as string[]);
+            continue;
+          }
+          const merged = ts.isObjectLiteralExpression(unwrap(value));
+          add(fn ? "updater" : merged ? "merge" : "replace", call, true, value, keys as string[]);
+        }
+      }
+      // What the value handle reads: the getter's call (`doc()`) or the value itself (React's `doc`). A store proxy rejects direct writes.
+      const getter = first && ts.isBindingElement(first) && ts.isIdentifier(first.name) ? first.name : null;
+      const accessor = cellHas(site.row, "reads", "ReturnValue.Member[0].ReturnValue");
+      if (getter && !paths && (accessor || cellHas(site.row, "reads", "ReturnValue.Member[0]"))) {
+        const valueType = accessor ? checker.getTypeAtLocation(getter).getCallSignatures()[0]?.getReturnType() : checker.getTypeAtLocation(getter);
+        if (!valueType || !isPrimitive(valueType)) {
+          if (exported) add("escape", getter, false);
+          for (const use of usesOf(getter)) {
+            if (typeOnly(use)) continue;
+            const top = unwrap(use);
+            const call = ts.isCallExpression(top.parent) && top.parent.expression === top ? top.parent : null;
+            // A getter handed on (`<Child doc={doc} />`) may be called where the model does not look, and what it returns changed there.
+            if (accessor && !call) add("escape", use, false);
+            else if (changes(accessor ? call! : use, new Set())) add("alias", accessor ? call! : use, false);
+          }
+        }
+      }
+    }
+    effects.set(declaration, out);
+    return out;
   };
   return {
     language: "typescript",
@@ -201,6 +320,27 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
       return ts.isCallExpression(fn.parent) && fn.parent.arguments.includes(fn as unknown as TypeScript.Expression) ? "callback" : false;
     },
+    ownReturns(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return null;
+      const fn = at.node;
+      if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return null;
+      if (fn.asteriskToken || ts.getCombinedModifierFlags(fn) & ts.ModifierFlags.Async) return null;
+      if (!ts.isBlock(fn.body)) return [spanOf(at.sourceFile, fn.body)];
+      if (!endsAlways(fn.body)) return null;
+      const out: Span[] = [];
+      let bare = false;
+      const visit = (node: TypeScript.Node) => {
+        if (ts.isFunctionLike(node) || ts.isClassLike(node)) return;
+        if (ts.isReturnStatement(node)) {
+          if (node.expression) out.push(spanOf(at.sourceFile, node.expression));
+          else bare = true;
+        }
+        ts.forEachChild(node, visit);
+      };
+      ts.forEachChild(fn.body, visit);
+      return bare || !out.length ? null : out;
+    },
     optionalCall(file, span) {
       const at = nodeAt(file, span);
       if (!at) return false;
@@ -275,6 +415,15 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (!at) return false;
       const declaration = ts.isIdentifier(at.node) ? at.node.parent : at.node;
       return (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) && changedBinding(declaration);
+    },
+    stateEffects(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return null;
+      // The state element sits at the pair's value binding: `doc` of `const [doc, setDoc] = …`.
+      const element = ts.isIdentifier(at.node) ? at.node.parent : at.node;
+      const pattern = ts.isBindingElement(element) ? element.parent : null;
+      if (!pattern || !ts.isArrayBindingPattern(pattern) || pattern.elements[0] !== element || !ts.isVariableDeclaration(pattern.parent)) return null;
+      return pairEffects(pattern.parent);
     },
     stateFactory(file, span) {
       const at = nodeAt(file, span);

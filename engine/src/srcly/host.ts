@@ -18,6 +18,26 @@ export type HostCandidate = {
 };
 
 /** The kind of state a binding holds, by the framework call that made it. */
+/**
+ * One way the code can change a state (`LanguageHost.stateEffects`): a setter
+ * call by its effect (`replace` the value, an `updater` of the old one, a
+ * `merge` of an object into it, a `path` write under a key the code
+ * computes), a handle that `escape`s (a setter handed on or bound, a getter
+ * handed to code that may call it), or an `alias` of what a read returned
+ * that the code changes.
+ */
+export type StateEffect = {
+  effect: "replace" | "updater" | "merge" | "path" | "escape" | "alias";
+  /** The setter's call, or the use that hands the handle on. */
+  span: Span;
+  /** The value a setter call is handed (its last argument), when there is one. */
+  value: Span | null;
+  /** Whether the slice's own write edges hold it: a direct setter call with a value and literal keys. */
+  resolved: boolean;
+  /** The literal store path it writes under (`set("doc", key, v)` writes under `doc`); empty for the whole state. */
+  prefix: string[];
+};
+
 export type BindingState = "signal" | "store" | "resource" | "memo" | "context";
 
 export interface LanguageHost {
@@ -78,6 +98,19 @@ export interface LanguageHost {
   combinedWrite?(file: string, span: Span): boolean;
   /** Whether the binding (a variable or parameter) at this span names an object the code changes, as `mutable` says. */
   mutatedBinding?(file: string, span: Span): boolean;
+  /**
+   * Every way the code can change the state whose value binding is at this
+   * span (`doc` of `const [doc, setDoc] = createSignal(…)`), by effect. Null
+   * when the host has no model of that state.
+   */
+  stateEffects?(file: string, span: Span): StateEffect[] | null;
+  /**
+   * The expressions a function written at this span returns, every exit's
+   * (an arrow's body, each `return x` of its own body, not a nested
+   * function's). Null when it may end another way: a body whose end is
+   * reachable, a bare `return`, a generator, an async function.
+   */
+  ownReturns?(file: string, span: Span): Span[] | null;
   /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
   stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */
