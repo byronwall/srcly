@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/byronwall/srcly/compare/v1.14.0...v1.14.1) (2026-11-28)
+
+
+### Documentation
+
+* retire the checker-bound symbol index plan ([#496](https://github.com/byronwall/srcly/issues/496)) ([77dc8cf](https://github.com/byronwall/srcly/commit/77dc8cfb6bb26f5190ea7204a3b663216a963306))
+
 ## [1.14.0](https://github.com/byronwall/srcly/compare/v1.13.0...v1.14.0) (2026-11-28)
 
 
