@@ -55,6 +55,11 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "column": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
           "meaning": {
             "type": "string",
             "enum": [
@@ -75,6 +80,7 @@
           "file",
           "name",
           "line",
+          "column",
           "meaning",
           "scope"
         ],
@@ -144,6 +150,18 @@
                       "type": "null"
                     }
                   ]
+                },
+                "also": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "clause": {
+                  "type": "boolean",
+                  "const": true
                 },
                 "unbound": {
                   "anyOf": [

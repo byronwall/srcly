@@ -531,6 +531,7 @@ class SymbolRefTarget(BaseModel):
     file: str
     name: str
     line: int
+    column: int
     meaning: Literal["value", "type"]
     scope: Literal["module", "member", "local"]
 
@@ -542,6 +543,8 @@ class SymbolRef(BaseModel):
     kind: Literal["call", "instantiate", "read", "write", "type", "extends", "implements"]
     source: int | None
     target: int | None
+    also: list[int] | None = None
+    clause: Literal[True] | None = None
     unbound: Literal["unresolved", "any"] | None
 
 

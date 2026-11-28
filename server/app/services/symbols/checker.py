@@ -33,6 +33,9 @@ class CheckerRefs:
     unbound: Counter = field(default_factory=Counter)  # reason → count
     # A module-scope declaration the checker binds that no tree-sitter symbol holds: a mapping bug, listed.
     mismatched: List[str] = field(default_factory=list)
+    # Every bound name's position, edges or not (an import clause's name, a recursive call):
+    # (file, line) → [(column, end column, symbol id)], for Show references.
+    positions: Dict[Tuple[str, int], List[Tuple[int, int, str]]] = field(default_factory=lambda: defaultdict(list))
     generation: Optional[int] = None
     program_hash: Optional[str] = None
 
@@ -41,7 +44,15 @@ class CheckerRefs:
 LASTING = frozenset({"python-root", "node-not-found", "engine-missing", "no-tsconfig", "no-ts-files", "typescript-not-found", "engine-protocol-mismatch"})
 
 
-def query(root: Path, registry=None) -> Tuple[Optional[SymbolRefsResult], Optional[str]]:
+def still_missing(root: Path, registry=None) -> bool:
+    """Whether the engine still cannot run for the root: no Node or engine, or a failure on record."""
+    from app.services.dataflow.engine import registry as shared
+
+    reg = registry if registry is not None else shared
+    return not reg.probe(root).available or reg.failure(root) is not None
+
+
+def query(root: Path, registry=None, refresh: bool = False) -> Tuple[Optional[SymbolRefsResult], Optional[str]]:
     """
     The engine's ``symbolRefs`` for the root, from the sources as they are now, or None and
     the reason it has none. The engine keeps its Program until asked to refresh, so a stale
@@ -61,7 +72,7 @@ def query(root: Path, registry=None) -> Tuple[Optional[SymbolRefsResult], Option
         return None, known.code
     try:
         status = reg.query(root, "status", {})
-        if status.get("stale"):
+        if refresh or status.get("stale"):
             reg.query(root, "refresh", {}, timeout=180.0)
         # A walk of the whole program: allow more than one ordinary query.
         raw = reg.query(root, "symbolRefs", {}, timeout=180.0)
@@ -106,9 +117,9 @@ class _Files:
         if t.name == "*":
             return t.file if t.file in self.modules else None
         want_type = t.meaning == "type"
-        # The declaration whose name is on that line: a shadowing parameter or an unindexed local
-        # inside a same-named symbol's body never joins it.
-        held = [s for s in self.by_name.get((t.file, t.name), ()) if any(line == t.line for line, _ in s.names)]
+        # The declaration whose name is at that very position: a shadowing parameter or an unindexed
+        # local inside a same-named symbol's body never joins it, on any line.
+        held = [s for s in self.by_name.get((t.file, t.name), ()) if (t.line, t.column) in s.names]
         if not held and t.scope == "member":
             # A member the index keeps no symbol for (an interface's field, an object type's member):
             # the type, class or variable that declares it, as a typed receiver gives today.
@@ -143,12 +154,15 @@ def join(result: SymbolRefsResult, symbols: Dict[str, Symbol]) -> CheckerRefs:
             if r.target is None:
                 out.unbound[r.unbound or "unresolved"] += 1
                 continue
-            target = targets[r.target]
-            if target is None:
+            # A union's member means each class's own member: one reference to each.
+            bound = [t for t in dict.fromkeys(targets[i] for i in [r.target, *(r.also or [])]) if t is not None]
+            for target in bound:
+                out.positions[(f.file, r.line)].append((r.column, r.endColumn, target))
+            if r.clause:
                 continue
             # The enclosing declaration's symbol, else the innermost symbol holding the line.
             source = (targets[r.source] if r.source is not None else None) or files.source(f.file, r.line)
-            if source == target:
-                continue
-            out.references.append(Reference(source=source, target=target, kind=r.kind, line=r.line, column=r.column, end_column=r.endColumn))
+            for target in bound:
+                if source != target:
+                    out.references.append(Reference(source=source, target=target, kind=r.kind, line=r.line, column=r.column, end_column=r.endColumn))
     return out

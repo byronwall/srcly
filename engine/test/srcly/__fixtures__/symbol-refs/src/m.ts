@@ -17,3 +17,8 @@ export interface Model {
   id: number;
 }
 export const Model = { id: 1 };
+export class Other {
+  bump() {
+    return 2;
+  }
+}

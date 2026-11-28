@@ -31,3 +31,7 @@ export interface Wider extends Model {
   extra: boolean;
 }
 import { Model } from "./m";
+import { Other } from "./m";
+export function either(x: Store | Other) {
+  return (x.bump satisfies () => number)() + x.bump();
+}

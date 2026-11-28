@@ -18,7 +18,7 @@ from app.services.deps.common import SourceSignature, is_test_path, source_signa
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.dataflow.models import SymbolRefsResult as CheckerResult
 from app.services.symbols.checker import LASTING as LASTING_REASONS
-from app.services.symbols.checker import current_hash, join
+from app.services.symbols.checker import current_hash, join, still_missing
 from app.services.symbols.checker import query as query_checker
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
 
@@ -53,6 +53,9 @@ class SymbolIndex:
     mismatched: List[str] = field(default_factory=list)
     outside_program: int = 0
     program_hash: Optional[str] = None
+    # Checker mode: each bound name's span by (file, line), and the TS files tree-sitter bound instead.
+    positions: Dict[Tuple[str, int], List[Tuple[int, int, str]]] = field(default_factory=dict)
+    unchecked_files: Set[str] = field(default_factory=set)
     _by_line: Optional[Dict[Tuple[str, int], List[int]]] = None
 
     def __post_init__(self) -> None:
@@ -354,10 +357,14 @@ class SymbolIndex:
         Never a search by name alone.
         """
         here = [self.references[i] for i in self._refs_on_line().get((file, line), [])]
-        spanned = [r for r in here if r.column is not None and r.end_column is not None and r.column <= column < r.end_column]
-        if spanned:
-            return spanned[0].target, []
-        if not any(r.column is not None for r in here):
+        if self.binder == "checker" and file not in self.unchecked_files:
+            # Every bound name the checker saw, edges or not: an import's name, a recursive call.
+            bound = sorted({target for start, end, target in self.positions.get((file, line), ()) if start <= column < end})
+            if len(bound) == 1:
+                return bound[0], []
+            if bound:
+                return None, bound  # a union's member: one per class
+        elif not any(r.column is not None for r in here):
             named = sorted({r.target for r in here if self.symbols[r.target].name == name})
             if len(named) == 1:
                 return named[0], []
@@ -421,7 +428,11 @@ def assemble(root: Path, parts: List[FileSymbols], checker: Optional[CheckerResu
     for part in parts:
         for sym in part.symbols:
             symbols.setdefault(sym.id, sym)
+    # A class the checker covers takes its bases from the checker's `extends` edges only (below).
+    covered = {f.file for f in checker.files} if checker is not None else set()
     for part in parts:
+        if part.file in covered:
+            continue
         for cls, bases in part.bases.items():
             if cls in symbols:
                 symbols[cls].bases = [b for b in bases if b in symbols]
@@ -473,6 +484,8 @@ def assemble(root: Path, parts: List[FileSymbols], checker: Optional[CheckerResu
         index.unbound = dict(bound.unbound)
         index.mismatched = bound.mismatched
         index.program_hash = bound.program_hash
+        index.positions = dict(bound.positions)
+        index.unchecked_files = {p.file for p in parts if Path(p.file).suffix in TS_EXTENSIONS}
         index.outside_program = sum(1 for p in parts if Path(p.file).suffix in TS_EXTENSIONS)
     index.members_by_name = members_by_name
     index.http_links, index.http_unmatched = http_links, http_unmatched
@@ -635,10 +648,23 @@ def _demote(kind: RefKind) -> RefKind:
     return "write" if kind == "write" else "read"
 
 
-_cache: Dict[Tuple[Path, str], Tuple[SourceSignature, SymbolIndex]] = {}
+_cache: Dict[Tuple[Path, str], Tuple[Tuple[SourceSignature, Optional[SourceSignature]], SymbolIndex]] = {}
 _lock = threading.Lock()
 
 SOURCE_EXTENSIONS = TS_EXTENSIONS | {".py"}
+
+
+def _config_files(root: Path) -> List[Path]:
+    return [p for p in walk_source_files(root, {".json"}) if p.name.startswith(("tsconfig", "jsconfig"))]
+
+
+def _still_current(root: Path, index: SymbolIndex, registry) -> bool:
+    """A cached checker index while its Program is the engine's current one; a cached fallback while the checker is still missing."""
+    if index.binder == "checker":
+        return current_hash(root, registry) == index.program_hash
+    if index.binder_reason in ("python-root", "asked"):
+        return True
+    return still_missing(root, registry)
 
 
 def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-sitter", registry=None) -> SymbolIndex:
@@ -649,14 +675,17 @@ def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-s
     """
     root = root.resolve()
     files = walk_source_files(root, SOURCE_EXTENSIONS)
+    # The checker's answer also depends on every tsconfig, an extended base included.
+    configs = source_signature(_config_files(root)) if binder == "checker" else None
+    refresh = False
     if use_cache:
-        sig = source_signature(files)
+        sig = (source_signature(files), configs)
         with _lock:
             hit = _cache.get((root, binder))
-        # A checker index also holds while the Program it came from is current: a tsconfig edit
-        # or a source the walk did not see changes the engine's hash.
-        if hit is not None and hit[0] == sig and (hit[1].binder != "checker" or current_hash(root, registry) == hit[1].program_hash):
+        if hit is not None and hit[0] == sig and _still_current(root, hit[1], registry):
             return hit[1]
+        # A config the engine's own hash may not cover changed: rebuild its Program.
+        refresh = hit is not None and hit[0][1] != configs
     parts: List[FileSymbols] = []
     ts_files = [f for f in files if f.suffix in TS_EXTENSIONS]
     if ts_files:
@@ -673,7 +702,7 @@ def build_symbol_index(root: Path, use_cache: bool = True, binder: str = "tree-s
     checked: Optional[CheckerResult] = None
     reason: Optional[str] = None
     if ts_files and binder == "checker":
-        checked, reason = query_checker(root, registry)
+        checked, reason = query_checker(root, registry, refresh=refresh)
     index = assemble(root, parts, checked)
     if index.binder != "checker":
         index.binder_reason = reason if binder == "checker" else "asked"

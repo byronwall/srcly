@@ -738,6 +738,7 @@ export type SymbolRefsResult = {
     file: string;
     name: string;
     line: number;
+    column: number;
     meaning: "value" | "type";
     scope: "module" | "member" | "local";
   }[];
@@ -750,6 +751,8 @@ export type SymbolRefsResult = {
       kind: "call" | "instantiate" | "read" | "write" | "type" | "extends" | "implements";
       source: number | null;
       target: number | null;
+      also?: number[];
+      clause?: true;
       unbound: "unresolved" | "any" | null;
     }[];
   }[];

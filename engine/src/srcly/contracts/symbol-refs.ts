@@ -15,8 +15,9 @@ export const symbolRefTargetSchema = z.strictObject({
   file: z.string(),
   /** The declaration's own name: `A` for `import { A as B }`, `default` for an anonymous default export. */
   name: z.string(),
-  /** The line of the declaration's name. */
+  /** The line and 1-based UTF-16 column of the declaration's name (of the expression, for `export default <expression>`). */
   line: z.number().int().positive(),
+  column: z.number().int().positive(),
   /** `type` for an interface or type alias; everything else is `value`. */
   meaning: z.enum(["value", "type"]),
   /** `module`: declared at the top of its file; `member`: a class, interface or object member; `local`: inside a body. */
@@ -32,6 +33,10 @@ export const symbolRefSchema = z.strictObject({
   source: z.number().int().nonnegative().nullable(),
   /** An index into `targets`; null when the checker binds nothing here (`unbound` says why). */
   target: z.number().int().nonnegative().nullable(),
+  /** More targets, when the name means several members at once (a method of a union's every class). */
+  also: z.array(z.number().int().nonnegative()).optional(),
+  /** A name that binds but is not a use: an import or export clause's name. It locates the symbol; it makes no edge. */
+  clause: z.literal(true).optional(),
   unbound: z.enum(["unresolved", "any"]).nullable(),
 });
 

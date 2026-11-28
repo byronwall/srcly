@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
@@ -61,7 +62,7 @@ export function symbolRefsOp(session: EngineSession, params: { files?: unknown; 
         if (ref !== "external") ref.source = enclosing(ts, node, source, intern);
         if (ref === "external") counts.external += 1;
         else {
-          if (ref.target) counts.bound += 1;
+          if (ref.target !== null) counts.bound += 1;
           else counts.unbound += 1;
           refs.push(ref);
         }
@@ -104,7 +105,8 @@ function owners(tier1: TsTier1): (file: string) => Routed | undefined {
   const resolves = (o: TypeScript.CompilerOptions) =>
     JSON.stringify([
       o.paths ?? null,
-      o.paths ? (o.pathsBasePath ?? o.baseUrl ?? null) : (o.baseUrl ?? null),
+      // TypeScript resolves `paths` against `baseUrl` when one is set, else against the config that declared them.
+      o.baseUrl ?? (o.paths ? (o.pathsBasePath ?? null) : null),
       o.moduleResolution ?? null,
       o.module ?? null,
       o.customConditions ?? null,
@@ -144,8 +146,9 @@ function owners(tier1: TsTier1): (file: string) => Routed | undefined {
 
 /**
  * A declaration in a built `.d.ts` under the root (a workspace package another project imports
- * through its `dist`), followed to its source: the declaration file the checker resolved, with
- * its output folder swapped for `src` (`dist/readers.d.ts` → `src/readers.ts`), and the same
+ * through its `dist`), followed to its source: the file its declaration map names, else the
+ * declaration file the checker resolved with its output folder swapped for `src`
+ * (`dist/readers.d.ts` → `src/readers.ts`, the convention a bundled build without maps leaves), and the same
  * export path looked up there by the checker (`tick`, `Runner.run`, `default`). Each alias hop
  * is tried first, so a named import reaches the module it was imported from, not a bundle chunk.
  * Nothing found means the reference stays external: no guessed module.
@@ -158,6 +161,19 @@ function builtSources(tier1: TsTier1, root: string) {
   const checker = program.getTypeChecker();
   const built = (file: TypeScript.SourceFile) => file.isDeclarationFile && file.fileName.startsWith(root + path.sep) && !file.fileName.includes(`${path.sep}node_modules${path.sep}`);
   const sourceOf = (file: TypeScript.SourceFile): TypeScript.SourceFile | undefined => {
+    // A declaration map names the source the build read: that, when there is one.
+    const map = `${file.fileName}.map`;
+    if (fs.existsSync(map)) {
+      try {
+        const sources = (JSON.parse(fs.readFileSync(map, "utf8")) as { sources?: unknown; sourceRoot?: unknown }).sources;
+        const first = Array.isArray(sources) && typeof sources[0] === "string" ? path.resolve(path.dirname(map), sources[0]) : undefined;
+        const hit = first ? program.getSourceFile(first.split(path.sep).join("/")) : undefined;
+        return hit && !hit.isDeclarationFile ? hit : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    // Else the build's convention: the output folder swapped for `src`.
     const stem = file.fileName.replace(/\.d\.[mc]?ts$/, "");
     // The last output folder in the path is the one the build wrote (`packages/lib/dist/x`: `dist`).
     const parts = stem.split("/");
@@ -233,19 +249,25 @@ function bind(
 ): SymbolRef | "external" | "skip" {
   const parent = node.parent;
   if (!parent || skipped(ts, node, parent)) return "skip";
+  // An import or export clause's name locates the symbol it binds, but is not a use.
+  const clause = ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isNamespaceImport(parent) || ts.isExportSpecifier(parent) || ts.isNamespaceExport(parent);
   const shorthand = ts.isShorthandPropertyAssignment(parent) && parent.name === node;
   // A declaration's own name is not a reference; `{ action }` is the one name that is both.
-  if (!shorthand && (parent as { name?: TypeScript.Node }).name === node && isDeclaration(ts, parent)) return "skip";
+  if (!clause && !shorthand && (parent as { name?: TypeScript.Node }).name === node && isDeclaration(ts, parent)) return "skip";
   const position = typePosition(ts, node);
   const inType = position !== "code";
-  let symbol = shorthand ? checker.getShorthandAssignmentValueSymbol(parent) : checker.getSymbolAtLocation(node);
+  let symbol = shorthand
+    ? checker.getShorthandAssignmentValueSymbol(parent)
+    : ts.isExportSpecifier(parent) && ts.isIdentifier(node)
+      ? (checker.getExportSpecifierLocalTargetSymbol(parent) ?? checker.getSymbolAtLocation(node))
+      : checker.getSymbolAtLocation(node);
   const alias = symbol && symbol.flags & ts.SymbolFlags.Alias ? symbol : undefined;
   if (alias) symbol = checker.getAliasedSymbol(alias);
   const start = source.getLineAndCharacterOfPosition(node.getStart(source));
   const syntactic = kindOf(ts, node);
   // A heritage clause keeps its own kind, whichever side of a name it binds.
   const kind: Kind = syntactic === "extends" || syntactic === "implements" ? syntactic : inType ? "type" : syntactic;
-  const ref = { source: null as number | null, line: start.line + 1, column: start.character + 1, endColumn: start.character + 1 + node.getWidth(source), kind };
+  const ref: SymbolRef = { source: null, line: start.line + 1, column: start.character + 1, endColumn: start.character + 1 + node.getWidth(source), kind, target: null, unbound: null, ...(clause ? { clause: true as const } : {}) };
   // `typeof x` in a type names the value x.
   let decl = symbol ? pick(ts, symbol, position === "type") : undefined;
   // A workspace package imported through its built `.d.ts`: the same declaration in its source.
@@ -261,12 +283,13 @@ function bind(
   }
   const home = decl.getSourceFile();
   if (!own(home)) return "external";
-  return { ...ref, target: intern(decl, home), unbound: null };
+  // A member of a union means each class's own member: every one is a target.
+  const also = symbol && !alias ? siblings(ts, symbol, decl).filter((d) => own(d.getSourceFile())).map((d) => intern(d, d.getSourceFile())) : [];
+  return { ...ref, target: intern(decl, home), unbound: null, ...(also.length ? { also } : {}) };
 }
 
 /** Identifiers that are syntax, not a use: import and export clauses, labels, a JSX closing tag. */
 function skipped(ts: Ts, node: TypeScript.Node, parent: TypeScript.Node): boolean {
-  if (ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isNamespaceImport(parent) || ts.isExportSpecifier(parent) || ts.isNamespaceExport(parent)) return true;
   if (ts.isLabeledStatement(parent) || ts.isBreakOrContinueStatement(parent)) return true;
   if (ts.isJsxClosingElement(parent)) return true;
   if (ts.isMetaProperty(parent)) return true;
@@ -302,7 +325,7 @@ function kindOf(ts: Ts, node: TypeScript.Node): Kind {
   const parent = node.parent;
   // `a.b`: the member name stands for the whole access; the receiver `a` is a read.
   if ((ts.isPropertyAccessExpression(parent) && parent.name === node) || (ts.isQualifiedName(parent) && parent.right === node) || (ts.isElementAccessExpression(parent) && parent.argumentExpression === node)) expr = parent;
-  while (ts.isParenthesizedExpression(expr.parent) || ts.isNonNullExpression(expr.parent) || ts.isAsExpression(expr.parent)) expr = expr.parent;
+  while (ts.isParenthesizedExpression(expr.parent) || ts.isNonNullExpression(expr.parent) || ts.isAsExpression(expr.parent) || ts.isSatisfiesExpression(expr.parent)) expr = expr.parent;
   const up = expr.parent;
   if (ts.isExpressionWithTypeArguments(up) && ts.isHeritageClause(up.parent)) return up.parent.token === ts.SyntaxKind.ImplementsKeyword ? "implements" : "extends";
   if ((ts.isCallExpression(up) || ts.isDecorator(up) || ts.isTaggedTemplateExpression(up)) && (up as { expression?: TypeScript.Node; tag?: TypeScript.Node }).expression === expr) return "call";
@@ -340,6 +363,33 @@ function enclosing(ts: Ts, node: TypeScript.Node, home: TypeScript.SourceFile, i
   return null;
 }
 
+/**
+ * The other declarations a name means at once: a member of a union, declared once per class or
+ * interface. Overloads, a class merged with its interface and one owner's accessors are one member.
+ */
+function siblings(ts: Ts, symbol: TypeScript.Symbol, chosen: TypeScript.Declaration): TypeScript.Declaration[] {
+  const decls = symbol.declarations ?? [];
+  if (decls.length < 2) return [];
+  const member = (d: TypeScript.Declaration) => ts.isClassElement(d) || ts.isTypeElement(d) || ts.isObjectLiteralElementLike(d);
+  if (!decls.every(member)) return [];
+  const ownerOf = (d: TypeScript.Declaration) => (d.parent && (ts.isClassLike(d.parent) || ts.isInterfaceDeclaration(d.parent) || ts.isTypeLiteralNode(d.parent) || ts.isObjectLiteralExpression(d.parent)) ? d.parent : undefined);
+  const owner = (d: TypeScript.Declaration) => {
+    const at = ownerOf(d);
+    const name = at && (at as { name?: TypeScript.Node }).name;
+    // A class and an interface of one name are one owner (declaration merging).
+    return name && ts.isIdentifier(name) ? `${at.getSourceFile().fileName}#${name.text}` : at;
+  };
+  const seen = new Set([owner(chosen)]);
+  const out: TypeScript.Declaration[] = [];
+  for (const d of decls) {
+    const key = owner(d);
+    if (key === undefined || seen.has(key)) continue;
+    seen.add(key);
+    out.push(d);
+  }
+  return out;
+}
+
 const isTypeDecl = (ts: Ts, d: TypeScript.Declaration) => ts.isInterfaceDeclaration(d) || ts.isTypeAliasDeclaration(d);
 
 /** The declaration the location means: in a type, a type-side one; in code, a value-side one. */
@@ -356,11 +406,12 @@ function pick(ts: Ts, symbol: TypeScript.Symbol, inType: boolean): TypeScript.De
 
 function targetOf(ts: Ts, decl: TypeScript.Declaration, home: TypeScript.SourceFile, rel: (file: string) => string): SymbolRefTarget {
   const file = rel(home.fileName);
-  if (ts.isSourceFile(decl)) return { file, name: "*", line: 1, meaning: "value", scope: "module" };
+  if (ts.isSourceFile(decl)) return { file, name: "*", line: 1, column: 1, meaning: "value", scope: "module" };
   const name = ts.getNameOfDeclaration(decl);
   const text = ts.isConstructorDeclaration(decl) ? "constructor" : ts.isExportAssignment(decl) && !decl.isExportEquals ? "default" : name && (ts.isIdentifier(name) || ts.isPrivateIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) ? name.text : "default";
-  const at = home.getLineAndCharacterOfPosition((name ?? decl).getStart(home));
-  return { file, name: text, line: at.line + 1, meaning: ts.isTypeParameterDeclaration(decl) || isTypeDecl(ts, decl) ? "type" : "value", scope: scopeOf(ts, decl) };
+  const anchor = ts.isExportAssignment(decl) ? decl.expression : (name ?? decl);
+  const at = home.getLineAndCharacterOfPosition(anchor.getStart(home));
+  return { file, name: text, line: at.line + 1, column: at.character + 1, meaning: ts.isTypeParameterDeclaration(decl) || isTypeDecl(ts, decl) ? "type" : "value", scope: scopeOf(ts, decl) };
 }
 
 function scopeOf(ts: Ts, decl: TypeScript.Node): SymbolRefTarget["scope"] {

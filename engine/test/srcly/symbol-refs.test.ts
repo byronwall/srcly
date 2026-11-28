@@ -18,10 +18,11 @@ describe("symbolRefs binds every identifier with the checker", () => {
   };
   const source = fs.readFileSync(path.join(root, "src/use.tsx"), "utf8").split("\n");
 
-  it("answers ok for the files asked, with no import clause as a reference", () => {
+  it("answers ok for the files asked, with import clauses marked as names, not uses", () => {
     expect(result.outcome).toBe("ok");
     expect(result.files.map((f) => f.file)).toEqual(["src/use.tsx"]);
-    expect(lines.filter((ref) => ref.line <= 2)).toEqual([]);
+    // Import clause names only locate a symbol: each is marked, none is a use.
+    expect(lines.filter((ref) => ref.line <= 2).every((ref) => ref.clause)).toBe(true);
   });
 
   it("splits a name's type and value by position, typeof included", () => {
@@ -49,6 +50,18 @@ describe("symbolRefs binds every identifier with the checker", () => {
     expect(at(30, "Model")).toMatchObject({ kind: "extends", to: { name: "Model", line: 16, meaning: "type" } });
   });
 
+  it("binds a union member to every class's own member, and a call through `satisfies` stays a call", () => {
+    const union = at(36, "bump");
+    expect(union).toMatchObject({ kind: "call", to: { name: "bump", line: 6 } });
+    expect((union.also ?? []).map((i) => result.targets[i])).toMatchObject([{ name: "bump", line: 21 }]);
+    expect(at(36, "bump()")).toMatchObject({ kind: "call" });
+  });
+
+  it("locates an import clause's name without making it a use", () => {
+    expect(at(34, "Other")).toMatchObject({ clause: true, to: { name: "Other", line: 20, column: 14 } });
+    expect(at(36, "bump()").clause).toBeUndefined();
+  });
+
   it("binds a forward reference to a block-local alias", () => {
     expect(at(20, "Local").to).toMatchObject({ file: "src/use.tsx", name: "Local", line: 23, meaning: "type", scope: "local" });
   });
@@ -64,7 +77,7 @@ describe("symbolRefs follows a workspace package's built .d.ts to its source", (
     if (!ref) throw new Error(`no ref at ${line}:${column} (${needle})`);
     return { ...ref, to: ref.target === null ? null : result.targets[ref.target] };
   };
-  const lib = "packages/lib/src/index.ts";
+  const lib = "packages/kit/src/index.ts";
 
   it("binds named, namespace, class-member, bracket and default uses to the source", () => {
     expect(at(5, "tick")).toMatchObject({ kind: "call", to: { file: lib, name: "tick", line: 1 } });
@@ -73,5 +86,9 @@ describe("symbolRefs follows a workspace package's built .d.ts to its source", (
     expect(at(7, "run")).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6, scope: "member" } });
     expect(at(8, '"run"')).toMatchObject({ kind: "call", to: { file: lib, name: "run", line: 6 } });
     expect(at(9, "main")).toMatchObject({ kind: "call", to: { file: lib, name: "main", line: 11 } });
+  });
+
+  it("follows a declaration map over the conventional path", () => {
+    expect(at(12, "run")).toMatchObject({ kind: "call", to: { file: "packages/kit/src/real.ts", name: "run", line: 1 } });
   });
 });

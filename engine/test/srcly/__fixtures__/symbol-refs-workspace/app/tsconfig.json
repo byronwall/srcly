@@ -1,1 +1,20 @@
-{ "compilerOptions": { "strict": true, "module": "esnext", "moduleResolution": "bundler", "target": "es2022", "noEmit": true, "paths": { "lib": ["../packages/lib/dist/index.d.ts"] } }, "include": ["src"] }
+{
+ "compilerOptions": {
+  "strict": true,
+  "module": "esnext",
+  "moduleResolution": "bundler",
+  "target": "es2022",
+  "noEmit": true,
+  "paths": {
+   "lib": [
+    "../packages/kit/dist/index.d.ts"
+   ],
+   "kit/entry": [
+    "../packages/kit/dist/entry.d.ts"
+   ]
+  }
+ },
+ "include": [
+  "src"
+ ]
+}
