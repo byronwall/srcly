@@ -51,6 +51,13 @@ uvx srcly explain . --at src/app.tsx
 uvx srcly explain . --at "src/app.tsx::App"
 ```
 
+`refs` lists every declaration of a name and the symbols that reference each one, from the symbol index. Run it before you move or delete a symbol, and again after, to see that no caller is left. A bare name shows every copy, so a type declared in three files shows three times. `file::symbol` picks one declaration:
+
+```bash
+uvx srcly refs DocDetail .
+uvx srcly refs "src/services/docs.queries.ts::fetchDoc" . --format json
+```
+
 You can also pass a `path:line name` Start at location printed by the report. `explain` reports scan provenance and checker coverage so you can see whether it reused a scan and what remains unmeasured.
 
 ## Compare refs
