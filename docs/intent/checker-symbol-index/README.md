@@ -1,6 +1,6 @@
 # Checker-bound symbol index (plan)
 
-Status: proposed, not built. Retire this folder when the last milestone lands.
+Status: M0 to M3 built (2026-11-28). Retire this folder once the PR merges: the lasting facts are in `docs/CODE_MAP.md` (Symbol graph) and `docs/dataflow-engine.md`.
 
 ## Diagrams
 
@@ -163,14 +163,35 @@ Run it on srcly and explorEDA (`f44a5c63` or newer). Done when:
 - `srcly refs` on the #486 proof symbols (`AnalysisSourceRow`, `SavedDataStructure`, `EvidenceCollector`) lists at least the same callers as #486.
 - The PR states how many references each repo compared, for example "47,524 of 47,524 explorEDA references compared".
 
+## Proof result (2026-11-28)
+
+`cd server && SRCLY_ENGINE_DEV=1 uv run python scripts/compare_binders.py <root> --json out.json`. A reference is (source file, line, target id), counted as a multiset.
+
+| Root | Tree-sitter refs | Checker refs | Agree | Mismatched ids | TS files outside the Program | Unbound |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| srcly (this branch) | 40,464 | 61,113 | 38,879 (96.1%) | 5 | 176 | 615 unresolved, 815 `any` |
+| explorEDA `f44a5c63` | 49,092 | 74,720 | 47,445 (96.6%) | 3 | 452 | 1,657 unresolved, 40 `any` |
+
+The buckets, by size (explorEDA; srcly has the same shape):
+
+- Checker only, `read → type` (24,861): a member read through a receiver whose type tree-sitter cannot see (inferred, returned, destructured, a union). The member has no symbol, so it joins the type that declares it, as tree-sitter's `typed` rule does for an annotated receiver.
+- Checker only, `call → function` (622), `call → type` (410), `read → variable` (1,113): calls through re-exports and closures, interface method calls, fields of object constants (zod schemas).
+- Tree-sitter only, `typed · read → type` (1,412): the checker binds the member somewhere more exact (a union member's own interface, a base interface, the TypeScript library behind `type Ts = typeof TypeScript`), or the type is mapped and has no declaration.
+- Tree-sitter only, `name · call → method/field` (111): name guesses the checker refuses, such as a TypeScript call bound to the Python method `BodyWalker.literal`.
+- Tree-sitter only, `exact · call → function/variable` (74): mostly JSX intrinsic tags (`<span>`, `<line>`) that tree-sitter bound to a local of the same name.
+- Mismatched ids: srcly's 5 are `declare function` declarations, which the index keeps no symbol for. explorEDA's 3 are in `FieldListRow.tsx`, where tree-sitter makes no symbol after `<option.icon … />`.
+- Outside the Program: test files (the engine's Program leaves them out), configs and docs scripts. They keep tree-sitter references.
+
+Spot checks by hand: the `Legend.span`, `BoxCell.line` and `RowChart.span` rows (JSX tags), `PlotManager.onKeyDown` (four locals that tree-sitter merges into one symbol), `CoverageMatrix.tsx:103` (a `@/` path in `apps/demo`, which needed its own tsconfig's Program), and `PageFileDrop.tsx` (a workspace package's `.d.ts`, followed to source).
+
 ## Milestones
 
 | | Milestone | Done when |
 | --- | --- | --- |
-| M0 | Spike: a throwaway walk script on visual-notes and srcly | The cost gate above has numbers. Go or stop is recorded here |
-| M1 | `symbolRefs` op, contract, Pydantic mirror, route | Engine tests pass on `examples/value-flow-basics`, plus a fixture per #486 case |
-| M2 | Python merge, `binder` info, `compare_binders.py` | The proof above passes on srcly and explorEDA |
-| M3 | `/api/symbols/at` and Show references by position | A Playwright test clicks a use of a split name and lands on `@type` |
+| M0 ✅ | Spike: a throwaway walk script on visual-notes and srcly | The cost gate above has numbers. Go or stop is recorded here |
+| M1 ✅ | `symbolRefs` op, contract, Pydantic mirror | `engine/test/srcly/symbol-refs.test.ts` on its own fixture, one case per #486 finding. The op is not an HTTP route: only the symbol index reads it |
+| M2 ✅ | Python merge, `binder` info, `compare_binders.py` | The proof above passes on srcly and explorEDA (results below) |
+| M3 ✅ | `/api/symbols/at` and Show references by position | `client/e2e/symbols.spec.ts` (Show references by position) clicks each side of a split name |
 
 M1 to M3 change core logic (two binders that must agree). Each one gets the Codex review loop.
 

@@ -19,7 +19,7 @@ Three surfaces read the engine: the route graph in the dependency view, the valu
 
 ## Invariants
 
-1. **The base scan never waits.** The engine starts on first explicit use: Data flow mode, Inspect value flow, the effects panel, or a `--dataflow` CLI flag. The treemap, explorer and import graph are the same with or without Node.
+1. **The base scan never waits.** The engine starts on first explicit use: Data flow mode, Inspect value flow, the effects panel, Symbols mode and Show references, `srcly refs`, or a `--dataflow` CLI flag. The treemap, explorer and import graph are the same with or without Node.
 2. **Evidence is bound to a generation.** Every result carries `generation` and `programHash`. A query with an older `expectedGeneration` gets `stale`, and the client does not draw stale rows over current source.
 3. **Not analyzed is never 0.** Each surface shows the query outcome by name. A metric the engine did not measure is `None` with an `na_reason`.
 4. **One answer per expression.** The anchor graph decides where a value goes, ends and stops. The value-flow ledger is that graph laid out as rows; it never walks a slice of its own or copies a stop rule (ESLint refuses both imports in `value-flow.ts`). A new end or stop rule goes in `anchor-graph.ts` only, and both views get it. `pnpm parity-probe` compares the two on every selectable expression in a fixture root; run it after any change to either op. Before this rule, the ledger's copied rules passed every fixture test and still differed on 145 of 6,032 selections.
@@ -28,7 +28,7 @@ Three surfaces read the engine: the route graph in the dependency view, the valu
 
 The legacy entry point built the full legacy report before it answered anything: 130 s on srcly's `client/`. So the session has two tiers that share one Program.
 
-- **Tier 1** builds the primary Program and a lazy evidence provider, and finds routes. It answers `routes`, `routeGraph`, `routePath`, `selectExpression`, `valueFlow`, `functionEffects`, `flowSignature` and the anchor ops. `routes` never calls `buildRouteDataInventory`, which alone costs 17.5 s on visual-notes.
+- **Tier 1** builds the primary Program and a lazy evidence provider, and finds routes. It answers `routes`, `routeGraph`, `routePath`, `selectExpression`, `valueFlow`, `functionEffects`, `flowSignature`, `symbolRefs` and the anchor ops. `routes` never calls `buildRouteDataInventory`, which alone costs 17.5 s on visual-notes.
 - **Tier 2** is the legacy report (`fullReport()`), built only by `fileSignals`. It is slow, so only a batch caller asks for it: `srcly report --dataflow` and `srcly compare --dataflow`.
 - `programHash` hashes the sorted `(file, size, mtime)` of the Program's source files, every governing tsconfig, the TypeScript version and the engine version. `status` recomputes it with `stat` calls only. A rebuild bumps `generation`.
 - Refresh drops both tiers. There is no incremental invalidation.
