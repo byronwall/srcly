@@ -158,11 +158,24 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     }
     return false;
   };
-  /** A store path key the code names (`"doc"`, `0`, a constant of one literal type), or null when it is computed. */
+  /** The expression under parentheses and type assertions: the value itself. */
+  const inner = (node: TypeScript.Node) => {
+    let at = node;
+    while (ts.isParenthesizedExpression(at) || ts.isAsExpression(at) || ts.isSatisfiesExpression(at) || ts.isNonNullExpression(at)) at = at.expression;
+    return at;
+  };
+  /**
+   * A store path key written as a literal (`"doc"`, `0`, `"doc" as const`), or null. A key known only from its type
+   * is not one: a narrowed `let` can hold another value by the time the setter runs.
+   */
   const literalKey = (node: TypeScript.Expression): string | null => {
-    if (ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) return node.text;
+    const key = inner(node);
+    return ts.isStringLiteralLike(key) || ts.isNumericLiteral(key) ? key.text : null;
+  };
+  /** A value whose every type member can be called: a function the setter calls, never the value it stores. */
+  const surelyCallable = (node: TypeScript.Node) => {
     const type = checker.getTypeAtLocation(node);
-    return type.isStringLiteral() || type.isNumberLiteral() ? String(type.value) : null;
+    return (type.isUnion() ? type.types : [type]).every((member) => member.getCallSignatures().length > 0);
   };
   const effects = new WeakMap<TypeScript.VariableDeclaration, StateEffect[] | null>();
   /**
@@ -182,16 +195,16 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       out = [];
       const sourceFile = declaration.getSourceFile();
       const at = (node: TypeScript.Node) => spanOf(sourceFile, node);
-      const add = (effect: StateEffect["effect"], node: TypeScript.Node, resolved: boolean, value: TypeScript.Node | null = null, prefix: string[] = []) => out!.push({ effect, span: at(node), value: value ? at(value) : null, resolved, prefix });
+      const add = (effect: StateEffect["effect"], node: TypeScript.Node, resolved: boolean, value: TypeScript.Node | null = null, prefix: string[] = []) => out!.push({ effect, span: at(node), value: value ? at(inner(value)) : null, resolved, prefix, merges: paths });
       const exported = (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) !== 0;
+      // A setter that takes a path first (Solid's `setStore("doc", "title", v)`) merges a plain object into the old one, and its store is a read-only proxy.
+      const paths = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0..]");
       const [first, second, ...rest] = pattern.elements;
       // A rest element, or a handle under a nested pattern, is a handle the model does not follow.
       if (rest.some((element) => !ts.isOmittedExpression(element)) || [first, second].some((element) => element && ts.isBindingElement(element) && (!ts.isIdentifier(element.name) || element.dotDotDotToken))) add("escape", pattern, false);
       const setter = second && ts.isBindingElement(second) && ts.isIdentifier(second.name) ? second.name : null;
       // The setter writes what it is handed: `ReturnValue.Member[1].Parameter[0]`. A dispatch (`useReducer`) writes only through its reducer.
       const writes = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0]");
-      // A setter that takes a path first (Solid's `setStore("doc", "title", v)`) merges a plain object into the old one, and its store is a read-only proxy.
-      const paths = cellHas(site.row, "writes", "ReturnValue.Member[1].Parameter[0..]");
       if (setter && writes) {
         if (exported) add("escape", setter, false);
         for (const use of usesOf(setter)) {
@@ -209,7 +222,12 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
             continue;
           }
           const value = args[args.length - 1];
-          const fn = ts.isArrowFunction(unwrap(value)) || ts.isFunctionExpression(unwrap(value));
+          const fn = ts.isArrowFunction(inner(value)) || ts.isFunctionExpression(inner(value));
+          // A function made elsewhere (`setDoc(rename("NEW"))`): what it returns is stored, and the slice may not hold that return.
+          if (!fn && surelyCallable(value)) {
+            add("updater", call, false, value);
+            continue;
+          }
           if (!paths) {
             add(fn ? "updater" : "replace", call, true, value);
             continue;
@@ -220,7 +238,8 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
             add("path", call, false, value, keys.slice(0, computed) as string[]);
             continue;
           }
-          const merged = ts.isObjectLiteralExpression(unwrap(value));
+          // Only at the root is an object always merged; under a path Solid merges only into an old plain object or array.
+          const merged = !keys.length && ts.isObjectLiteralExpression(inner(value));
           add(fn ? "updater" : merged ? "merge" : "replace", call, true, value, keys as string[]);
         }
       }
@@ -319,6 +338,13 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (ts.getCombinedModifierFlags(fn as unknown as TypeScript.Declaration) & ts.ModifierFlags.Async) return "async";
       // A function handed to a call (`.then(cb)`, `.map(cb)`, `useState(cb)`) returns to whatever that call does with it.
       return ts.isCallExpression(fn.parent) && fn.parent.arguments.includes(fn as unknown as TypeScript.Expression) ? "callback" : false;
+    },
+    mayObject(file, span) {
+      const at = nodeAt(file, span);
+      if (!at) return true;
+      const type = checker.getTypeAtLocation(at.node);
+      const object = (member: TypeScript.Type) => (member.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter)) !== 0 || (!!(member.flags & ts.TypeFlags.Object) && member.getCallSignatures().length === 0);
+      return (type.isUnion() ? type.types : [type]).some(object);
     },
     ownReturns(file, span) {
       const at = nodeAt(file, span);

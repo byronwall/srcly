@@ -216,6 +216,7 @@ class AnchorGraphBuilder {
           mutatedBinding: (binding) => this.host.mutatedBinding?.(binding.location.file, binding.location.span) ?? false,
           stateEffects: (state) => this.host.stateEffects?.(state.location.file, state.location.span) ?? null,
           ownReturns: (fn) => this.host.ownReturns?.(fn.location.file, fn.location.span) ?? null,
+          mayObject: (value) => this.host.mayObject?.(value.location.file, value.location.span) ?? true,
           returnUnsure: (ret) => this.host.returnUnsure?.(ret.location.file, ret.location.span) ?? false,
           awaited: (call) => this.host.awaited?.(call.location.file, call.location.span) ?? false,
           optionalCall: (call) => this.host.optionalCall?.(call.location.file, call.location.span) ?? false,

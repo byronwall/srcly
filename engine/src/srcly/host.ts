@@ -36,6 +36,8 @@ export type StateEffect = {
   resolved: boolean;
   /** The literal store path it writes under (`set("doc", key, v)` writes under `doc`); empty for the whole state. */
   prefix: string[];
+  /** Whether the setter may merge an object it stores into the old one (Solid's store setter), so the object is not the value stored. */
+  merges: boolean;
 };
 
 export type BindingState = "signal" | "store" | "resource" | "memo" | "context";
@@ -111,6 +113,8 @@ export interface LanguageHost {
    * reachable, a bare `return`, a generator, an async function.
    */
   ownReturns?(file: string, span: Span): Span[] | null;
+  /** Whether the value at this span may be an object that is not a function (some member of its type, or an unknown type): one a store setter could merge. */
+  mayObject?(file: string, span: Span): boolean;
   /** Whether the expression at this span is a state factory's call (`createStore(…)`, `useReducer(…)`). */
   stateFactory?(file: string, span: Span): boolean;
   /** The checked type at exactly this span. */

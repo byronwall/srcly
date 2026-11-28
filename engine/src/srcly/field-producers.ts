@@ -88,6 +88,8 @@ export type ProducerHooks = {
   stateEffects(state: ProgramElement): StateEffect[] | null;
   /** The expressions a function written in place returns at every exit (`LanguageHost.ownReturns`); null when it may end another way. */
   ownReturns(fn: ProgramElement): Span[] | null;
+  /** A value that may be a plain object (`LanguageHost.mayObject`): one a store setter could merge. */
+  mayObject(value: ProgramElement): boolean;
   /** A return that may not be all the call yields (`LanguageHost.returnUnsure`); `async` when it is only once awaited. */
   returnUnsure(ret: ProgramElement): boolean | "async" | "callback" | "method";
   /** A call that passes arguments (`LanguageHost.hasArguments`). */
@@ -180,18 +182,20 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const effectCache = new Map<string, StateEffect[] | null>();
   const effectsOf = (state: ProgramElement) => (effectCache.has(state.id) ? effectCache.get(state.id)! : effectCache.set(state.id, hooks.stateEffects(state)).get(state.id)!);
   const statePaths = new Map<string, FieldPath[]>();
-  /** The model's effect whose value is this element, among the states the walk passed. */
-  const effectAt = (value: ProgramElement) => {
+  /** The model's effect whose value is this element (`exact`), or holds it, among the states the walk passed. */
+  const effectAt = (value: ProgramElement, exact: boolean) => {
     for (const id of statePaths.keys()) {
       const state = byId.get(id)!;
       if (state.location.file !== value.location.file) continue;
-      const hit = effectsOf(state)?.find((effect) => effect.value && sameSpan(effect.value, value.location.span));
+      const hit = effectsOf(state)?.find((effect) => effect.value && (exact ? sameSpan(effect.value, value.location.span) : inSpan(value.location.span, effect.value)));
       if (hit) return hit;
     }
     return null;
   };
-  /** A merge (Solid's `setStore({ other })`) keeps the fields its object does not name: the stored value is the old object, changed. */
-  const mergedInto = (value: ProgramElement) => effectAt(value)?.effect === "merge";
+  /** A merge at the root (Solid's `setStore({ other })`) keeps the fields its object does not name: the stored value is the old object, changed. */
+  const mergedInto = (value: ProgramElement) => effectAt(value, true)?.effect === "merge";
+  /** A value a merging setter is handed that may be an object: it may be merged into the old one, so it is not surely the value stored. */
+  const mayMerge = (value: ProgramElement) => !!effectAt(value, false)?.merges && hooks.mayObject(value);
   type Item = { id: string; path: FieldPath; via: ProducerVia[]; partial: boolean; caveats: ProducerStop[] };
   /** Why one step back from `current` to `target` cannot carry the field exactly, and where to say so; null when it can. */
   const blocked = (relation: ProgramRelation, item: Item, current: ProgramElement, target: ProgramElement, path: FieldPath, via: ProducerVia[]): ProducerStop | null => {
@@ -260,8 +264,10 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
    * against a read of `left`).
    */
   const unplaced = (state: ProgramElement, value: ProgramElement, path: FieldPath) => {
-    const effect = effectsOf(state)?.find((item) => !item.resolved && item.value && state.location.file === value.location.file && inSpan(value.location.span, item.span));
-    if (!effect) return false;
+    // The setter call that holds this value most closely is the one that wrote it (`set("dirty", true)` inside another call's updater).
+    const holding = (effectsOf(state) ?? []).filter((item) => state.location.file === value.location.file && inSpan(value.location.span, item.span));
+    const effect = holding.reduce<StateEffect | null>((best, item) => (!best || inSpan(item.span, best.span) ? item : best), null);
+    if (!effect || effect.resolved || !effect.value) return false;
     if (!disjoint([...path].reverse(), effect.prefix)) seedCaveat(state.id, "write");
     return true;
   };
@@ -269,6 +275,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const updaterReturns = (fn: ProgramElement) => {
     const spans = hooks.callable(fn) ? hooks.ownReturns(fn) : null;
     const returned = spans?.map((span) => slice.elements.find((element) => element.location.file === fn.location.file && sameSpan(element.location.span, span)));
+    // A merging setter may merge an object return into the old value (`set("user", () => ({ name }))`): only a primitive is stored as it is.
+    if (returned?.some((element) => element && effectAt(fn, false)?.merges && hooks.mayObject(element))) return null;
     return returned && returned.every((element) => element) ? (returned as ProgramElement[]) : null;
   };
   /** Writes the slice does not hold, by the state they reach: each may change a read whose path its prefix does not rule out. */
@@ -370,8 +378,8 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
         if (field === item.path[item.path.length - 1] && !settled(current, field)) caveats = caveat(caveats, current.id, "unnamed-member");
         if (item.path.length === 1 && path.length === 0 && field === item.path[0]) {
           if (hooks.mutable(current)) caveats = caveat(caveats, current.id, "mutable");
-          // A plain object merged in at this path (`set("doc", { other })`) is not the value stored: the old object is, changed.
-          if (via.includes("write") && mergedInto(target)) {
+          // An object a store setter may merge in at this path (`set("doc", { other })`) is not surely the value stored: the old object may be, changed.
+          if (via.includes("write") && mayMerge(target)) {
             seedCaveat(target.id, "write");
             continue;
           }

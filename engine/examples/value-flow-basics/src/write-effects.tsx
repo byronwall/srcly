@@ -72,9 +72,10 @@ export function ComputedSuffixSibling() {
   return <b>{s.meta.k}</b>; // @trace we-suffix-sibling backward s.meta.k
 }
 
-// A merge under a path keeps the fields it does not name; the merged object is not what the path holds.
+// Under a path, Solid merges only into an old plain object (a custom prototype is replaced): the field may change,
+// and the object handed in is not what the path holds.
 export function NestedMerge() {
-  const [s, set] = createStore({ doc: { k: "OLD", other: 0 } }); // @produces we-nested-merge initialization proven @no-caveat we-nested-merge @produces we-nested-whole initialization proven @caveat we-nested-whole write
+  const [s, set] = createStore({ doc: { k: "OLD", other: 0 } }); // @produces we-nested-merge initialization proven @caveat we-nested-merge write @produces we-nested-whole initialization proven @caveat we-nested-whole write
   set("doc", { other: 1 });
   return <b title={String(s.doc.other)}>{s.doc.k}</b>; // @trace we-nested-merge backward s.doc.k @trace we-nested-whole backward s.doc
 }
@@ -98,4 +99,43 @@ export function ReactValueWrite() {
   const [doc] = useState({ k: "OLD" }); // @produces we-react-value initialization proven @caveat we-react-value mutable
   doc.k = "NEW";
   return <b>{doc.k}</b>; // @trace we-react-value backward doc.k
+}
+
+// A path updater's object return may be merged into the old object: it is not the value stored.
+export function PathUpdaterPatch() {
+  const [s, set] = createStore({ user: { name: "Ada", role: "admin" } }); // @produces we-patch initialization proven @caveat we-patch write
+  set("user", () => ({ name: "Grace" }));
+  return <b>{s.user.role}{String(s.user === undefined)}</b>; // @trace we-patch backward s.user
+}
+
+// A setter call inside another call's updater is its own write, even when the outer one has a computed key.
+export function NestedSetterCall() {
+  const field = "name" as "name" | "email";
+  const [s, set] = createStore({ dirty: false, form: { name: "A", email: "B" } }); // @produces we-nested-call initialization proven
+  set("form", field, (previous) => {
+    set("dirty", true); // @produces we-nested-call write partial
+    return previous.toLowerCase();
+  });
+  return <b>{String(s.dirty)}</b>; // @trace we-nested-call backward s.dirty
+}
+
+// An updater made by another function: what it returns is stored.
+const setField = (k: string) => (previous: { k: string }) => ({ ...previous, k });
+export function MadeUpdater() {
+  const [doc, setDoc] = createSignal({ k: "OLD" }); // @produces we-made initialization proven @caveat we-made write
+  setDoc(setField("NEW"));
+  return <b>{doc().k}</b>; // @trace we-made backward doc().k
+}
+
+// A key known only from its type is no literal: a narrowed `let` can hold another value when the setter runs.
+let side: "left" | "right" = "left";
+const flip = () => {
+  side = "right";
+};
+export function NarrowedKey() {
+  const key = "k" as "k" | "l";
+  const [s, set] = createStore({ left: { k: "L", l: "" }, right: { k: "R", l: "" } }); // @produces we-narrowed initialization proven @caveat we-narrowed write
+  flip();
+  set(side, key, "NEW");
+  return <b>{s.right.k}</b>; // @trace we-narrowed backward s.right.k
 }
