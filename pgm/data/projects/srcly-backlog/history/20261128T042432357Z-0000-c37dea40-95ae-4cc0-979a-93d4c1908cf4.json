@@ -1,0 +1,14 @@
+{
+  "id": "c37dea40-95ae-4cc0-979a-93d4c1908cf4",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f3edbd",
+    "label": "Agent token ...f3edbd"
+  },
+  "createdAt": "2026-11-28T04:24:32.357Z",
+  "summary": "Created \"Findings: checker coverage\".",
+  "nodeIds": [
+    "area-findings-checker-coverage"
+  ]
+}

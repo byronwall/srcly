@@ -406,6 +406,8 @@ def analyze(root: Path, files: Optional[list[Path]] = None, tool_id: str = "srcl
 
 
 class ReachabilityTool(Tool):
+    rules = RULES
+
     def __init__(self, root: Path, files: Optional[list[str]] = None) -> None:
         super().__init__(
             id="srcly-reach",
