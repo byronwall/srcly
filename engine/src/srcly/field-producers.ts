@@ -191,6 +191,26 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     if (current.kind !== "call" && isState(target.id) && hooks.callable(target)) return at(current.id, "accessor");
     return null;
   };
+  /**
+   * Where a later write's path ends without touching the field: a setter's
+   * path (`setStore("other", 1)`) that names only other fields, or an inline
+   * updater whose return the walk follows on its own path. An object that
+   * lacks the field is not one (a replacement, `setState({ other })`, does
+   * change it), nor is an updater whose return the slice does not hold.
+   */
+  const leavesField = (element: ProgramElement, field: string) => {
+    if (hooks.callable(element)) {
+      // Only a function written in place at the setter call, whose returns are inside it and cover every exit (no branch falls through,
+      // not async); a return handed to the setter (`callback`) is what the setter stores.
+      if (element.kind !== "literal") return false;
+      const returns = slice.elements.filter((other) => other.kind === "return" && within(other, element));
+      return returns.length > 0 && returns.every((ret) => { const unsure = hooks.returnUnsure(ret); return unsure === false || unsure === "callback"; }) && slice.relations.some((relation) => relation.kind === "return-expression" && returns.some((ret) => ret.id === relation.to));
+    }
+    if (members(element) !== null) return false;
+    const raw = element.attributes?.fields;
+    const names = typeof raw === "string" ? Object.values(JSON.parse(raw) as Record<string, string>) : [];
+    return names.length > 0 && !names.includes(field);
+  };
   const queue: Item[] = [{ id: seedId, path: [], via: [], partial: false, caveats: [] }];
   /** Writes straight into the read: a caveat on every producer. */
   const seedCaveats: ProducerStop[] = [];
@@ -200,9 +220,18 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
   const found = new Map<string, FieldProducer>();
   const stops = new Map<string, ProducerStop>();
   let open = false;
-  /** A path that may fill the field ends here; only a path to the read's first value leaves the answer open. */
+  /**
+   * A path that may fill the field ends here. A path to the read's first
+   * value leaves the answer open. A later write the walk cannot follow
+   * (a computed key, an operand, a value that is an updater or a
+   * replacement) may still change what the read sees: a `write` caveat on
+   * every producer, which keeps the first value but never as a sure answer.
+   */
   const stop = (item: Pick<Item, "via">, at: string, reason: ProducerStopReason) => {
-    if (firstStateStep(item.via) === "write") return;
+    if (firstStateStep(item.via) === "write") {
+      seedCaveats.splice(0, seedCaveats.length, ...caveat(seedCaveats, at, "write"));
+      return;
+    }
     open = true;
     if (!stops.has(`${at}|${reason}`)) stops.set(`${at}|${reason}`, { elementId: at, reason });
   };
@@ -298,7 +327,7 @@ export function fieldProducers(slice: EvidenceSlice, seedId: string, hooks: Prod
     }
     // A path that still names the field and ends here (a call nothing returns into, a parameter no call binds) may fill it from outside;
     // an object with no such field leaves the read undefined on this path.
-    if (named && !continued) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
+    if (named && !continued && !(firstStateStep(item.via) === "write" && leavesField(current, item.path[item.path.length - 1]))) stop(item, current.id, lacks(current, item.path[item.path.length - 1]) ? "missing" : current.kind === "call" ? "no-return" : "dead-end");
   }
   const producers = [...found.values()].map((producer) => ({ ...producer, caveats: seedCaveats.reduce((list, item) => caveat(list, item.elementId, item.reason), producer.caveats) }));
   return { producers, open, stops: [...stops.values()] };
