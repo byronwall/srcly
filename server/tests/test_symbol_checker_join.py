@@ -1,4 +1,4 @@
-"""The checker's references joined to tree-sitter's ids (docs/intent/checker-symbol-index)."""
+"""The checker's references joined to tree-sitter's ids (docs/dataflow-engine.md, Symbol binding)."""
 
 from pathlib import Path
 

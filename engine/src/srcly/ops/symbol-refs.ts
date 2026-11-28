@@ -11,7 +11,7 @@ type Kind = SymbolRef["kind"];
 
 /**
  * Every identifier of the Program's own files under the root, with the
- * declaration the checker binds it to (docs/intent/checker-symbol-index).
+ * declaration the checker binds it to (docs/dataflow-engine.md, Symbol binding).
  * srcly's symbol index joins each target to its own ids, so this op answers
  * binding only: no ids, no source symbol. `params.files` narrows it to some
  * files (relative to the root); absent means all of them.

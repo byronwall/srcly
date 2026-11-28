@@ -5,7 +5,7 @@
 A reference is keyed by (source file, line, target id), counted as a multiset. A key in
 both indexes agrees; the rest are bucketed by how tree-sitter resolved it (``exact``,
 ``typed``, ``name``) or by the checker reference's kind and target kind. See
-docs/intent/checker-symbol-index ("Proof at product scope").
+docs/dataflow-engine.md ("Symbol binding").
 """
 
 from __future__ import annotations

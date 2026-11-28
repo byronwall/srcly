@@ -4,7 +4,7 @@ import { symbolRefsOp } from "../src/srcly/ops/symbol-refs";
 import { createEngineSession } from "../src/srcly/session";
 
 // The cost of `symbolRefs` on one root: Program build, walk, heap after a full GC
-// and result size (docs/intent/checker-symbol-index, M0).
+// and result size (docs/dataflow-engine.md, Symbol binding).
 //   node --expose-gc --max-old-space-size=4096 --import tsx scripts/symbol-refs-probe.ts --root <repo> [--json out.json]
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ""), process.argv[i + 1]);

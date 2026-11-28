@@ -1,6 +1,6 @@
 """
 TypeScript references bound by the data-flow engine's checker (``symbolRefs``),
-joined to the tree-sitter index's own ids (docs/intent/checker-symbol-index).
+joined to the tree-sitter index's own ids (docs/dataflow-engine.md, Symbol binding).
 
 Tree-sitter keeps every declaration and id. The checker says, for each
 identifier, which declaration TypeScript binds: a file, a name, the line of

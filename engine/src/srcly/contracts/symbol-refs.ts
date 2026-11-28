@@ -3,7 +3,7 @@ import { generationFields, outcomeSchema } from "./primitives";
 
 /**
  * Every identifier of the Program's own files, bound by the checker
- * (docs/intent/checker-symbol-index). srcly's symbol index keeps its own ids
+ * (docs/dataflow-engine.md, Symbol binding). srcly's symbol index keeps its own ids
  * and joins each target to one of them by file, name, line and meaning, so
  * no id is built here. Positions are 1-based lines and 1-based UTF-16
  * columns with an exclusive end, like every contract.
