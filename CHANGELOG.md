@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.14.0](https://github.com/byronwall/srcly/compare/v1.13.0...v1.14.0) (2026-11-28)
+
+
+### Features
+
+* **cli:** srcly findings lists findings by rule with a count ([#485](https://github.com/byronwall/srcly/issues/485)) ([4346716](https://github.com/byronwall/srcly/commit/4346716aeb4e8d5f489012893ed82f019e824e85))
+* **cli:** srcly refs lists every declaration of a name and its callers ([#482](https://github.com/byronwall/srcly/issues/482)) ([bb5c94c](https://github.com/byronwall/srcly/commit/bb5c94ca95b7fd7d25be0b25e8c7982fd081de36))
+* **findings:** copied-type-cast flags a cast onto a same-name copy of the value's type ([#490](https://github.com/byronwall/srcly/issues/490)) ([9dfcb7f](https://github.com/byronwall/srcly/commit/9dfcb7f85671ce81f73a9d8272349fa246529cbd))
+* **findings:** duplicate-type flags a local copy of an exported object type ([#483](https://github.com/byronwall/srcly/issues/483)) ([62bfe6c](https://github.com/byronwall/srcly/commit/62bfe6c3f39befe10f0fb23a81056af799e4e43b))
+* **symbols:** bind TypeScript references with the engine's checker ([#487](https://github.com/byronwall/srcly/issues/487)) ([d344b5f](https://github.com/byronwall/srcly/commit/d344b5f5df8a64c2b9c211cf67799ccf4e38768d))
+
+
+### Bug Fixes
+
+* **flow:** a later write the walk cannot follow keeps the first value unsure ([#481](https://github.com/byronwall/srcly/issues/481)) ([fbb499a](https://github.com/byronwall/srcly/commit/fbb499a0cedcab2d88b86c65db5b95ff0bf0dd4c))
+* **flow:** a write-effect model by state keeps writes through other names from giving a sure producer ([#489](https://github.com/byronwall/srcly/issues/489)) ([73dd6d6](https://github.com/byronwall/srcly/commit/73dd6d6598c1e3576c073e763ab721c034e3c72d))
+* **flow:** caveat every write spelling; stop at compound-write operands ([#478](https://github.com/byronwall/srcly/issues/478)) ([beead39](https://github.com/byronwall/srcly/commit/beead39aef77f34261e78eb41850363ccecb92ff))
+* **symbols:** refs find inline type imports, re-exported imports, and split type/value names ([#486](https://github.com/byronwall/srcly/issues/486)) ([f0fd3da](https://github.com/byronwall/srcly/commit/f0fd3da8cedc3f9e37e6d9d48567f0c3c8490b86))
+
 ## [1.13.0](https://github.com/byronwall/srcly/compare/v1.12.0...v1.13.0) (2026-11-25)
 
 
