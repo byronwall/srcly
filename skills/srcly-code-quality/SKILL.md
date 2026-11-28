@@ -92,6 +92,7 @@ Progress, version banners and cache warnings go to stderr, so stdout stays parse
 - High LOC: look for separable responsibilities; do not split files blindly.
 - TSX render branching, prop count, inline handlers, and nesting: UI complexity and test-surface risk.
 - `any` usage and TS ignore directives: type-safety debt.
+- `duplicate-type`: a local type copies one another file exports. Run `srcly refs <name>`, move the callers to the exported type, delete the copy and any casts that hid it, all in one change.
 - Import coupling and dependency graph density: dependency-boundary review targets.
 - TODOs in complex files: maintenance markers worth validating.
 - Low comment density only matters when paired with complexity, public API behavior, or non-obvious domain logic.
